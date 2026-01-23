@@ -1,7 +1,3 @@
-import { sign } from 'crypto';
-import { create } from 'domain';
-import { get } from 'http';
-
 const API_URL = import.meta.VITE_API_URL || 'http://localhost:3001/api';
 
 interface ApiResponse<T> {
