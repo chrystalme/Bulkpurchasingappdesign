@@ -1,11 +1,53 @@
-const API_URL = import.meta.VITE_API_URL || 'http://localhost:3001/api';
+import type {
+  Product,
+  Order,
+  Vendor,
+  VendorStats,
+  VendorOrder,
+  VendorCustomer,
+  EscrowTransaction,
+  Evidence,
+  Dispute,
+  User,
+  TrustScore
+} from "./types";
+
+const API_URL = process.env.VITE_API_URL || 'http://localhost:3001/api';
 
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
   // message?: string;
+  token?: string;
+  user?: User;
   error?: string;
 }
+
+// Specific response types for different endpoints
+interface AuthResponse extends ApiResponse<null> {
+  token: string;
+  user: User;
+}
+
+interface ProductsResponse extends ApiResponse<Product[]> {}
+interface ProductResponse extends ApiResponse<Product> {}
+interface CategoriesResponse extends ApiResponse<string[]> {}
+
+interface OrdersResponse extends ApiResponse<Order[]> {}
+interface OrderResponse extends ApiResponse<Order> {}
+
+interface VendorsResponse extends ApiResponse<Vendor[]> {}
+interface VendorResponse extends ApiResponse<Vendor> {}
+interface VendorStatsResponse extends ApiResponse<VendorStats> {}
+interface VendorOrdersResponse extends ApiResponse<VendorOrder[]> {}
+interface VendorCustomersResponse extends ApiResponse<VendorCustomer[]> {}
+
+interface EscrowTransactionsResponse extends ApiResponse<EscrowTransaction[]> {}
+interface EscrowTransactionResponse extends ApiResponse<EscrowTransaction> {}
+
+interface UsersResponse extends ApiResponse<User[]> {}
+interface UserResponse extends ApiResponse<User> {}
+interface UserStatsResponse extends ApiResponse<{total: number; active: number; superUsers: number; admins: number; vendors: number; members: number}> {}
 
 class ApiClient {
   private getAuthHeader(): HeadersInit {
@@ -41,176 +83,202 @@ class ApiClient {
   }
 
   auth = {
-    login: async (email: string, password: string) => {
-      const data = await this.request<any>('auth/login', {
+    login: async (email: string, password: string): Promise<AuthResponse> => {
+      const response = await this.request<null>('auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      if (data.token) {
-        localStorage.setItem('auth_token', data.token);
+      if (response.token) {
+        localStorage.setItem('auth_token', response.token);
       }
-      return data;
+      return response as unknown as AuthResponse;
     },
     signup: async (
       email: string,
       password: string,
       name: string,
       role = 'member'
-    ) => {
-      const data = await this.request<any>('auth/signup', {
+    ): Promise<AuthResponse> => {
+      const response = await this.request<null>('auth/signup', {
         method: 'POST',
         body: JSON.stringify({ email, password, name, role }),
       });
-      if (data.token) {
-        localStorage.setItem('auth_token', data.token);
+      if (response.token) {
+        localStorage.setItem('auth_token', response.token);
       }
-      return data;
+      return response as unknown as AuthResponse;
     },
 
-    me: async () => {
-      return this.request<any>('auth/me');
+    me: async (): Promise<UserResponse> => {
+      const response = await this.request<User>('auth/me');
+      return response as unknown as UserResponse;
     },
-
     logout: () => {
       localStorage.removeItem('auth_token');
     },
   };
 
   products = {
-    getAll: async (filters?: (category?: string; vendor_id?: number)) => {
+    getAll: async (filters?: {category?: string; vendor_id?: number}): Promise<ProductsResponse> => {
       const params = new URLSearchParams(filters as any);
-      return this.request<any>(`products?${params.toString()}`);
+      const response = await this.request<Product[]>(`products?${params.toString()}`);
+      return response as unknown as ProductsResponse;
     },
-    getById: async (id: number) => {
-      return this.request<any>(`products/${id}`);
+    getById: async (id: number): Promise<ProductResponse> => {
+      const response = await this.request<Product>(`products/${id}`);
+      return response as unknown as ProductResponse;
     },
-    getCategories: async () => {
-      return this.request<any>('products/categories');
+    getCategories: async (): Promise<CategoriesResponse> => {
+      const response = await this.request<string[]>('products/categories');
+      return response as unknown as CategoriesResponse;
     },
-    create: async (productData: any) => {
-      return this.request<any>('products', {
+    create: async (productData: Omit<Product, 'id'>): Promise<ProductResponse> => {
+      const response = await this.request<Product>('products', {
         method: 'POST',
         body: JSON.stringify(productData),
       });
+      return response as unknown as ProductResponse;
     },
-    update: async (id: number, productData: any) => {
-      return this.request<any>(`products/${id}`, {
+    update: async (id: number, productData: Partial<Product>): Promise<ProductResponse> => {
+      const response = await this.request<Product>(`products/${id}`, {
         method: 'PUT',
         body: JSON.stringify(productData),
       });
+      return response as unknown as ProductResponse;
     },
-    delete: async (id: number) => {
-      return this.request<any>(`products/${id}`, {
+    delete: async (id: number): Promise<ApiResponse<null>> => {
+      return this.request<null>(`products/${id}`, {
         method: 'DELETE',
       });
     },
   };
 
   orders = {
-    getAll: async () => {
-      return this.request<any>('orders');
+    getAll: async (): Promise<OrdersResponse> => {
+      const response = await this.request<Order[]>('orders');
+      return response as unknown as OrdersResponse;
     },
-    getById: async (id: number) => {
-      return this.request<any>(`orders/${id}`);
+    getById: async (id: number): Promise<OrderResponse> => {
+      const response = await this.request<Order>(`orders/${id}`);
+      return response as unknown as OrderResponse;
     },
-    create: async (orderData: any[], groupId: number) => {
-      return this.request<any>('orders', {
+    create: async (orderData: any[], groupId: number): Promise<OrderResponse> => {
+      const response = await this.request<Order>('orders', {
         method: 'POST',
         body: JSON.stringify({ items: orderData, group_id: groupId }),
       });
+      return response as unknown as OrderResponse;
     },
 
-    updateStatus: async(id: number, status: string) => {
-      return this.request<any>(`orders/${id}/status`, {
+    updateStatus: async(id: number, status: string): Promise<OrderResponse> => {
+      const response = await this.request<Order>(`orders/${id}/status`, {
         method: 'PUT',
         body: JSON.stringify({ status }),
       });
+      return response as unknown as OrderResponse;
     },
   };
 
   vendors = {
-    getAll: async () => {
-      return this.request<any>('vendors');
+    getAll: async (): Promise<VendorsResponse> => {
+      const response = await this.request<Vendor[]>('vendors');
+      return response as unknown as VendorsResponse;
     },
-    getById: async (id: number) => {
-      return this.request<any>(`vendors/${id}`);
+    getById: async (id: number): Promise<VendorResponse> => {
+      const response = await this.request<Vendor>(`vendors/${id}`);
+      return response as unknown as VendorResponse;
     },
-    getDashboard: async (vendorId: number) => {
-      return this.request<any>(`vendors/${vendorId}/dashboard`);
+    getDashboard: async (vendorId: number): Promise<VendorStatsResponse> => {
+      const response = await this.request<VendorStats>(`vendors/${vendorId}/dashboard`);
+      return response as unknown as VendorStatsResponse;
     },
-    getOrders: async (vendorId: number) => {
-      return this.request<any>(`vendors/${vendorId}/orders`);
+    getOrders: async (vendorId: number): Promise<VendorOrdersResponse> => {
+      const response = await this.request<VendorOrder[]>(`vendors/${vendorId}/orders`);
+      return response as unknown as VendorOrdersResponse;
     },
-    getCustomers: async (vendorId: number) => {
-      return this.request<any>(`vendors/${vendorId}/customers`);
+    getCustomers: async (vendorId: number): Promise<VendorCustomersResponse> => {
+      const response = await this.request<VendorCustomer[]>(`vendors/${vendorId}/customers`);
+      return response as unknown as VendorCustomersResponse;
     },
   };
 
   escrow = {
-    getTransactions: async (type?: 'seller' | 'buyer' | 'all')  => {
+    getTransactions: async (type?: 'seller' | 'buyer' | 'all'): Promise<EscrowTransactionsResponse> => {
       const params = type ? new URLSearchParams({ type }) : new URLSearchParams();
-      return this.request<any>(`escrow/transactions?${params.toString()}`);
+      const response = await this.request<EscrowTransaction[]>(`escrow/transactions?${params.toString()}`);
+      return response as unknown as EscrowTransactionsResponse;
     },
 
-    getById: async (id: number) => {
-      return this.request<any>(`escrow/transactions/${id}`);
+    getById: async (id: number): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>(`escrow/transactions/${id}`);
+      return response as unknown as EscrowTransactionResponse;
     },
-    createTransaction: async (orderId: number, sellerId: number, amount: number, escrowFee: number) => {
-      return this.request<any>('escrow/transactions', {
+    createTransaction: async (orderId: number, sellerId: number, amount: number, escrowFee: number): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>('escrow/transactions', {
         method: 'POST',
         body: JSON.stringify({ order_id: orderId, seller_id: sellerId, amount, escrow_fee: escrowFee }),
       });
+      return response as unknown as EscrowTransactionResponse;
     },
-    updateStatus: async (id: number, status: string, trackingId?: string, courier?: string) => {
-      return this.request<any>(`escrow/transactions/${id}/status`, {
+    updateStatus: async (id: number, status: string, trackingId?: string, courier?: string): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>(`escrow/transactions/${id}/status`, {
         method: 'PUT',
         body: JSON.stringify({ status, tracking_id: trackingId, courier }),
       });
+      return response as unknown as EscrowTransactionResponse;
     },
-    confirmDelivery: async (id: number) => {
-      return this.request<any>(`escrow/transactions/${id}/release `, {
+    confirmDelivery: async (id: number): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>(`escrow/transactions/${id}/release `, {
         method: 'POST',
       });
+      return response as unknown as EscrowTransactionResponse;
     },
   };
 
-  users= {
-    getAll: async () => {
-      return this.request<any>('users');
+  users = {
+    getAll: async (): Promise<UsersResponse> => {
+      const response = await this.request<User[]>('users');
+      return response as unknown as UsersResponse;
     },
-    getById: async (id: number) => {    
-      return this.request<any>(`users/${id}`);
+    getById: async (id: number): Promise<UserResponse> => {
+      const response = await this.request<User>(`users/${id}`);
+      return response as unknown as UserResponse;
     },
-    getStats : async () => {
-      return this.request<any>('users/stats');
+    getStats: async (): Promise<UserStatsResponse> => {
+      const response = await this.request<{total: number; active: number; superUsers: number; admins: number; vendors: number; members: number}>('users/stats');
+      return response as unknown as UserStatsResponse;
     },
 
-    create: async (userData: any) => {
-      return this.request<any>('users', {
+    create: async (userData: Omit<User, 'id' | 'createdAt'>): Promise<UserResponse> => {
+      const response = await this.request<User>('users', {
         method: 'POST',
         body: JSON.stringify(userData),
       });
+      return response as unknown as UserResponse;
     },
-    update: async (id: number, userData: any) => {
-      return this.request<any>(`users/${id}`, {
+    update: async (id: number, userData: Partial<User>): Promise<UserResponse> => {
+      const response = await this.request<User>(`users/${id}`, {
         method: 'PUT',
         body: JSON.stringify(userData),
       });
+      return response as unknown as UserResponse;
     },
-    delete: async (id: number) => {
-      return this.request<any>(`users/${id}`, {
+    delete: async (id: number): Promise<ApiResponse<null>> => {
+      return this.request<null>(`users/${id}`, {
         method: 'DELETE',
       });
     },
-    activate: async (id: number) => {
-      return this.request<any>(`users/${id}/activate`, {
+    activate: async (id: number): Promise<UserResponse> => {
+      const response = await this.request<User>(`users/${id}/activate`, {
         method: 'POST',
       });
+      return response as unknown as UserResponse;
     },
-    deactivate: async (id: number) => {
-      return this.request<any>(`users/${id}/deactivate`, {
+    deactivate: async (id: number): Promise<UserResponse> => {
+      const response = await this.request<User>(`users/${id}/deactivate`, {
         method: 'POST',
       });
+      return response as unknown as UserResponse;
     },
   }
 };
