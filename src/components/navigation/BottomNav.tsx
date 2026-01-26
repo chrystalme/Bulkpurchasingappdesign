@@ -11,7 +11,7 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
     { id: 'home' as Screen, icon: Home, label: 'Home' },
     { id: 'group-detail' as Screen, icon: Users, label: 'Groups' },
     { id: 'cart' as Screen, icon: ShoppingCart, label: 'Cart' },
-    { id: 'chat' as Screen, icon: MessageCircle, label: 'Chat' },
+    { id: 'chat-dashboard' as Screen, icon: MessageCircle, label: 'Chat' },
     { id: 'profile' as Screen, icon: User, label: 'Profile' },
   ];
 
@@ -22,7 +22,8 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
         <div className="flex items-center justify-around h-16">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentScreen === item.id;
+            const isActive = currentScreen === item.id || 
+              (item.id === 'chat-dashboard' && currentScreen === 'chat');
             
             return (
               <button
@@ -53,7 +54,8 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
           <div className="space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentScreen === item.id;
+              const isActive = currentScreen === item.id || 
+                (item.id === 'chat-dashboard' && currentScreen === 'chat');
               
               return (
                 <button

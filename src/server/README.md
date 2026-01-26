@@ -18,6 +18,10 @@ This is a **fully transparent backend** where you control every line of code:
 │   (Frontend)    │   fetch/axios       │  (Your Backend)  │   pg library   │   (Database)   │
 │   Port 5173     │                     │  Port 3001       │                │   Port 5432    │
 └─────────────────┘                     └──────────────────┘                └────────────────┘
+         │                                       │
+         │         WebSocket (Socket.IO)        │
+         └──────────────────────────────────────┘
+                    Real-time Chat
 ```
 
 ## 📁 Project Structure
@@ -26,7 +30,8 @@ This is a **fully transparent backend** where you control every line of code:
 server/
 ├── src/
 │   ├── config/
-│   │   └── database.js          # PostgreSQL connection pool
+│   │   ├── database.js          # PostgreSQL connection pool
+│   │   └── socket.js            # Socket.IO configuration
 │   ├── db/
 │   │   ├── schema.sql           # Database schema (tables, indexes)
 │   │   ├── migrate.js           # Migration script
@@ -40,12 +45,16 @@ server/
 │   │   ├── products.routes.js   # Product catalog
 │   │   ├── vendors.routes.js    # Vendor dashboard & stats
 │   │   ├── orders.routes.js     # Order management
-│   │   └── escrow.routes.js     # Escrow transactions
+│   │   ├── escrow.routes.js     # Escrow transactions
+│   │   └── chat.routes.js       # Chat API endpoints
+│   ├── websocket/
+│   │   └── chat.handlers.js     # WebSocket event handlers
 │   └── server.js                # Main Express server
 ├── .env                         # Environment variables
 ├── .env.example                 # Environment template
 ├── package.json                 # Dependencies
-└── README.md                    # This file
+├── README.md                    # This file
+└── CHAT_API.md                  # Chat system documentation
 ```
 
 ## 🚀 Quick Start
@@ -123,6 +132,8 @@ This creates:
 - `escrow_transactions` - Payment escrow
 - `disputes` - Dispute management
 - `trust_scores` - User reputation
+- `conversations` - Chat conversations
+- `messages` - Chat messages
 
 ### 6. Seed Sample Data
 
@@ -242,6 +253,68 @@ curl -X POST http://localhost:3001/api/auth/login \
 | PUT | `/transactions/:id/status` | Update escrow status | Yes |
 | POST | `/transactions/:id/confirm-delivery` | Confirm delivery | Yes |
 | POST | `/transactions/:id/release` | Release funds | Yes |
+
+### Chat (`/api/chat`)
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/conversations` | Get all conversations | Yes |
+| POST | `/conversations` | Create or get conversation | Yes |
+| GET | `/conversations/:id/messages` | Get messages | Yes |
+| POST | `/conversations/:id/messages` | Send message | Yes |
+| PUT | `/conversations/:id/messages/read` | Mark messages as read | Yes |
+| PUT | `/conversations/:id/archive` | Archive conversation | Yes |
+| GET | `/unread-count` | Get total unread count | Yes |
+
+**See [CHAT_API.md](./CHAT_API.md) for complete WebSocket and REST API documentation.**
+
+## 💬 Real-Time Chat System
+
+The backend includes a complete real-time chat system using **Socket.IO** for WebSocket communication between vendors and members.
+
+### Features
+
+- **Real-time messaging** between vendors and members
+- **Typing indicators** - see when someone is typing
+- **Read receipts** - know when messages are read
+- **Online/offline presence** - see who's online
+- **Message history** with pagination
+- **Unread message counts** and notifications
+- **Product-specific conversations** - chat about specific products
+
+### WebSocket Connection
+
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3001', {
+  auth: { token: 'YOUR_JWT_TOKEN' }
+});
+
+// Join a conversation
+socket.emit('chat:join_conversation', { conversationId: 1 });
+
+// Listen for messages
+socket.on('chat:message_received', (message) => {
+  console.log('New message:', message);
+});
+
+// Send a message
+socket.emit('chat:send_message', {
+  conversationId: 1,
+  messageText: 'Hello!'
+});
+```
+
+### Chat Workflow
+
+1. **Member initiates** - Members can start conversations with vendors about products
+2. **Real-time delivery** - Messages delivered instantly via WebSocket
+3. **Persistent storage** - All messages saved to PostgreSQL
+4. **Notifications** - Users notified of new messages even when offline
+5. **Authorization** - Only conversation participants can access messages
+
+For complete documentation including all WebSocket events, REST endpoints, and usage examples, see **[CHAT_API.md](./CHAT_API.md)**.
 
 ## 🔑 Authentication Flow
 

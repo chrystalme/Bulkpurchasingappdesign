@@ -5,10 +5,11 @@ import { Login } from './components/auth/Login';
 import { Signup } from './components/auth/Signup';
 import { Home } from './components/dashboard/Home';
 import { GroupCreate } from './components/groups/GroupCreate';
-import { GroupDetail } from './components/groups/GroupDetail';
+import { GroupDetailNew } from './components/groups/GroupDetailNew';
 import { ProductCatalog } from './components/products/ProductCatalog';
 import { GroupCart } from './components/products/GroupCart';
 import { VendorChat } from './components/chat/VendorChat';
+import { ChatDashboard } from './components/chat/ChatDashboard';
 import { Checkout } from './components/checkout/Checkout';
 import { OrderTracking } from './components/orders/OrderTracking';
 import { ReviewForm } from './components/reviews/ReviewForm';
@@ -41,6 +42,7 @@ export type Screen =
   | 'products'
   | 'cart'
   | 'chat'
+  | 'chat-dashboard'
   | 'checkout'
   | 'tracking'
   | 'review'
@@ -117,13 +119,15 @@ function AppContent() {
       case 'group-create':
         return <GroupCreate navigate={navigate} />;
       case 'group-detail':
-        return <GroupDetail navigate={navigate} groupId={selectedGroupId} />;
+        return <GroupDetailNew navigate={navigate} groupId={selectedGroupId} />;
       case 'products':
         return <ProductCatalog navigate={navigate} groupId={selectedGroupId} />;
       case 'cart':
         return <GroupCart navigate={navigate} groupId={selectedGroupId} />;
       case 'chat':
         return <VendorChat navigate={navigate} groupId={selectedGroupId} />;
+      case 'chat-dashboard':
+        return <ChatDashboard navigate={navigate} />;
       case 'checkout':
         return <Checkout navigate={navigate} />;
       case 'tracking':

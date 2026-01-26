@@ -3,7 +3,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
-import { Plus, ChevronRight, Star, MapPin, TrendingDown, Users, Shield, Package } from 'lucide-react';
+import { Plus, ChevronRight, Star, MapPin, TrendingDown, Users, Shield, Package, MessageCircle } from 'lucide-react';
 import { mockGroups, mockVendors, mockProducts, mockEscrowTransactions } from '../../lib/mockData';
 import type { Screen } from '../../App';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
@@ -180,6 +180,42 @@ export function Home({ navigate }: HomeProps) {
                 >
                   <Package className="w-4 h-4 mr-1" />
                   Open Vendor Dashboard
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Chat Dashboard Quick Access */}
+      <div className="px-4 lg:px-8 mt-6">
+        <Card className="bg-gradient-to-br from-[#0047AB]/5 to-[#6EE7B7]/5 border-[#0047AB]/20">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#0047AB] flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-900 mb-1">Messages</h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  Chat with your groups and vendors
+                </p>
+                <div className="flex gap-2">
+                  <Badge className="bg-[#FB7185] text-white">
+                    10 unread
+                  </Badge>
+                  <Badge variant="outline" className="border-[#0047AB] text-[#0047AB]">
+                    3 groups
+                  </Badge>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate('chat-dashboard')}
+                  className="text-[#0047AB] border-[#0047AB]/20 mt-3"
+                >
+                  <MessageCircle className="w-4 h-4 mr-1" />
+                  Open Messages
                 </Button>
               </div>
             </div>
