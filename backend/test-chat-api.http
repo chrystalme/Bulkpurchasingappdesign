@@ -1,0 +1,229 @@
+# Chat API Testing File
+# Use with REST Client extension in VS Code or similar tools
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@token = YOUR_JWT_TOKEN_HERE
+@conversationId = YOUR_CONVERSATION_ID_HERE
+@messageId = YOUR_MESSAGE_ID_HERE
+@groupId = YOUR_GROUP_ID_HERE
+@vendorId = YOUR_VENDOR_ID_HERE
+
+###############################################################################
+# CONVERSATION ENDPOINTS
+###############################################################################
+
+### Get all conversations for current user
+GET {{baseUrl}}/chat/conversations
+Authorization: Bearer {{token}}
+
+### Get conversations filtered by type (group only)
+GET {{baseUrl}}/chat/conversations?type=group
+Authorization: Bearer {{token}}
+
+### Get conversations filtered by type (group-vendor only)
+GET {{baseUrl}}/chat/conversations?type=group-vendor
+Authorization: Bearer {{token}}
+
+### Get conversations for specific group
+GET {{baseUrl}}/chat/conversations?groupId={{groupId}}
+Authorization: Bearer {{token}}
+
+### Get specific conversation by ID
+GET {{baseUrl}}/chat/conversations/{{conversationId}}
+Authorization: Bearer {{token}}
+
+### Create new group-vendor conversation
+POST {{baseUrl}}/chat/conversations/group-vendor
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "groupId": "{{groupId}}",
+  "vendorId": "{{vendorId}}",
+  "productId": "optional-product-id"
+}
+
+### Get conversation participants
+GET {{baseUrl}}/chat/conversations/{{conversationId}}/participants
+Authorization: Bearer {{token}}
+
+###############################################################################
+# MESSAGE ENDPOINTS
+###############################################################################
+
+### Get messages for a conversation
+GET {{baseUrl}}/chat/conversations/{{conversationId}}/messages
+Authorization: Bearer {{token}}
+
+### Get messages with limit
+GET {{baseUrl}}/chat/conversations/{{conversationId}}/messages?limit=20
+Authorization: Bearer {{token}}
+
+### Get messages before specific timestamp (pagination)
+GET {{baseUrl}}/chat/conversations/{{conversationId}}/messages?before=2024-01-24T10:00:00Z
+Authorization: Bearer {{token}}
+
+### Send a message
+POST {{baseUrl}}/chat/conversations/{{conversationId}}/messages
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "Hello! This is a test message from HTTP API."
+}
+
+### Mark conversation as read
+PUT {{baseUrl}}/chat/conversations/{{conversationId}}/read
+Authorization: Bearer {{token}}
+
+### Delete a message
+DELETE {{baseUrl}}/chat/messages/{{messageId}}
+Authorization: Bearer {{token}}
+
+###############################################################################
+# TYPING INDICATOR ENDPOINTS
+###############################################################################
+
+### Set typing indicator (start typing)
+POST {{baseUrl}}/chat/conversations/{{conversationId}}/typing
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "isTyping": true
+}
+
+### Set typing indicator (stop typing)
+POST {{baseUrl}}/chat/conversations/{{conversationId}}/typing
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "isTyping": false
+}
+
+### Get typing users
+GET {{baseUrl}}/chat/conversations/{{conversationId}}/typing
+Authorization: Bearer {{token}}
+
+###############################################################################
+# STATS ENDPOINTS
+###############################################################################
+
+### Get total unread message count
+GET {{baseUrl}}/chat/unread-count
+Authorization: Bearer {{token}}
+
+###############################################################################
+# TEST SCENARIOS
+###############################################################################
+
+### Scenario 1: Create and use a group-vendor conversation
+# Step 1: Create conversation
+POST {{baseUrl}}/chat/conversations/group-vendor
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "groupId": "test-group-id",
+  "vendorId": "test-vendor-id"
+}
+
+### Step 2: Send initial message (save conversation ID from step 1)
+POST {{baseUrl}}/chat/conversations/CONVERSATION_ID_FROM_STEP_1/messages
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "Hi! We're interested in bulk purchasing your product."
+}
+
+### Step 3: Get messages to verify
+GET {{baseUrl}}/chat/conversations/CONVERSATION_ID_FROM_STEP_1/messages
+Authorization: Bearer {{token}}
+
+### Step 4: Mark as read
+PUT {{baseUrl}}/chat/conversations/CONVERSATION_ID_FROM_STEP_1/read
+Authorization: Bearer {{token}}
+
+###############################################################################
+# HEALTH CHECK
+###############################################################################
+
+### Server health check
+GET http://localhost:3000/api/health
+
+###############################################################################
+# AUTHENTICATION (Get Token First)
+###############################################################################
+
+### Login to get token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "your_password"
+}
+
+###############################################################################
+# NOTES
+###############################################################################
+
+# 1. Replace {{token}} with your actual JWT token from login
+# 2. Replace {{conversationId}}, {{groupId}}, {{vendorId}} with actual IDs
+# 3. Use REST Client extension in VS Code to run these requests
+# 4. Or import into Postman/Insomnia
+
+###############################################################################
+# EXPECTED RESPONSES
+###############################################################################
+
+# Successful conversation list response:
+# {
+#   "success": true,
+#   "data": [
+#     {
+#       "id": "uuid",
+#       "type": "group",
+#       "title": "Group Name - Internal Chat",
+#       "groupId": "uuid",
+#       "groupName": "Group Name",
+#       "lastMessage": {
+#         "id": "uuid",
+#         "content": "Last message text",
+#         "senderId": "uuid",
+#         "senderName": "User Name",
+#         "timestamp": "2024-01-24T10:00:00Z",
+#         "read": false
+#       },
+#       "unreadCount": 3,
+#       "typingUsers": [],
+#       "createdAt": "2024-01-20T10:00:00Z",
+#       "updatedAt": "2024-01-24T10:00:00Z"
+#     }
+#   ]
+# }
+
+# Successful message send response:
+# {
+#   "success": true,
+#   "data": {
+#     "id": "uuid",
+#     "conversationId": "uuid",
+#     "senderId": "uuid",
+#     "senderName": "Your Name",
+#     "senderAvatar": "avatar-url",
+#     "content": "Message content",
+#     "timestamp": "2024-01-24T10:00:00Z",
+#     "read": false,
+#     "isOwn": true
+#   }
+# }
+
+# Error response (403 Forbidden):
+# {
+#   "success": false,
+#   "error": "You do not have permission to send messages in this conversation"
+# }
