@@ -61,6 +61,10 @@ app.use((err, req, res, next) => {
   });
 });
 
+if (process.env.NODE_ENV === 'development') {
+  console.debug('Request payload:', options.body);
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log('\n🚀 Save Together API Server');

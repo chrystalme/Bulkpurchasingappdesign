@@ -12,7 +12,7 @@ import type {
   TrustScore
 } from "./types";
 
-const API_URL = process.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_URL = 'http://localhost:3001/api'; //import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 interface ApiResponse<T> {
   success: boolean;
@@ -82,6 +82,8 @@ class ApiClient {
     }
   }
 
+  // Auth endpoints
+
   auth = {
     login: async (email: string, password: string): Promise<AuthResponse> => {
       const response = await this.request<null>('auth/login', {
@@ -110,13 +112,15 @@ class ApiClient {
     },
 
     me: async (): Promise<UserResponse> => {
-      const response = await this.request<User>('auth/me');
+      const response = await this.request<User>(`auth/me`);
       return response as unknown as UserResponse;
     },
     logout: () => {
       localStorage.removeItem('auth_token');
     },
   };
+
+  // Products endpoints
 
   products = {
     getAll: async (filters?: {category?: string; vendor_id?: number}): Promise<ProductsResponse> => {
@@ -153,6 +157,8 @@ class ApiClient {
     },
   };
 
+  // Orders endpoints
+
   orders = {
     getAll: async (): Promise<OrdersResponse> => {
       const response = await this.request<Order[]>('orders');
@@ -179,6 +185,8 @@ class ApiClient {
     },
   };
 
+  // Vendors endpoints
+
   vendors = {
     getAll: async (): Promise<VendorsResponse> => {
       const response = await this.request<Vendor[]>('vendors');
@@ -201,6 +209,8 @@ class ApiClient {
       return response as unknown as VendorCustomersResponse;
     },
   };
+
+  // Escrow endpoints
 
   escrow = {
     getTransactions: async (type?: 'seller' | 'buyer' | 'all'): Promise<EscrowTransactionsResponse> => {
@@ -234,6 +244,8 @@ class ApiClient {
       return response as unknown as EscrowTransactionResponse;
     },
   };
+
+  // Users endpoints
 
   users = {
     getAll: async (): Promise<UsersResponse> => {
