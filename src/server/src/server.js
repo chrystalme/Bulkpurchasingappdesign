@@ -1,26 +1,17 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { createServer } from 'http';
-import { initializeSocket } from './config/socket.js';
 import authRoutes from './routes/auth.routes.js';
 import usersRoutes from './routes/users.routes.js';
 import productsRoutes from './routes/products.routes.js';
 import vendorsRoutes from './routes/vendors.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import escrowRoutes from './routes/escrow.routes.js';
-import chatRoutes from './routes/chat.routes.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-// Create HTTP server for Socket.IO
-const httpServer = createServer(app);
-
-// Initialize Socket.IO
-initializeSocket(httpServer);
 
 // Middleware
 app.use(cors({
@@ -52,7 +43,6 @@ app.use('/api/products', productsRoutes);
 app.use('/api/vendors', vendorsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/escrow', escrowRoutes);
-app.use('/api/chat', chatRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -72,27 +62,24 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-httpServer.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log('\n🚀 Save Together API Server');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📡 Server running on: http://localhost:${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔌 WebSocket ready for real-time chat`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  console.log('📚 Available endpoints:');
-  console.log('   POST   /api/auth/login');
-  console.log('   POST   /api/auth/signup');
-  console.log('   GET    /api/auth/me');
-  console.log('   GET    /api/users');
-  console.log('   GET    /api/products');
-  console.log('   GET    /api/vendors');
-  console.log('   GET    /api/orders');
-  console.log('   GET    /api/escrow/transactions');
-  console.log('   GET    /api/chat/conversations');
-  console.log('   POST   /api/chat/conversations/:id/messages');
-  console.log('\n💡 Run "npm run migrate" to create database tables');
-  console.log('💡 Run "npm run seed" to populate with sample data\n');
+  // console.log('📚 Available endpoints:');
+  // console.log('   POST   /api/auth/login');
+  // console.log('   POST   /api/auth/signup');
+  // console.log('   GET    /api/auth/me');
+  // console.log('   GET    /api/users');
+  // console.log('   GET    /api/products');
+  // console.log('   GET    /api/vendors');
+  // console.log('   GET    /api/orders');
+  // console.log('   GET    /api/escrow/transactions');
+  // console.log('\n💡 Run "npm run migrate" to create database tables');
+  // console.log('💡 Run "npm run seed" to populate with sample data\n');
 });
 
 export default app;

@@ -2,8 +2,6 @@
 -- Run this file to create all tables
 
 -- Drop tables if they exist (for clean reset)
-DROP TABLE IF EXISTS messages CASCADE;
-DROP TABLE IF EXISTS conversations CASCADE;
 DROP TABLE IF EXISTS dispute_evidence CASCADE;
 DROP TABLE IF EXISTS disputes CASCADE;
 DROP TABLE IF EXISTS escrow_transactions CASCADE;
@@ -191,34 +189,3 @@ CREATE TABLE trust_scores (
 );
 
 CREATE INDEX idx_trust_scores_user_id ON trust_scores(user_id);
-
--- Conversations table (for chat between vendors and members)
-CREATE TABLE conversations (
-  id SERIAL PRIMARY KEY,
-  vendor_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  member_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
-  status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'archived')),
-  last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(vendor_id, member_id, product_id)
-);
-
-CREATE INDEX idx_conversations_vendor_id ON conversations(vendor_id);
-CREATE INDEX idx_conversations_member_id ON conversations(member_id);
-CREATE INDEX idx_conversations_product_id ON conversations(product_id);
-CREATE INDEX idx_conversations_last_message_at ON conversations(last_message_at);
-
--- Messages table
-CREATE TABLE messages (
-  id SERIAL PRIMARY KEY,
-  conversation_id INTEGER REFERENCES conversations(id) ON DELETE CASCADE,
-  sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  message_text TEXT NOT NULL,
-  is_read BOOLEAN DEFAULT false,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
-CREATE INDEX idx_messages_sender_id ON messages(sender_id);
-CREATE INDEX idx_messages_created_at ON messages(created_at);
