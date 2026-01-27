@@ -2,8 +2,8 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
-import pool from '../../../src/server/src/config/database.js';
-import { authenticateToken } from '../../../src/server/src/middleware/auth.js';
+import pool from '../config/database.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 

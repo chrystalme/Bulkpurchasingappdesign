@@ -9,11 +9,11 @@ async function resetDatabase() {
     
     // Run migrations
     console.log('1️⃣ Running migrations...');
-    await execAsync('node src/db/migrate.js');
+    await execAsync('node db/migrate.js');
     
     // Run seeds
     console.log('\n2️⃣ Seeding database...');
-    await execAsync('node src/db/seed.js');
+    await execAsync('node db/seed.js');
     
     console.log('\n✅ Database reset completed!');
   } catch (error) {

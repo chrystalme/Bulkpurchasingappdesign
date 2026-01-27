@@ -1,10 +1,10 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import pool from '../../server/src/config/database.js';
+import pool from '../config/database.js';
 import {
   authenticateToken,
   canAccessVendorDashboard,
-} from '../../server/src/middleware/auth.js';
+} from '../middleware/auth.js';
 
 const router = express.Router();
 

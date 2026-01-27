@@ -1,5 +1,5 @@
-const jwt = require('jsonwebtoken');
-const pool = require('backend/config/database');
+import jwt from 'jsonwebtoken';
+import pool from '../config/database.js';
 
 /**
  * Socket.IO Chat Handler
@@ -392,4 +392,4 @@ const initializeChatSocket = (io) => {
   console.log('Chat Socket.IO initialized');
 };
 
-module.exports = { initializeChatSocket };
+export { initializeChatSocket };

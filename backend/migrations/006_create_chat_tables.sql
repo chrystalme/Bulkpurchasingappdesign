@@ -20,13 +20,14 @@ CREATE TABLE IF NOT EXISTS conversations (
     -- Unique constraint: one group can only have one internal chat
     CONSTRAINT unique_group_internal_chat 
         UNIQUE (group_id, type) 
-        DEFERRABLE INITIALLY DEFERRED,
-    
+        DEFERRABLE INITIALLY DEFERRED
     -- Unique constraint: one group-vendor pair can only have one conversation
-    CONSTRAINT unique_group_vendor_chat 
-        UNIQUE (group_id, vendor_id)
-        WHERE type = 'group-vendor'
+    -- This will be created as a partial unique index after the table definition
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS unique_group_vendor_chat_idx
+    ON conversations (group_id, vendor_id)
+    WHERE type = 'group-vendor';
 
 -- Conversation participants
 CREATE TABLE IF NOT EXISTS conversation_participants (
@@ -50,12 +51,12 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_deleted BOOLEAN DEFAULT false,
-    
-    -- Index for faster message retrieval
-    INDEX idx_messages_conversation (conversation_id, created_at DESC),
-    INDEX idx_messages_sender (sender_id)
+    is_deleted BOOLEAN DEFAULT false
 );
+
+-- Add indexes for messages table
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
 
 -- Typing indicators (ephemeral, can be in-memory but stored for persistence)
 CREATE TABLE IF NOT EXISTS typing_indicators (
@@ -189,7 +190,7 @@ SELECT
     c.created_at,
     c.updated_at,
     g.name as group_name,
-    vendor.full_name as vendor_name,
+    vendor.name as vendor_name,
     vendor.avatar as vendor_avatar,
     -- Last message
     (
@@ -197,7 +198,7 @@ SELECT
             'id', m.id,
             'content', m.content,
             'senderId', m.sender_id,
-            'senderName', u.full_name,
+            'senderName', u.name,
             'senderAvatar', u.avatar,
             'timestamp', m.created_at
         )

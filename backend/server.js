@@ -1,94 +1,107 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const dotenv = require('dotenv');
+import express from 'express';
+import http from 'http'; // For creating the HTTP server for Socket.IO
+import { Server } from 'socket.io'; // For Socket.IO server
+import cors from 'cors';
+import dotenv from 'dotenv';
+
+// Import routes
+import authRoutes from './routes/auth.routes.js';
+import usersRoutes from './routes/users.routes.js';
+import productsRoutes from './routes/products.routes.js';
+import vendorsRoutes from './routes/vendors.routes.js';
+import ordersRoutes from './routes/orders.routes.js';
+import escrowRoutes from './routes/escrow.routes.js';
+// import groupRoutes from './routes/group.routes.js';
+import chatRoutes from './routes/chat.routes.js';
+
+// Import Socket.IO chat initializer
+import { initializeChatSocket } from './socket/chat.socket.js';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const server = http.createServer(app);
+const server = http.createServer(app); // Create HTTP server for Express and Socket.IO
+const PORT = process.env.PORT || 3000;
 
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
     credentials: true,
   },
 });
 
-// Make io accessible to routes
+// Make io accessible to routes (if needed, though direct import in route files is often cleaner for ES Modules)
 app.set('io', io);
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json()); // Parses incoming requests with JSON payloads
+app.use(express.urlencoded({ extended: true })); // Parses incoming requests with URL-encoded payloads
 
-// Request logging
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
-  next();
-});
+// Request logging middleware (for development)
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
+  });
+}
 
-// Routes
-const authRoutes = require('backend/routes/auth.routes');
-const groupRoutes = require('backend/routes/group.routes');
-const productRoutes = require('backend/routes/product.routes');
-const orderRoutes = require('backend/routes/order.routes');
-const chatRoutes = require('backend/routes/chat.routes');
-const userRoutes = require('backend/routes/user.routes');
-
-app.use('/api/auth', authRoutes);
-app.use('/api/groups', groupRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/users', userRoutes);
-
-// Health check
+// Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'Server is running',
+  res.json({
+    status: 'ok',
+    message: 'Save Together API is running',
     timestamp: new Date().toISOString(),
   });
 });
 
-// 404 handler
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/products', productsRoutes);
+app.use('/api/vendors', vendorsRoutes);
+app.use('/api/orders', ordersRoutes);
+app.use('/api/escrow', escrowRoutes);
+// app.use('/api/groups', groupRoutes);
+app.use('/api/chat', chatRoutes);
+
+// Initialize Socket.IO chat handlers
+initializeChatSocket(io);
+
+// 404 handler for unmatched routes
 app.use((req, res) => {
-  res.status(404).json({ 
-    success: false, 
-    error: 'Route not found' 
+  res.status(404).json({
+    success: false,
+    error: 'Route not found',
+    path: req.path,
   });
 });
 
-// Error handler
+// Global error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('Unhandled Server Error:', err); // Log the full error stack in development
   res.status(err.status || 500).json({
     success: false,
     error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }), // Only expose stack in development
   });
 });
 
-// Initialize Socket.IO chat
-const { initializeChatSocket } = require('backend/socket/chat.socket');
-initializeChatSocket(io);
-
 // Start server
-const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`\n🚀 Server running on port ${PORT}`);
-  console.log(`📡 Socket.IO initialized`);
-  console.log(`🌐 API: http://localhost:${PORT}/api`);
-  console.log(`💬 WebSocket: ws://localhost:${PORT}`);
-  console.log(`\nEnvironment: ${process.env.NODE_ENV || 'development'}\n`);
+  console.log('\n🚀 Save Together API Server');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`📡 Server running on: http://localhost:${PORT}`);
+  console.log(`💬 Socket.IO initialized`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 });
 
 // Graceful shutdown
@@ -100,4 +113,4 @@ process.on('SIGTERM', () => {
   });
 });
 
-module.exports = { app, server, io };
+// export default app; // Only if you intend to import 'app' elsewhere

@@ -1,4 +1,4 @@
-const pool = require('backend/config/database');
+import pool from '../config/database.js';
 
 // ============================================
 // CONVERSATION CONTROLLERS
@@ -7,7 +7,7 @@ const pool = require('backend/config/database');
 /**
  * Get all conversations for the current user
  */
-exports.getUserConversations = async (req, res) => {
+export const getUserConversations = async (req, res) => {
   try {
     const userId = req.user.id;
     const { type, groupId } = req.query;
@@ -134,7 +134,7 @@ exports.getUserConversations = async (req, res) => {
 /**
  * Get a specific conversation by ID
  */
-exports.getConversationById = async (req, res) => {
+export const getConversationById = async (req, res) => {
   try {
     const userId = req.user.id;
     const { conversationId } = req.params;
@@ -207,7 +207,7 @@ exports.getConversationById = async (req, res) => {
 /**
  * Create a new group-vendor conversation
  */
-exports.createGroupVendorConversation = async (req, res) => {
+export const createGroupVendorConversation = async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -347,7 +347,7 @@ exports.createGroupVendorConversation = async (req, res) => {
 /**
  * Get all participants in a conversation
  */
-exports.getConversationParticipants = async (req, res) => {
+export const getConversationParticipants = async (req, res) => {
   try {
     const userId = req.user.id;
     const { conversationId } = req.params;
@@ -411,7 +411,7 @@ exports.getConversationParticipants = async (req, res) => {
 /**
  * Get messages for a conversation
  */
-exports.getMessages = async (req, res) => {
+export const getMessages = async (req, res) => {
   try {
     const userId = req.user.id;
     const { conversationId } = req.params;
@@ -490,7 +490,7 @@ exports.getMessages = async (req, res) => {
 /**
  * Send a message in a conversation
  */
-exports.sendMessage = async (req, res) => {
+export const sendMessage = async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -600,7 +600,7 @@ exports.sendMessage = async (req, res) => {
 /**
  * Mark all messages in a conversation as read
  */
-exports.markAsRead = async (req, res) => {
+export const markAsRead = async (req, res) => {
   try {
     const userId = req.user.id;
     const { conversationId } = req.params;
@@ -642,7 +642,7 @@ exports.markAsRead = async (req, res) => {
 /**
  * Delete a message (soft delete)
  */
-exports.deleteMessage = async (req, res) => {
+export const deleteMessage = async (req, res) => {
   try {
     const userId = req.user.id;
     const { messageId } = req.params;
@@ -692,7 +692,7 @@ exports.deleteMessage = async (req, res) => {
 /**
  * Set typing indicator
  */
-exports.setTypingIndicator = async (req, res) => {
+export const setTypingIndicator = async (req, res) => {
   try {
     const userId = req.user.id;
     const { conversationId } = req.params;
@@ -750,7 +750,7 @@ exports.setTypingIndicator = async (req, res) => {
 /**
  * Get typing users
  */
-exports.getTypingUsers = async (req, res) => {
+export const getTypingUsers = async (req, res) => {
   try {
     const { conversationId } = req.params;
 
@@ -789,7 +789,7 @@ exports.getTypingUsers = async (req, res) => {
 /**
  * Get total unread count for current user
  */
-exports.getUnreadCount = async (req, res) => {
+export const getUnreadCount = async (req, res) => {
   try {
     const userId = req.user.id;
 

@@ -16,16 +16,17 @@ DROP TABLE IF EXISTS users CASCADE;
 
 -- Users table
 CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL CHECK (role IN ('superUser', 'admin', 'vendor', 'member')),
   avatar TEXT,
-  vendor_id INTEGER,
+  vendor_id UUID,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_active BOOLEAN DEFAULT true,
-  trust_score INTEGER DEFAULT 0
+  trust_score INTEGER DEFAULT 0,
+  is_online BOOLEAN DEFAULT FALSE
 );
 
 -- Create indexes for faster queries
@@ -35,24 +36,25 @@ CREATE INDEX idx_users_vendor_id ON users(vendor_id);
 
 -- Vendors table
 CREATE TABLE vendors (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   rating DECIMAL(2,1) DEFAULT 0.0,
   location VARCHAR(255),
   image TEXT,
   verified BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+ 
 );
 
 -- Products table
 CREATE TABLE products (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   image VARCHAR(255),
   bulk_price DECIMAL(10,2) NOT NULL,
   retail_price DECIMAL(10,2) NOT NULL,
   moq INTEGER NOT NULL,
-  vendor_id INTEGER REFERENCES vendors(id) ON DELETE CASCADE,
+  vendor_id UUID REFERENCES vendors(id) ON DELETE CASCADE,
   category VARCHAR(100),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_active BOOLEAN DEFAULT true
@@ -63,7 +65,7 @@ CREATE INDEX idx_products_category ON products(category);
 
 -- Groups table (for bulk purchasing groups)
 CREATE TABLE groups (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   description TEXT,
   join_code VARCHAR(50) UNIQUE NOT NULL,
@@ -78,9 +80,9 @@ CREATE INDEX idx_groups_status ON groups(status);
 
 -- Group members table
 CREATE TABLE group_members (
-  id SERIAL PRIMARY KEY,
-  group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
-  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(group_id, user_id)
 );
@@ -90,10 +92,10 @@ CREATE INDEX idx_group_members_user_id ON group_members(user_id);
 
 -- Orders table
 CREATE TABLE orders (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_number VARCHAR(50) UNIQUE NOT NULL,
-  group_id INTEGER REFERENCES groups(id),
-  buyer_id INTEGER REFERENCES users(id),
+  group_id UUID REFERENCES groups(id),
+  buyer_id UUID REFERENCES users(id),
   status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'confirmed', 'shipped', 'delivered', 'cancelled')),
   total_amount DECIMAL(10,2) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -106,9 +108,9 @@ CREATE INDEX idx_orders_group_id ON orders(group_id);
 
 -- Order items table
 CREATE TABLE order_items (
-  id SERIAL PRIMARY KEY,
-  order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-  product_id INTEGER REFERENCES products(id),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id),
   quantity INTEGER NOT NULL,
   price DECIMAL(10,2) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -119,11 +121,11 @@ CREATE INDEX idx_order_items_product_id ON order_items(product_id);
 
 -- Escrow transactions table
 CREATE TABLE escrow_transactions (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   transaction_number VARCHAR(50) UNIQUE NOT NULL,
-  order_id INTEGER REFERENCES orders(id),
-  buyer_id INTEGER REFERENCES users(id),
-  seller_id INTEGER REFERENCES users(id),
+  order_id UUID REFERENCES orders(id),
+  buyer_id UUID REFERENCES users(id),
+  seller_id UUID REFERENCES users(id),
   amount DECIMAL(10,2) NOT NULL,
   escrow_fee DECIMAL(10,2) DEFAULT 0.00,
   status VARCHAR(50) DEFAULT 'locked' CHECK (status IN ('locked', 'pending_inspection', 'released', 'disputed', 'refunded')),
@@ -144,9 +146,9 @@ CREATE INDEX idx_escrow_status ON escrow_transactions(status);
 
 -- Disputes table
 CREATE TABLE disputes (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   dispute_number VARCHAR(50) UNIQUE NOT NULL,
-  transaction_id INTEGER REFERENCES escrow_transactions(id),
+  transaction_id UUID REFERENCES escrow_transactions(id),
   reason VARCHAR(100) CHECK (reason IN ('wrong_quantity', 'damaged', 'not_as_described', 'not_received')),
   status VARCHAR(50) DEFAULT 'open' CHECK (status IN ('open', 'under_review', 'resolved')),
   resolution VARCHAR(50) CHECK (resolution IN ('refund_buyer', 'release_seller', 'partial_split', NULL)),
@@ -160,8 +162,8 @@ CREATE INDEX idx_disputes_status ON disputes(status);
 
 -- Dispute evidence table
 CREATE TABLE dispute_evidence (
-  id SERIAL PRIMARY KEY,
-  dispute_id INTEGER REFERENCES disputes(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dispute_id UUID REFERENCES disputes(id) ON DELETE CASCADE,
   uploaded_by VARCHAR(50) CHECK (uploaded_by IN ('buyer', 'seller')),
   type VARCHAR(50) CHECK (type IN ('photo', 'video', 'document')),
   url TEXT NOT NULL,
@@ -173,8 +175,8 @@ CREATE INDEX idx_dispute_evidence_dispute_id ON dispute_evidence(dispute_id);
 
 -- Trust scores table
 CREATE TABLE trust_scores (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   score INTEGER DEFAULT 0,
   completed_transactions INTEGER DEFAULT 0,
   total_transactions INTEGER DEFAULT 0,

@@ -18,7 +18,7 @@ async function runMigrations() {
     const chatSchema = fs.readFileSync(chatSchemaPath, 'utf8');
     
     // Execute the schema
-    // await pool.query(schema);
+    await pool.query(schema);
     await pool.query(chatSchema);
     
     console.log('✅ Database migration completed successfully!');
