@@ -1,12 +1,12 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from './routes/auth.routes.js';
-import usersRoutes from './routes/users.routes.js';
-import productsRoutes from './routes/products.routes.js';
-import vendorsRoutes from './routes/vendors.routes.js';
-import ordersRoutes from './routes/orders.routes.js';
-import escrowRoutes from './routes/escrow.routes.js';
+import authRoutes from 'backend/routes/auth.routes.js';
+import usersRoutes from 'backend/routes/users.routes.js';
+import productsRoutes from 'backend/routes/products.routes.js';
+import vendorsRoutes from 'backend/routes/vendors.routes.js';
+import ordersRoutes from 'backend/routes/orders.routes.js';
+import escrowRoutes from 'backend/routes/escrow.routes.js';
 
 dotenv.config();
 
@@ -14,10 +14,12 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -29,8 +31,8 @@ app.use((req, res, next) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     message: 'Save Together API is running',
     timestamp: new Date().toISOString(),
   });
@@ -46,7 +48,7 @@ app.use('/api/escrow', escrowRoutes);
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Not found',
     path: req.path,
   });
