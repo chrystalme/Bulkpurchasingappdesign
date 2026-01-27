@@ -22,7 +22,7 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app); // Create HTTP server for Express and Socket.IO
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Initialize Socket.IO
 const io = new Server(server, {
@@ -37,10 +37,12 @@ const io = new Server(server, {
 app.set('io', io);
 
 // Middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    credentials: true,
+  }),
+);
 app.use(express.json()); // Parses incoming requests with JSON payloads
 app.use(express.urlencoded({ extended: true })); // Parses incoming requests with URL-encoded payloads
 
