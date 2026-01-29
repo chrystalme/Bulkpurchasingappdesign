@@ -148,19 +148,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const token = localStorage.getItem('auth_token');
         if (!token) {
-          setIsLoading(false);
           return;
         }
 
         const response = await apiClient.auth.me();
-        if (response.success && response.data) {
-          setUser(response.data);
+        if (response.success && response.user) {
+          setUser(response.user);
         } else {
-          apiClient.auth.logout();
+          console.error('Auth bootstrap failed: response was unsuccessful or contained no data.', response);
+          localStorage.removeItem('auth_token');
           setUser(null);
         }
-      } catch {
-        apiClient.auth.logout();
+      } catch (error) {
+        console.error('Auth bootstrap failed with an error:', error);
+        localStorage.removeItem('auth_token');
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -179,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(response.user);
+      // Token is persisted by apiClient.auth.login() in src/lib/api.ts
       return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };

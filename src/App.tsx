@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Welcome } from './components/onboarding/Welcome';
 import { Login } from './components/auth/Login';
@@ -9,7 +9,7 @@ import { GroupDetailNew } from './components/groups/GroupDetailNew';
 import { ProductCatalog } from './components/products/ProductCatalog';
 import { GroupCart } from './components/products/GroupCart';
 import { VendorChat } from './components/chat/VendorChat';
-import { ChatDashboard } from './components/chat/ChatDashboard';
+import { ChatDashboardReal } from './components/chat/ChatDashboardReal';
 import { Checkout } from './components/checkout/Checkout';
 import { OrderTracking } from './components/orders/OrderTracking';
 import { ReviewForm } from './components/reviews/ReviewForm';
@@ -32,7 +32,7 @@ import { VendorCustomers } from './components/vendor/VendorCustomers';
 import { UserManagement } from './components/admin/UserManagement';
 import { CreateUser } from './components/admin/CreateUser';
 
-export type Screen = 
+export type Screen =
   | 'welcome'
   | 'login'
   | 'signup'
@@ -67,8 +67,56 @@ function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [restorationComplete, setRestorationComplete] = useState(false);
+
+  // Authenticated screens that can be restored after refresh
+  const authenticatedScreens = new Set<Screen>([
+    'home', 'group-create', 'group-detail', 'products', 'cart', 'chat', 'chat-dashboard',
+    'checkout', 'tracking', 'review', 'profile',
+    'escrow-checkout', 'escrow-buyer-dashboard', 'escrow-inspection',
+    'escrow-seller-order', 'escrow-seller-upload', 'escrow-seller-awaiting',
+    'escrow-dispute', 'escrow-mediation',
+    'vendor-dashboard', 'vendor-add-product', 'vendor-products', 'vendor-orders', 'vendor-customers',
+    'admin-users', 'admin-create-user'
+  ]);
+
+  // Restore persisted screen state when authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      const savedScreen = localStorage.getItem('lastScreen') as Screen | null;
+      const savedGroupId = localStorage.getItem('lastGroupId');
+      
+      // Only restore if it's a valid authenticated screen
+      if (savedScreen && authenticatedScreens.has(savedScreen)) {
+        setCurrentScreen(savedScreen);
+        if (savedGroupId) setSelectedGroupId(savedGroupId);
+      } else {
+        // Default to home if no valid screen is saved
+        setCurrentScreen('home');
+      }
+      setRestorationComplete(true);
+    } else if (!isAuthenticated && !isLoading) {
+      // Not authenticated, allow normal auth flow
+      setRestorationComplete(true);
+    }
+  }, [isAuthenticated, isLoading]);
 
   const navigate = (screen: Screen, groupId?: string) => {
+    // Persist navigation for authenticated users
+    if (isAuthenticated && authenticatedScreens.has(screen)) {
+      localStorage.setItem('lastScreen', screen);
+      if (groupId) {
+        setSelectedGroupId(groupId);
+        localStorage.setItem('lastGroupId', groupId);
+      } else {
+        localStorage.removeItem('lastGroupId');
+      }
+    } else if (!authenticatedScreens.has(screen)) {
+      // Clear persisted state when navigating to auth screens
+      localStorage.removeItem('lastScreen');
+      localStorage.removeItem('lastGroupId');
+    }
+    
     if (groupId) setSelectedGroupId(groupId);
     setCurrentScreen(screen);
   };
@@ -111,8 +159,10 @@ function AppContent() {
       case 'welcome':
       case 'login':
       case 'signup':
-        // Redirect to home if trying to access auth screens while authenticated
-        navigate('home');
+        // Only redirect if restoration is complete (avoid race condition with useEffect)
+        if (restorationComplete) {
+          navigate('home');
+        }
         return <Home navigate={navigate} />;
       case 'home':
         return <Home navigate={navigate} />;
@@ -127,7 +177,7 @@ function AppContent() {
       case 'chat':
         return <VendorChat navigate={navigate} groupId={selectedGroupId} />;
       case 'chat-dashboard':
-        return <ChatDashboard navigate={navigate} />;
+        return <ChatDashboardReal navigate={navigate} />;
       case 'checkout':
         return <Checkout navigate={navigate} />;
       case 'tracking':
@@ -171,9 +221,10 @@ function AppContent() {
     }
   };
 
-  const showBottomNav = isAuthenticated && 
-    currentScreen !== 'welcome' && 
-    currentScreen !== 'login' && 
+  const showBottomNav =
+    isAuthenticated &&
+    currentScreen !== 'welcome' &&
+    currentScreen !== 'login' &&
     currentScreen !== 'signup';
 
   return (

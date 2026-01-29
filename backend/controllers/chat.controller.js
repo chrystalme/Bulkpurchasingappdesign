@@ -24,7 +24,7 @@ export const getUserConversations = async (req, res) => {
         c.created_at,
         c.updated_at,
         g.name as group_name,
-        vendor.full_name as vendor_name,
+        vendor.name as vendor_name,
         vendor.avatar as vendor_avatar,
         vendor.is_online as is_vendor_online,
         -- Last message
@@ -33,7 +33,7 @@ export const getUserConversations = async (req, res) => {
             'id', m.id,
             'content', m.content,
             'senderId', m.sender_id,
-            'senderName', u.full_name,
+            'senderName', u.name,
             'senderAvatar', u.avatar,
             'timestamp', m.created_at,
             'read', EXISTS(
@@ -61,7 +61,7 @@ export const getUserConversations = async (req, res) => {
           SELECT json_agg(
             json_build_object(
               'userId', ti.user_id,
-              'userName', tu.full_name
+              'userName', tu.name
             )
           )
           FROM typing_indicators ti
@@ -152,7 +152,7 @@ export const getConversationById = async (req, res) => {
         c.created_at,
         c.updated_at,
         g.name as group_name,
-        vendor.full_name as vendor_name,
+        vendor.name as vendor_name,
         vendor.avatar as vendor_avatar,
         vendor.is_online as is_vendor_online,
         cp.role as user_role,
@@ -371,13 +371,13 @@ export const getConversationParticipants = async (req, res) => {
         cp.user_id,
         cp.role,
         cp.can_send,
-        u.full_name,
+        u.name,
         u.avatar,
         u.is_online
       FROM conversation_participants cp
       JOIN users u ON cp.user_id = u.id
       WHERE cp.conversation_id = $1
-      ORDER BY cp.role, u.full_name
+      ORDER BY cp.role, u.name
       `,
       [conversationId]
     );
@@ -439,7 +439,7 @@ export const getMessages = async (req, res) => {
         m.created_at,
         m.updated_at,
         m.is_deleted,
-        u.full_name as sender_name,
+        u.name as sender_name,
         u.avatar as sender_avatar,
         EXISTS(
           SELECT 1 FROM message_read_receipts mrr 
@@ -510,7 +510,7 @@ export const sendMessage = async (req, res) => {
     // Check if user can send messages in this conversation
     const participantCheck = await client.query(
       `
-      SELECT cp.can_send, u.full_name, u.avatar
+      SELECT cp.can_send, u.name, u.avatar
       FROM conversation_participants cp
       JOIN users u ON cp.user_id = u.id
       WHERE cp.conversation_id = $1 AND cp.user_id = $2
@@ -756,7 +756,7 @@ export const getTypingUsers = async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT ti.user_id, u.full_name
+      SELECT ti.user_id, u.name
       FROM typing_indicators ti
       JOIN users u ON ti.user_id = u.id
       WHERE ti.conversation_id = $1 AND ti.expires_at > CURRENT_TIMESTAMP
