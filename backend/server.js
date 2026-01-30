@@ -3,6 +3,8 @@ import http from 'http'; // For creating the HTTP server for Socket.IO
 import { Server } from 'socket.io'; // For Socket.IO server
 import cors from 'cors';
 import dotenv from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './swagger.js';
 
 // Import routes
 import authRoutes from './routes/auth.routes.js';
@@ -63,6 +65,9 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Swagger Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
@@ -102,6 +107,7 @@ server.listen(PORT, () => {
   console.log(`📡 Server running on: http://localhost:${PORT}`);
   console.log(`💬 Socket.IO initialized`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📚 Swagger Docs: http://localhost:${PORT}/api-docs`);
   console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 });

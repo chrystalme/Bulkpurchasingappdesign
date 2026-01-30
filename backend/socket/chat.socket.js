@@ -142,7 +142,7 @@ const initializeChatSocket = (io) => {
           return;
         }
 
-        const senderName = participantCheck.rows[0].full_name;
+        const senderName = participantCheck.rows[0].name;
         const senderAvatar = participantCheck.rows[0].avatar;
 
         // Insert message
@@ -208,7 +208,7 @@ const initializeChatSocket = (io) => {
 
         // Get user info
         const userResult = await pool.query(
-          'SELECT full_name FROM users WHERE id = $1',
+          'SELECT name FROM users WHERE id = $1',
           [socket.userId]
         );
 

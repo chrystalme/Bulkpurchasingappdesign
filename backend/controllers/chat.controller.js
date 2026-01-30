@@ -519,6 +519,7 @@ export const sendMessage = async (req, res) => {
     );
 
     if (participantCheck.rows.length === 0) {
+      console.log(`Message send failed: User ${userId} is not a participant in conversation ${conversationId}.`);
       await client.query('ROLLBACK');
       return res.status(403).json({
         success: false,
@@ -527,6 +528,7 @@ export const sendMessage = async (req, res) => {
     }
 
     if (!participantCheck.rows[0].can_send) {
+      console.log(`Message send failed: User ${userId} does not have send permission in conversation ${conversationId}.`);
       await client.query('ROLLBACK');
       return res.status(403).json({
         success: false,
@@ -534,7 +536,7 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    const senderName = participantCheck.rows[0].full_name;
+    const senderName = participantCheck.rows[0].name;
     const senderAvatar = participantCheck.rows[0].avatar;
 
     // Insert message

@@ -1,8 +1,15 @@
 -- Chat System Database Schema
 -- This migration creates tables for the dual-stream chat system
 
+-- Drop tables if they exist (for clean reset)
+DROP TABLE IF EXISTS message_read_receipts CASCADE;
+DROP TABLE IF EXISTS typing_indicators CASCADE;
+DROP TABLE IF EXISTS messages CASCADE;
+DROP TABLE IF EXISTS conversation_participants CASCADE;
+DROP TABLE IF EXISTS conversations CASCADE;
+
 -- Conversations table (group internal chats and group-vendor chats)
-CREATE TABLE IF NOT EXISTS conversations (
+CREATE TABLE conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type VARCHAR(20) NOT NULL CHECK (type IN ('group', 'group-vendor')),
     title VARCHAR(255) NOT NULL,
@@ -25,12 +32,12 @@ CREATE TABLE IF NOT EXISTS conversations (
     -- This will be created as a partial unique index after the table definition
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS unique_group_vendor_chat_idx
+CREATE UNIQUE INDEX unique_group_vendor_chat_idx
     ON conversations (group_id, vendor_id)
     WHERE type = 'group-vendor';
 
 -- Conversation participants
-CREATE TABLE IF NOT EXISTS conversation_participants (
+CREATE TABLE conversation_participants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -44,7 +51,7 @@ CREATE TABLE IF NOT EXISTS conversation_participants (
 );
 
 -- Messages table
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -55,11 +62,11 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- Add indexes for messages table
-CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+CREATE INDEX idx_messages_conversation ON messages(conversation_id, created_at DESC);
+CREATE INDEX idx_messages_sender ON messages(sender_id);
 
 -- Typing indicators (ephemeral, can be in-memory but stored for persistence)
-CREATE TABLE IF NOT EXISTS typing_indicators (
+CREATE TABLE typing_indicators (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -71,7 +78,7 @@ CREATE TABLE IF NOT EXISTS typing_indicators (
 );
 
 -- Message read receipts
-CREATE TABLE IF NOT EXISTS message_read_receipts (
+CREATE TABLE message_read_receipts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -82,12 +89,12 @@ CREATE TABLE IF NOT EXISTS message_read_receipts (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_conversations_group ON conversations(group_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_vendor ON conversations(vendor_id) WHERE vendor_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_conversation_participants_user ON conversation_participants(user_id);
-CREATE INDEX IF NOT EXISTS idx_conversation_participants_conversation ON conversation_participants(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_typing_indicators_conversation ON typing_indicators(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_typing_expires ON typing_indicators(expires_at);
+CREATE INDEX idx_conversations_group ON conversations(group_id);
+CREATE INDEX idx_conversations_vendor ON conversations(vendor_id) WHERE vendor_id IS NOT NULL;
+CREATE INDEX idx_conversation_participants_user ON conversation_participants(user_id);
+CREATE INDEX idx_conversation_participants_conversation ON conversation_participants(conversation_id);
+CREATE INDEX idx_typing_indicators_conversation ON typing_indicators(conversation_id);
+CREATE INDEX idx_typing_expires ON typing_indicators(expires_at);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -72,23 +72,27 @@ CREATE TABLE groups (
   moq_target INTEGER NOT NULL,
   current_quantity INTEGER DEFAULT 0,
   status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'pending', 'completed')),
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_groups_join_code ON groups(join_code);
 CREATE INDEX idx_groups_status ON groups(status);
+CREATE INDEX idx_groups_created_by ON groups(created_by);
 
 -- Group members table
 CREATE TABLE group_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  role VARCHAR(20) NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
   joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(group_id, user_id)
 );
 
 CREATE INDEX idx_group_members_group_id ON group_members(group_id);
 CREATE INDEX idx_group_members_user_id ON group_members(user_id);
+CREATE INDEX idx_group_members_role ON group_members(role) WHERE role = 'admin';
 
 -- Orders table
 CREATE TABLE orders (
