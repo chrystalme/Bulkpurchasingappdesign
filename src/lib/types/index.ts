@@ -5,7 +5,15 @@ export type { UserRole, User } from './auth.types';
 export type { Product, CartItem, Order } from './product.types';
 
 // Group types
-export type { Group, Member } from './group.types';
+export type { 
+  Group, 
+  GroupMember, 
+  CreateGroupPayload, 
+  UpdateGroupPayload, 
+  AddMemberPayload, 
+  UpdateMemberRolePayload,
+  JoinGroupPayload 
+} from './group.types';
 
 // Escrow types
 export type { EscrowTransaction, Evidence, Dispute } from './escrow.types';

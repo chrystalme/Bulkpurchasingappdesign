@@ -9,7 +9,14 @@ import type {
   Evidence,
   Dispute,
   User,
-  TrustScore
+  TrustScore,
+  Group,
+  GroupMember,
+  CreateGroupPayload,
+  UpdateGroupPayload,
+  AddMemberPayload,
+  UpdateMemberRolePayload,
+  JoinGroupPayload
 } from "./types";
 
 const API_URL = 'http://localhost:3001/api'; //import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
@@ -44,6 +51,13 @@ interface VendorCustomersResponse extends ApiResponse<VendorCustomer[]> {}
 
 interface EscrowTransactionsResponse extends ApiResponse<EscrowTransaction[]> {}
 interface EscrowTransactionResponse extends ApiResponse<EscrowTransaction> {}
+
+interface GroupsResponse extends ApiResponse<Group[]> {}
+interface GroupResponse extends ApiResponse<Group> {}
+interface GroupListResponse {
+  success: boolean;
+  groups: Group[];
+}
 
 interface UsersResponse extends ApiResponse<User[]> {}
 interface UserResponse extends ApiResponse<User> {}
@@ -291,6 +305,61 @@ class ApiClient {
         method: 'POST',
       });
       return response as unknown as UserResponse;
+    },
+  };
+
+  // Groups endpoints
+  groups = {
+    getAll: async (): Promise<GroupListResponse> => {
+      const response = await this.request<Group[]>('groups');
+      return response as unknown as GroupListResponse;
+    },
+    getById: async (id: string): Promise<GroupResponse> => {
+      const response = await this.request<Group>(`groups/${id}`);
+      return response as unknown as GroupResponse;
+    },
+    create: async (groupData: CreateGroupPayload): Promise<GroupResponse> => {
+      const response = await this.request<Group>('groups', {
+        method: 'POST',
+        body: JSON.stringify(groupData),
+      });
+      return response as unknown as GroupResponse;
+    },
+    update: async (id: string, groupData: UpdateGroupPayload): Promise<GroupResponse> => {
+      const response = await this.request<Group>(`groups/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(groupData),
+      });
+      return response as unknown as GroupResponse;
+    },
+    delete: async (id: string): Promise<ApiResponse<null>> => {
+      return this.request<null>(`groups/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    join: async (joinData: JoinGroupPayload): Promise<GroupResponse> => {
+      const response = await this.request<Group>('groups/join', {
+        method: 'POST',
+        body: JSON.stringify(joinData),
+      });
+      return response as unknown as GroupResponse;
+    },
+    addMember: async (groupId: string, memberData: AddMemberPayload): Promise<ApiResponse<null>> => {
+      return this.request<null>(`groups/${groupId}/members`, {
+        method: 'POST',
+        body: JSON.stringify(memberData),
+      });
+    },
+    removeMember: async (groupId: string, memberId: string): Promise<ApiResponse<null>> => {
+      return this.request<null>(`groups/${groupId}/members/${memberId}`, {
+        method: 'DELETE',
+      });
+    },
+    updateMemberRole: async (groupId: string, memberId: string, roleData: UpdateMemberRolePayload): Promise<ApiResponse<null>> => {
+      return this.request<null>(`groups/${groupId}/members/${memberId}`, {
+        method: 'PUT',
+        body: JSON.stringify(roleData),
+      });
     },
   }
 };
