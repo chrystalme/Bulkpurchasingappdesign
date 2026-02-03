@@ -13,7 +13,7 @@ import productsRoutes from './routes/products.routes.js';
 import vendorsRoutes from './routes/vendors.routes.js';
 import ordersRoutes from './routes/orders.routes.js';
 import escrowRoutes from './routes/escrow.routes.js';
-// import groupRoutes from './routes/group.routes.js';
+import groupRoutes from './routes/groups.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 
 // Import Socket.IO chat initializer
@@ -75,7 +75,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/vendors', vendorsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/escrow', escrowRoutes);
-// app.use('/api/groups', groupRoutes);
+app.use('/api/groups', groupRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Initialize Socket.IO chat handlers
