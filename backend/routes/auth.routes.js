@@ -27,7 +27,7 @@ const validateSignup = [
 
 // POST /api/auth/login
 router.post('/login', validateLogin, async (req, res) => {
-  console.log('REQ BODY:', req.body);
+
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

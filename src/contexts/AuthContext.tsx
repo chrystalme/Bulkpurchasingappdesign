@@ -73,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(response.user);
+      localStorage.setItem('userId', response.user.id);
       return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(response.user);
+      localStorage.setItem('userId', response.user.id);
       return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -123,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateCurrentUser,
     }),
     [user, isLoading],
+
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
