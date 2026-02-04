@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -6,8 +6,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
 import { ArrowLeft, Minus, Plus, Trash2, Users } from 'lucide-react';
 import type { Screen } from '../../App';
-import { mockProducts, mockMembers } from '../../lib/mockData';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { apiClient } from '../../lib/api';
+import { LoadingState } from '../ui/LoadingState';
+import { ErrorState } from '../ui/ErrorState';
+import type { Product, GroupMember } from '../../lib/types';
 
 interface GroupCartProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -21,6 +24,10 @@ interface CartItemData {
 }
 
 export function GroupCart({ navigate, groupId }: GroupCartProps) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<CartItemData[]>([
     {
       productId: '1',
@@ -41,8 +48,34 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
     },
   ]);
 
-  const products = mockProducts.filter(p => 
-    cartItems.some(item => item.productId === p.id)
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const [productsRes, membersRes] = await Promise.all([
+          apiClient.products.getAll(),
+          groupId ? apiClient.groups.getMembers(groupId) : Promise.resolve({ success: false, data: [] }),
+        ]);
+        
+        if (productsRes.success && productsRes.data) {
+          setProducts(productsRes.data);
+        }
+        if (membersRes.success && membersRes.data) {
+          setMembers(membersRes.data);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [groupId]);
+
+  const cartProducts = products.filter(p => 
+    cartItems.some(item => item.productId === p.id?.toString())
   );
 
   const updateQuantity = (productId: string, delta: number) => {
@@ -61,14 +94,14 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
 
   const calculateSubtotal = () => {
     return cartItems.reduce((total, item) => {
-      const product = products.find(p => p.id === item.productId);
+      const product = cartProducts.find(p => p.id?.toString() === item.productId);
       return total + (product ? product.bulkPrice * item.quantity : 0);
     }, 0);
   };
 
   const calculateMemberShare = (memberId: string) => {
     return cartItems.reduce((total, item) => {
-      const product = products.find(p => p.id === item.productId);
+      const product = cartProducts.find(p => p.id?.toString() === item.productId);
       const allocation = item.allocations.find(a => a.memberId === memberId);
       return total + (product && allocation ? product.bulkPrice * allocation.quantity : 0);
     }, 0);
@@ -78,10 +111,62 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
   const shipping = 5.00;
   const total = subtotal + shipping;
 
-  const productImages = {
+  const productImages: Record<string, string> = {
     '1': 'https://images.unsplash.com/photo-1633536706496-873ce0d46277?w=400&h=300&fit=crop',
     '4': 'https://images.unsplash.com/photo-1621244320421-cc9782f5ce28?w=400&h=300&fit=crop',
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5]">
+        <div className="bg-white border-b border-gray-200 p-4 lg:p-6">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('group-detail', groupId)}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h3>Group Cart</h3>
+          </div>
+        </div>
+        <div className="p-4 lg:p-6">
+          <div className="max-w-4xl mx-auto">
+            <LoadingState count={2} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5]">
+        <div className="bg-white border-b border-gray-200 p-4 lg:p-6">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('group-detail', groupId)}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h3>Group Cart</h3>
+          </div>
+        </div>
+        <div className="p-4 lg:p-6">
+          <div className="max-w-4xl mx-auto">
+            <ErrorState 
+              title="Failed to load cart"
+              description={error}
+              onRetry={() => window.location.reload()}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F4F5]">
@@ -107,8 +192,8 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
           {/* Left Column - Cart Items */}
           <div className="lg:col-span-2 space-y-3">
 
-          {products.map((product) => {
-            const cartItem = cartItems.find(item => item.productId === product.id);
+          {cartProducts.map((product) => {
+            const cartItem = cartItems.find(item => item.productId === product.id?.toString());
             if (!cartItem) return null;
 
             return (
@@ -117,14 +202,14 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                   <div className="flex gap-3 mb-3">
                     <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                       <ImageWithFallback
-                        src={productImages[product.id as keyof typeof productImages]}
+                        src={productImages[product.id?.toString() as keyof typeof productImages] || 'https://via.placeholder.com/80'}
                         alt={product.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h5 className="mb-1">{product.name}</h5>
-                      <p className="text-sm text-gray-500 mb-2">{product.vendorName}</p>
+                      <p className="text-sm text-gray-500 mb-2">{product.vendorName || 'Unknown Vendor'}</p>
                       <div className="flex items-center gap-2">
                         <span className="text-[#0047AB]">₦{product.bulkPrice}</span>
                         <span className="text-gray-400 line-through text-sm">₦{product.retailPrice}</span>
@@ -134,7 +219,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                       variant="ghost"
                       size="icon"
                       className="flex-shrink-0"
-                      onClick={() => removeItem(product.id)}
+                      onClick={() => removeItem(product.id?.toString() || '')}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
@@ -149,7 +234,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuantity(product.id, -1)}
+                        onClick={() => updateQuantity(product.id?.toString() || '', -1)}
                       >
                         <Minus className="w-3 h-3" />
                       </Button>
@@ -158,7 +243,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuantity(product.id, 1)}
+                        onClick={() => updateQuantity(product.id?.toString() || '', 1)}
                       >
                         <Plus className="w-3 h-3" />
                       </Button>
@@ -173,7 +258,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {cartItem.allocations.map((allocation) => {
-                        const member = mockMembers.find(m => m.id === allocation.memberId);
+                        const member = members.find(m => m.id === allocation.memberId);
                         if (!member) return null;
                         return (
                           <div
@@ -203,7 +288,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
           <CardContent className="p-4">
             <h4 className="mb-3">Cost Split by Member</h4>
             <div className="space-y-2">
-              {mockMembers.slice(0, 3).map((member) => {
+              {members.slice(0, 3).map((member) => {
                 const share = calculateMemberShare(member.id);
                 if (share === 0) return null;
                 return (
@@ -244,7 +329,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
               <div className="bg-[#FACC15]/20 rounded-lg p-3 text-sm">
                 <span className="text-[#0047AB]">
                   You're saving ₦{(cartItems.reduce((total, item) => {
-                    const product = products.find(p => p.id === item.productId);
+                    const product = cartProducts.find(p => p.id?.toString() === item.productId);
                     return total + (product ? (product.retailPrice - product.bulkPrice) * item.quantity : 0);
                   }, 0)).toFixed(2)} with bulk pricing! 🎉
                 </span>

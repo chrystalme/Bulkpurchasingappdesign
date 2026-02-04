@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchGroups } from '../../store/slices/groupsSlice';
+import { fetchGroups, clearError } from '../../store/slices/groupsSlice';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
-import { Plus, ChevronRight, Users, Loader2 } from 'lucide-react';
+import { Plus, ChevronRight, Users, Loader2, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '../ui/alert';
 import type { Screen } from '../../App';
 
 interface GroupsBrowseProps {
@@ -15,11 +16,15 @@ interface GroupsBrowseProps {
 
 export function GroupsBrowse({ navigate }: GroupsBrowseProps) {
   const dispatch = useAppDispatch();
-  const { groups = [], loading } = useAppSelector((state) => state.groups);
+  const { groups = [], loading, error } = useAppSelector((state) => state.groups);
 
   useEffect(() => {
     dispatch(fetchGroups());
   }, [dispatch]);
+
+  const handleDismissError = () => {
+    dispatch(clearError());
+  };
 
   return (
     <div className="p-4 lg:p-8 pb-24">
@@ -34,6 +39,22 @@ export function GroupsBrowse({ navigate }: GroupsBrowseProps) {
         </div>
         <p className="text-gray-600">Join or manage your purchasing groups</p>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={handleDismissError}
+              className="text-sm underline hover:no-underline ml-4"
+            >
+              Dismiss
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Groups List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

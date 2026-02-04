@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Search, Star, Users, Mail } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -6,16 +6,75 @@ import { Input } from '../ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Screen } from '../../App';
-import { mockVendorCustomers } from '../../lib/mockData';
+import { apiClient } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { LoadingState } from '../ui/LoadingState';
+import { ErrorState } from '../ui/ErrorState';
+import type { VendorCustomer } from '../../lib/types';
 
 interface VendorCustomersProps {
   navigate: (screen: Screen) => void;
 }
 
 export function VendorCustomers({ navigate }: VendorCustomersProps) {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [allCustomers, setAllCustomers] = useState<VendorCustomer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredCustomers = mockVendorCustomers.filter(customer =>
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const vendorId = Number(user?.vendorId);
+        if (!vendorId) {
+          setError('Vendor ID not found');
+          return;
+        }
+        const response = await apiClient.vendors.getCustomers(vendorId);
+        if (response.success && response.data) {
+          setAllCustomers(response.data);
+        } else {
+          setError(response.error || 'Failed to load customers');
+        }
+      } catch (err) {
+        setError((err as Error).message || 'Failed to load customers');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCustomers();
+  }, [user?.vendorId]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    const vendorId = Number(user?.vendorId);
+    if (!vendorId) {
+      setError('Vendor ID not found');
+      setLoading(false);
+      return;
+    }
+    apiClient.vendors.getCustomers(vendorId)
+      .then(response => {
+        if (response.success && response.data) {
+          setAllCustomers(response.data);
+        } else {
+          setError(response.error || 'Failed to load customers');
+        }
+      })
+      .catch(err => {
+        setError((err as Error).message || 'Failed to load customers');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  const filteredCustomers = allCustomers.filter(customer =>
     customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     customer.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -27,19 +86,66 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
     return 'text-[#FB7185]';
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] pb-6">
+        <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={() => navigate('vendor-dashboard')} className="p-1">
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <div className="flex-1">
+              <h1 className="font-semibold text-gray-900">Customers</h1>
+              <p className="text-xs text-gray-500">Loading...</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4">
+          <LoadingState count={3} />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] pb-6">
+        <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={() => navigate('vendor-dashboard')} className="p-1">
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <div className="flex-1">
+              <h1 className="font-semibold text-gray-900">Customers</h1>
+              <p className="text-xs text-gray-500">{allCustomers.length} total customers</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4">
+          <ErrorState
+            title="Failed to load customers"
+            description={error}
+            onRetry={handleRetry}
+            showRetry={true}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F4F4F5] pb-6">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate('vendor-dashboard')} className="p-1">
-            <ArrowLeft className="w-5 h-5 text-gray-700" />
-          </button>
-          <div className="flex-1">
-            <h1 className="font-semibold text-gray-900">Customers</h1>
-            <p className="text-xs text-gray-500">{mockVendorCustomers.length} total customers</p>
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={() => navigate('vendor-dashboard')} className="p-1">
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <div className="flex-1">
+              <h1 className="font-semibold text-gray-900">Customers</h1>
+              <p className="text-xs text-gray-500">{allCustomers.length} total customers</p>
+            </div>
           </div>
-        </div>
 
         {/* Search */}
         <div className="relative">
@@ -63,7 +169,7 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
               </div>
               <div>
                 <p className="text-xs text-gray-600">Total Customers</p>
-                <p className="text-lg font-semibold text-gray-900">{mockVendorCustomers.length}</p>
+                <p className="text-lg font-semibold text-gray-900">{allCustomers.length}</p>
               </div>
             </div>
           </Card>
@@ -75,7 +181,7 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
               <div>
                 <p className="text-xs text-gray-600">Avg. Trust Score</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {(mockVendorCustomers.reduce((sum, c) => sum + c.trustScore, 0) / mockVendorCustomers.length).toFixed(0)}
+                  {allCustomers.length > 0 ? (allCustomers.reduce((sum, c) => sum + c.trustScore, 0) / allCustomers.length).toFixed(0) : 0}
                 </p>
               </div>
             </div>

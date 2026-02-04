@@ -361,6 +361,10 @@ class ApiClient {
         body: JSON.stringify(roleData),
       });
     },
+    getMembers: async (groupId: string): Promise<ApiResponse<GroupMember[]>> => {
+      const response = await this.request<GroupMember[]>(`groups/${groupId}/members`);
+      return response as unknown as ApiResponse<GroupMember[]>;
+    },
   }
 };
 

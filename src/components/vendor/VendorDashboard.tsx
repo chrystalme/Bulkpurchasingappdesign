@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { LoadingState } from '../ui/LoadingState';
+import { ErrorState } from '../ui/ErrorState';
 import { 
   DollarSign, 
   Package, 
@@ -15,7 +18,9 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Screen } from '../../App';
-import { mockVendorStats, mockVendorOrders, mockVendorCustomers, mockProducts } from '../../lib/mockData';
+import { apiClient } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import type { VendorStats, VendorOrder, VendorCustomer, Product } from '../../lib/types';
 
 interface VendorDashboardProps {
   navigate: (screen: Screen) => void;
@@ -23,10 +28,94 @@ interface VendorDashboardProps {
 }
 
 export function VendorDashboard({ navigate, vendorId = '5' }: VendorDashboardProps) {
-  const stats = mockVendorStats;
-  const recentOrders = mockVendorOrders.slice(0, 5);
-  const topCustomers = mockVendorCustomers.slice(0, 4);
-  const vendorProducts = mockProducts.filter(p => p.vendorId === vendorId);
+  const { user } = useAuth();
+  const [stats, setStats] = useState<VendorStats | null>(null);
+  const [orders, setOrders] = useState<VendorOrder[]>([]);
+  const [customers, setCustomers] = useState<VendorCustomer[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const vid = Number(vendorId);
+
+      const [dashboardRes, ordersRes, customersRes, productsRes] = await Promise.all([
+        apiClient.vendors.getDashboard(vid),
+        apiClient.vendors.getOrders(vid),
+        apiClient.vendors.getCustomers(vid),
+        apiClient.products.getAll({ vendor_id: vid }),
+      ]);
+
+      if (dashboardRes.success && dashboardRes.data) {
+        setStats(dashboardRes.data);
+      }
+      if (ordersRes.success && ordersRes.data) {
+        setOrders(ordersRes.data);
+      }
+      if (customersRes.success && customersRes.data) {
+        setCustomers(customersRes.data);
+      }
+      if (productsRes.success && productsRes.data) {
+        setProducts(productsRes.data);
+      }
+    } catch (err) {
+      setError((err as Error).message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [vendorId]);
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    await loadDashboardData();
+    setRetrying(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] p-4 lg:p-6">
+        <LoadingState count={5} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] p-4 lg:p-6">
+        <ErrorState 
+          title="Failed to load dashboard"
+          description={error}
+          onRetry={handleRetry}
+          showRetry={true}
+        />
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] p-4 lg:p-6">
+        <ErrorState 
+          title="No dashboard data"
+          description="Could not retrieve dashboard information"
+          onRetry={handleRetry}
+          showRetry={true}
+        />
+      </div>
+    );
+  }
+
+  const recentOrders = orders.slice(0, 5);
+  const topCustomers = customers.slice(0, 4);
+  const vendorProducts = products.slice(0, 4);
 
   const getStatusColor = (status: string) => {
     switch (status) {

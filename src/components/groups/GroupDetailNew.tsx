@@ -8,7 +8,7 @@ import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { ArrowLeft, Copy, Share2, Users, ShoppingCart, MessageCircle, Package, Store, Info, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Copy, Share2, Users, ShoppingCart, MessageCircle, Package, Store, Info, Loader2, AlertCircle, Shield, Trash2 } from 'lucide-react';
 import type { Screen } from '../../App';
 import { 
   getConversationById, 

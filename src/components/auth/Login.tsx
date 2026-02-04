@@ -11,11 +11,26 @@ import {
   Lock,
   Mail,
   AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginProps {
   onNavigateToSignup: () => void;
+}
+
+const validateEmail = (email: string): boolean => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const validatePassword = (password: string): boolean => {
+  return password.length >= 6;
+};
+
+interface ValidationErrors {
+  email?: string;
+  password?: string;
 }
 
 export function Login({ onNavigateToSignup }: LoginProps) {
@@ -25,10 +40,55 @@ export function Login({ onNavigateToSignup }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {};
+
+    if (!email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!validateEmail(email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!password) {
+      errors.password = 'Password is required';
+    } else if (!validatePassword(password)) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    if (validationErrors.email) {
+      if (value && validateEmail(value)) {
+        setValidationErrors(prev => ({ ...prev, email: undefined }));
+      }
+    }
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPassword(value);
+    if (validationErrors.password) {
+      if (value && validatePassword(value)) {
+        setValidationErrors(prev => ({ ...prev, password: undefined }));
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
 
     const result = await login(email, password);
@@ -39,6 +99,12 @@ export function Login({ onNavigateToSignup }: LoginProps) {
 
     setIsLoading(false);
   };
+
+  const isFormValid =
+    email.trim() &&
+    password &&
+    validateEmail(email) &&
+    validatePassword(password);
 
   // Demo credentials
   const demoAccounts = [
@@ -86,12 +152,24 @@ export function Login({ onNavigateToSignup }: LoginProps) {
                     type="email"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="pl-9"
+                    onChange={handleEmailChange}
+                    className={`pl-9 ${validationErrors.email ? 'border-red-500' : ''}`}
                     required
                     autoComplete="email"
                   />
+                  {validationErrors.email && (
+                    <XCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                  )}
+                  {email && !validationErrors.email && validateEmail(email) && (
+                    <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                  )}
                 </div>
+                {validationErrors.email && (
+                  <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {validationErrors.email}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -103,8 +181,8 @@ export function Login({ onNavigateToSignup }: LoginProps) {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    className="pl-9 pr-10"
+                    onChange={handlePasswordChange}
+                    className={`pl-9 pr-10 ${validationErrors.password ? 'border-red-500' : ''}`}
                     required
                     autoComplete="current-password"
                   />
@@ -120,12 +198,18 @@ export function Login({ onNavigateToSignup }: LoginProps) {
                     )}
                   </button>
                 </div>
+                {validationErrors.password && (
+                  <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {validationErrors.password}
+                  </p>
+                )}
               </div>
 
               <Button
                 type="submit"
-                disabled={isLoading}
-                className="w-full bg-[#0047AB] hover:bg-[#0047AB]/90 h-11"
+                disabled={isLoading || !isFormValid}
+                className="w-full bg-[#0047AB] hover:bg-[#0047AB]/90 h-11 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">

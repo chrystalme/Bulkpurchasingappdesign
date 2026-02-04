@@ -1,60 +1,132 @@
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ArrowLeft, Package, CreditCard, Truck, CheckCircle, MapPin } from 'lucide-react';
 import type { Screen } from '../../App';
+import { apiClient } from '../../lib/api';
+import type { Order } from '../../lib/types';
+import { ErrorState } from '../ui/ErrorState';
+import { DetailLoadingState } from '../ui/LoadingState';
 
 interface OrderTrackingProps {
   navigate: (screen: Screen) => void;
 }
 
 export function OrderTracking({ navigate }: OrderTrackingProps) {
-  const order = {
-    id: 'ORD-001',
-    status: 'shipped',
-    items: [
-      { name: 'Premium Organic Rice (25kg)', quantity: 12 },
-      { name: 'Olive Oil Extra Virgin (5L)', quantity: 8 },
-    ],
-    total: 194.96,
-    ordered: '2025-10-28',
-    paid: '2025-10-28',
-    shipped: '2025-11-01',
-    estimatedDelivery: '2025-11-05',
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadOrder();
+  }, []);
+
+  const loadOrder = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await apiClient.orders.getAll();
+      if (response.data && response.data.length > 0) {
+        setOrder(response.data[0]);
+      } else {
+        setError('No orders found');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load order');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5]">
+        <div className="bg-white border-b border-gray-200 p-4 lg:p-6 sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('group-detail')}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex-1">
+              <h3>Order Tracking</h3>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 lg:p-6">
+          <div className="max-w-3xl mx-auto">
+            <DetailLoadingState />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5]">
+        <div className="bg-white border-b border-gray-200 p-4 lg:p-6 sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('group-detail')}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex-1">
+              <h3>Order Tracking</h3>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 lg:p-6">
+          <div className="max-w-3xl mx-auto">
+            <ErrorState
+              title="Order not found"
+              description={error || 'Unable to load order details'}
+              onRetry={loadOrder}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const statusSteps = [
     {
-      id: 'ordered',
+      id: 'pending',
       label: 'Ordered',
       icon: Package,
-      completed: true,
-      date: order.ordered,
+      completed: order.status !== 'pending',
+      date: order.created_at,
     },
     {
-      id: 'paid',
+      id: 'confirmed',
       label: 'Payment Confirmed',
       icon: CreditCard,
-      completed: true,
-      date: order.paid,
+      completed: ['confirmed', 'shipped', 'delivered'].includes(order.status),
+      date: order.created_at,
     },
     {
       id: 'shipped',
       label: 'Shipped',
       icon: Truck,
-      completed: true,
-      date: order.shipped,
+      completed: ['shipped', 'delivered'].includes(order.status),
+      date: order.created_at,
     },
     {
       id: 'delivered',
       label: 'Delivered',
       icon: CheckCircle,
-      completed: false,
-      date: order.estimatedDelivery,
+      completed: order.status === 'delivered',
+      date: order.created_at,
     },
   ];
 
-  const currentStepIndex = statusSteps.findIndex(step => step.id === order.status);
+  const currentStepIndex = statusSteps.findIndex(step => step.id === order.status) || 0;
 
   return (
     <div className="min-h-screen bg-[#F4F4F5]">
@@ -189,7 +261,7 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
                       <Package className="w-6 h-6 text-gray-400" />
                     </div>
                     <div>
-                      <h5 className="text-sm">{item.name}</h5>
+                      <h5 className="text-sm">{item.product_name || 'Product'}</h5>
                       <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Search, Package, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -6,15 +6,74 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Screen } from '../../App';
-import { mockVendorOrders } from '../../lib/mockData';
+import { apiClient } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { LoadingState } from '../ui/LoadingState';
+import { ErrorState } from '../ui/ErrorState';
+import type { VendorOrder } from '../../lib/types';
 
 interface VendorOrdersProps {
   navigate: (screen: Screen) => void;
 }
 
 export function VendorOrders({ navigate }: VendorOrdersProps) {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [allOrders, setAllOrders] = useState<VendorOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const vendorId = Number(user?.vendorId);
+        if (!vendorId) {
+          setError('Vendor ID not found');
+          return;
+        }
+        const response = await apiClient.vendors.getOrders(vendorId);
+        if (response.success && response.data) {
+          setAllOrders(response.data);
+        } else {
+          setError(response.error || 'Failed to load orders');
+        }
+      } catch (err) {
+        setError((err as Error).message || 'Failed to load orders');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOrders();
+  }, [user?.vendorId]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    const vendorId = Number(user?.vendorId);
+    if (!vendorId) {
+      setError('Vendor ID not found');
+      setLoading(false);
+      return;
+    }
+    apiClient.vendors.getOrders(vendorId)
+      .then(response => {
+        if (response.success && response.data) {
+          setAllOrders(response.data);
+        } else {
+          setError(response.error || 'Failed to load orders');
+        }
+      })
+      .catch(err => {
+        setError((err as Error).message || 'Failed to load orders');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -28,7 +87,7 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
   };
 
   const filterOrders = (status: string) => {
-    let filtered = mockVendorOrders;
+    let filtered = allOrders;
     if (status !== 'all') {
       filtered = filtered.filter(order => order.status === status);
     }
@@ -43,7 +102,54 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
   };
 
   const orders = filterOrders(activeTab);
-  const pendingCount = mockVendorOrders.filter(o => o.status === 'pending').length;
+  const pendingCount = allOrders.filter(o => o.status === 'pending').length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] pb-6">
+        <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={() => navigate('vendor-dashboard')} className="p-1">
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <div className="flex-1">
+              <h1 className="font-semibold text-gray-900">Orders</h1>
+              <p className="text-xs text-gray-500">Loading...</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4">
+          <LoadingState count={3} />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] pb-6">
+        <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <button onClick={() => navigate('vendor-dashboard')} className="p-1">
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <div className="flex-1">
+              <h1 className="font-semibold text-gray-900">Orders</h1>
+              <p className="text-xs text-gray-500">{allOrders.length} total orders</p>
+            </div>
+          </div>
+        </div>
+        <div className="p-4">
+          <ErrorState
+            title="Failed to load orders"
+            description={error}
+            onRetry={handleRetry}
+            showRetry={true}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F4F5] pb-6">
@@ -55,7 +161,7 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
           </button>
           <div className="flex-1">
             <h1 className="font-semibold text-gray-900">Orders</h1>
-            <p className="text-xs text-gray-500">{mockVendorOrders.length} total orders</p>
+            <p className="text-xs text-gray-500">{allOrders.length} total orders</p>
           </div>
           {pendingCount > 0 && (
             <Badge className="bg-[#FACC15]/10 text-[#FACC15] border-[#FACC15]/20">

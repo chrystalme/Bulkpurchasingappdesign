@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchGroups } from '../../store/slices/groupsSlice';
 import { Card, CardContent, CardHeader } from '../ui/card';
@@ -7,10 +7,13 @@ import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
 import { Plus, ChevronRight, Star, MapPin, TrendingDown, Users, Shield, Package, MessageCircle, Loader2 } from 'lucide-react';
-import { mockVendors, mockProducts, mockEscrowTransactions } from '../../lib/mockData';
 import type { Screen } from '../../App';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiClient } from '../../lib/api';
+import { LoadingState } from '../ui/LoadingState';
+import { ErrorState } from '../ui/ErrorState';
+import type { Product, Vendor, EscrowTransaction } from '../../lib/types';
 
 interface HomeProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -19,14 +22,50 @@ interface HomeProps {
 export function Home({ navigate }: HomeProps) {
   const { user } = useAuth();
   const dispatch = useAppDispatch();
-  const { groups = [], loading } = useAppSelector((state) => state.groups);
+  const { groups = [], loading: groupsLoading } = useAppSelector((state) => state.groups);
+  
+  const [products, setProducts] = useState<Product[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [escrowTransactions, setEscrowTransactions] = useState<EscrowTransaction[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     dispatch(fetchGroups());
   }, [dispatch]);
 
-  const popularDeals = mockProducts.slice(0, 3);
-  const activeEscrowTransactions = mockEscrowTransactions.filter(
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoadingProducts(true);
+        setError(null);
+        const [productsRes, vendorsRes, escrowRes] = await Promise.all([
+          apiClient.products.getAll(),
+          apiClient.vendors.getAll(),
+          apiClient.escrow.getTransactions('all'),
+        ]);
+        
+        if (productsRes.success && productsRes.data) {
+          setProducts(productsRes.data);
+        }
+        if (vendorsRes.success && vendorsRes.data) {
+          setVendors(vendorsRes.data);
+        }
+        if (escrowRes.success && escrowRes.data) {
+          setEscrowTransactions(escrowRes.data);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const popularDeals = products.slice(0, 3);
+  const activeEscrowTransactions = escrowTransactions.filter(
     t => t.status === 'pending_inspection' || t.status === 'locked'
   );
 
@@ -251,7 +290,7 @@ export function Home({ navigate }: HomeProps) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {loading && groups.length === 0 ? (
+          {groupsLoading && groups.length === 0 ? (
             <div className="flex items-center justify-center py-8 col-span-2">
               <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
               <p className="text-gray-500 ml-2">Loading groups...</p>
@@ -330,36 +369,46 @@ export function Home({ navigate }: HomeProps) {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-          {popularDeals.map((product) => (
-            <Card
-              key={product.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => navigate('products')}
-            >
-              <CardContent className="p-3">
-                <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 overflow-hidden">
-                  <ImageWithFallback
-                    src={`https://images.unsplash.com/photo-1633536706496-873ce0d46277?w=400&h=300&fit=crop`}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <h5 className="mb-2 line-clamp-2">{product.name}</h5>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-[#0047AB]">₦{product.bulkPrice}</span>
-                  <span className="text-gray-400 line-through text-sm">₦{product.retailPrice}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <Badge variant="secondary" className="bg-[#FACC15]/20 text-[#0047AB]">
-                    Save {Math.round(((product.retailPrice - product.bulkPrice) / product.retailPrice) * 100)}%
-                  </Badge>
-                  <span className="text-gray-500">MOQ: {product.moq}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {loadingProducts ? (
+          <LoadingState count={3} />
+        ) : error ? (
+          <ErrorState 
+            title="Failed to load deals"
+            description={error}
+            showRetry={false}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+            {popularDeals.map((product) => (
+              <Card
+                key={product.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => navigate('products')}
+              >
+                <CardContent className="p-3">
+                  <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 overflow-hidden">
+                    <ImageWithFallback
+                      src={`https://images.unsplash.com/photo-1633536706496-873ce0d46277?w=400&h=300&fit=crop`}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <h5 className="mb-2 line-clamp-2">{product.name}</h5>
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-[#0047AB]">₦{product.bulkPrice}</span>
+                    <span className="text-gray-400 line-through text-sm">₦{product.retailPrice}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <Badge variant="secondary" className="bg-[#FACC15]/20 text-[#0047AB]">
+                      Save {Math.round(((product.retailPrice - product.bulkPrice) / product.retailPrice) * 100)}%
+                    </Badge>
+                    <span className="text-gray-500">MOQ: {product.moq}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Vendors Near You */}
@@ -369,40 +418,54 @@ export function Home({ navigate }: HomeProps) {
           <ChevronRight className="w-5 h-5 text-gray-400" />
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {mockVendors.map((vendor) => (
-            <Card
-              key={vendor.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-            >
-              <CardContent className="p-3">
-                <div className="w-full h-24 bg-gradient-to-br from-[#0047AB]/10 to-[#6EE7B7]/10 rounded-lg mb-3 flex items-center justify-center">
-                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm">
-                    <ImageWithFallback
-                      src={vendor.image}
-                      alt={vendor.name}
-                      className="w-12 h-12 rounded-full"
-                    />
+        {loadingProducts ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-3">
+                  <div className="w-full h-24 bg-gray-200 rounded-lg mb-3 animate-pulse" />
+                  <div className="h-4 bg-gray-200 rounded mb-2 animate-pulse" />
+                  <div className="h-3 bg-gray-200 rounded animate-pulse" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {vendors.map((vendor) => (
+              <Card
+                key={vendor.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+              >
+                <CardContent className="p-3">
+                  <div className="w-full h-24 bg-gradient-to-br from-[#0047AB]/10 to-[#6EE7B7]/10 rounded-lg mb-3 flex items-center justify-center">
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm">
+                      <ImageWithFallback
+                        src={vendor.image || 'https://via.placeholder.com/48'}
+                        alt={vendor.name}
+                        className="w-12 h-12 rounded-full"
+                      />
+                    </div>
                   </div>
-                </div>
-                <h5 className="mb-1">{vendor.name}</h5>
-                <div className="flex items-center gap-1 mb-1">
-                  <Star className="w-3 h-3 fill-[#FACC15] text-[#FACC15]" />
-                  <span className="text-sm">{vendor.rating}</span>
-                  {vendor.verified && (
-                    <Badge variant="secondary" className="ml-auto text-xs bg-[#6EE7B7]/20">
-                      Verified
-                    </Badge>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 text-gray-500 text-sm">
-                  <MapPin className="w-3 h-3" />
-                  <span>{vendor.location}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  <h5 className="mb-1">{vendor.name}</h5>
+                  <div className="flex items-center gap-1 mb-1">
+                    <Star className="w-3 h-3 fill-[#FACC15] text-[#FACC15]" />
+                    <span className="text-sm">{vendor.rating}</span>
+                    {vendor.is_verified && (
+                      <Badge variant="secondary" className="ml-auto text-xs bg-[#6EE7B7]/20">
+                        Verified
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-500 text-sm">
+                    <MapPin className="w-3 h-3" />
+                    <span>{vendor.location || 'Unknown'}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
