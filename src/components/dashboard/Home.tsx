@@ -1,10 +1,13 @@
+import { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchGroups } from '../../store/slices/groupsSlice';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
-import { Plus, ChevronRight, Star, MapPin, TrendingDown, Users, Shield, Package, MessageCircle } from 'lucide-react';
-import { mockGroups, mockVendors, mockProducts, mockEscrowTransactions } from '../../lib/mockData';
+import { Plus, ChevronRight, Star, MapPin, TrendingDown, Users, Shield, Package, MessageCircle, Loader2 } from 'lucide-react';
+import { mockVendors, mockProducts, mockEscrowTransactions } from '../../lib/mockData';
 import type { Screen } from '../../App';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,17 +18,26 @@ interface HomeProps {
 
 export function Home({ navigate }: HomeProps) {
   const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const { groups = [], loading } = useAppSelector((state) => state.groups);
+  
+  useEffect(() => {
+    dispatch(fetchGroups());
+  }, [dispatch]);
+
   const popularDeals = mockProducts.slice(0, 3);
   const activeEscrowTransactions = mockEscrowTransactions.filter(
     t => t.status === 'pending_inspection' || t.status === 'locked'
   );
 
-  // Mock user stats (in a real app, these would come from backend)
+  // Compute user stats from Redux
   const userStats = {
-    groups: 3,
+    groups: groups.length,
     saved: 24000,
     rating: 4.8,
   };
+
+  const userGroups = groups.slice(0, 2);
 
   return (
     <div className="pb-4">
@@ -239,53 +251,67 @@ export function Home({ navigate }: HomeProps) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {mockGroups.slice(0, 2).map((group) => (
-            <Card
-              key={group.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => navigate('group-detail', group.id)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4>{group.name}</h4>
-                      <Badge
-                        variant={group.status === 'active' ? 'default' : 'secondary'}
-                        className={group.status === 'active' ? 'bg-[#6EE7B7]' : ''}
-                      >
-                        {group.status}
-                      </Badge>
+          {loading && groups.length === 0 ? (
+            <div className="flex items-center justify-center py-8 col-span-2">
+              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              <p className="text-gray-500 ml-2">Loading groups...</p>
+            </div>
+          ) : userGroups.length === 0 ? (
+            <div className="col-span-2 text-center py-8">
+              <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-600 mb-3">No groups yet</p>
+              <Button onClick={() => navigate('create-group')} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Your First Group
+              </Button>
+            </div>
+          ) : (
+            userGroups.map((group) => (
+              <Card
+                key={group.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => navigate('group-detail', group.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4>{group.name}</h4>
+                        <Badge
+                          variant={group.status === 'active' ? 'default' : 'secondary'}
+                          className={group.status === 'active' ? 'bg-[#6EE7B7]' : ''}
+                        >
+                          {group.status}
+                        </Badge>
+                      </div>
+                      <p className="text-gray-500 text-sm">{group.description}</p>
                     </div>
-                    <p className="text-gray-500 text-sm">{group.description}</p>
+                    <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                </div>
 
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex -space-x-2">
-                    {group.members.slice(0, 3).map((member) => (
-                      <Avatar key={member.id} className="h-6 w-6 border-2 border-white">
-                        <AvatarImage src={member.avatar} />
-                        <AvatarFallback>{member.name[0]}</AvatarFallback>
-                      </Avatar>
-                    ))}
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm text-gray-600">
+                      {group.member_count} members
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-600">
-                    {group.members.length} members
-                  </span>
-                </div>
 
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">MOQ Progress</span>
-                    <span className="text-[#0047AB]">{group.progress}%</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">MOQ Progress</span>
+                      <span className="text-[#0047AB]">
+                        {Math.round((group.current_quantity / group.moq_target) * 100)}%
+                      </span>
+                    </div>
+                    <Progress 
+                      value={(group.current_quantity / group.moq_target) * 100} 
+                      className="h-2" 
+                    />
                   </div>
-                  <Progress value={group.progress} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
 

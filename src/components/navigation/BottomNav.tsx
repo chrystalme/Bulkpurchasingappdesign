@@ -9,7 +9,7 @@ interface BottomNavProps {
 export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
   const navItems = [
     { id: 'home' as Screen, icon: Home, label: 'Home' },
-    { id: 'group-detail' as Screen, icon: Users, label: 'Groups' },
+    { id: 'groups' as Screen, icon: Users, label: 'Groups' },
     { id: 'cart' as Screen, icon: ShoppingCart, label: 'Cart' },
     { id: 'chat-dashboard' as Screen, icon: MessageCircle, label: 'Chat' },
     { id: 'profile' as Screen, icon: User, label: 'Profile' },

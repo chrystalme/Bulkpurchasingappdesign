@@ -6,6 +6,7 @@ import { Signup } from './components/auth/Signup';
 import { Home } from './components/dashboard/Home';
 import { GroupCreate } from './components/groups/GroupCreate';
 import { GroupDetailNew } from './components/groups/GroupDetailNew';
+import { GroupsBrowse } from './components/groups/GroupsBrowse';
 import { ProductCatalog } from './components/products/ProductCatalog';
 import { GroupCart } from './components/products/GroupCart';
 import { VendorChat } from './components/chat/VendorChat';
@@ -37,6 +38,7 @@ export type Screen =
   | 'login'
   | 'signup'
   | 'home'
+  | 'groups'
   | 'group-create'
   | 'group-detail'
   | 'products'
@@ -166,6 +168,8 @@ function AppContent() {
         return <Home navigate={navigate} />;
       case 'home':
         return <Home navigate={navigate} />;
+      case 'groups':
+        return <GroupsBrowse navigate={navigate} />;
       case 'group-create':
         return <GroupCreate navigate={navigate} />;
       case 'group-detail':

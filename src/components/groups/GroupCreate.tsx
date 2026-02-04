@@ -1,44 +1,65 @@
 import { useState } from 'react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { createGroup, clearError } from '../../store/slices/groupsSlice';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { ArrowLeft, Plus, X, Copy, Check } from 'lucide-react';
+import { ArrowLeft, Copy, Check, AlertCircle, Loader2 } from 'lucide-react';
 import type { Screen } from '../../App';
-import { mockMembers } from '../../lib/mockData';
 
 interface GroupCreateProps {
   navigate: (screen: Screen) => void;
 }
 
 export function GroupCreate({ navigate }: GroupCreateProps) {
+  const dispatch = useAppDispatch();
+  const { loading, error } = useAppSelector((state) => state.groups);
+  
   const [groupName, setGroupName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [joinCode] = useState(`GRP${Math.random().toString(36).substr(2, 6).toUpperCase()}`);
+  const [moqTarget, setMoqTarget] = useState<number | ''>(10);
   const [copied, setCopied] = useState(false);
+  const [joinCode, setJoinCode] = useState<string | null>(null);
 
-  const availableMembers = mockMembers.filter(m => !selectedMembers.includes(m.id));
+  const isFormValid = groupName.trim().length >= 2 && description.trim().length > 0 && moqTarget > 0;
 
-  const handleAddMember = (memberId: string) => {
-    setSelectedMembers([...selectedMembers, memberId]);
-  };
+  const handleCreateGroup = async () => {
+    if (!isFormValid) return;
 
-  const handleRemoveMember = (memberId: string) => {
-    setSelectedMembers(selectedMembers.filter(id => id !== memberId));
+    try {
+      const result = await dispatch(
+        createGroup({
+          name: groupName,
+          description,
+          moq_target: Number(moqTarget),
+        })
+      ).unwrap();
+
+      // Store join code and show success state
+      setJoinCode(result.join_code);
+      
+      // Navigate to group detail after brief delay
+      setTimeout(() => {
+        navigate('group-detail', result.id);
+      }, 1500);
+    } catch (err) {
+      console.error('Failed to create group:', err);
+    }
   };
 
   const handleCopyJoinCode = () => {
-    navigator.clipboard.writeText(joinCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (joinCode) {
+      navigator.clipboard.writeText(joinCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  const handleCreateGroup = () => {
-    // In a real app, this would save the group
-    navigate('group-detail', '1');
+  const handleClose = () => {
+    dispatch(clearError());
+    navigate('home');
   };
 
   return (
@@ -49,7 +70,8 @@ export function GroupCreate({ navigate }: GroupCreateProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('home')}
+            onClick={handleClose}
+            disabled={loading}
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -59,132 +81,123 @@ export function GroupCreate({ navigate }: GroupCreateProps) {
 
       <div className="p-4 lg:p-6">
         <div className="max-w-2xl mx-auto space-y-4">
-        {/* Group Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Group Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="groupName">Group Name</Label>
-              <Input
-                id="groupName"
-                placeholder="e.g., Office Supplies Squad"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="What will this group buy together?"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Join Code</Label>
-              <div className="flex gap-2">
-                <Input value={joinCode} readOnly className="bg-gray-50" />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopyJoinCode}
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-[#6EE7B7]" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
-              <p className="text-sm text-gray-500">
-                Share this code with friends to let them join
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Add Members */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Add Members</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {selectedMembers.length > 0 && (
-              <div className="space-y-2">
-                <Label>Selected Members</Label>
-                <div className="flex flex-wrap gap-2">
-                  {selectedMembers.map(memberId => {
-                    const member = mockMembers.find(m => m.id === memberId);
-                    if (!member) return null;
-                    return (
-                      <div
-                        key={member.id}
-                        className="flex items-center gap-2 bg-[#6EE7B7]/20 rounded-full pl-1 pr-3 py-1"
-                      >
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={member.avatar} />
-                          <AvatarFallback>{member.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">{member.name}</span>
-                        <button
-                          onClick={() => handleRemoveMember(member.id)}
-                          className="ml-1"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    );
-                  })}
+          {/* Error Alert */}
+          {error && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="p-4 flex gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-red-900">Error creating group</p>
+                  <p className="text-sm text-red-800">{error}</p>
                 </div>
-              </div>
-            )}
+              </CardContent>
+            </Card>
+          )}
 
-            {availableMembers.length > 0 && (
+          {/* Group Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Group Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Suggested Contacts</Label>
-                <div className="space-y-2">
-                  {availableMembers.map(member => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={member.avatar} />
-                          <AvatarFallback>{member.name[0]}</AvatarFallback>
-                        </Avatar>
-                        <span>{member.name}</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddMember(member.id)}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                <Label htmlFor="groupName">Group Name *</Label>
+                <Input
+                  id="groupName"
+                  placeholder="e.g., Office Supplies Squad"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  disabled={loading}
+                  minLength={2}
+                  maxLength={255}
+                />
+                {groupName.length > 0 && groupName.length < 2 && (
+                  <p className="text-xs text-red-600">Name must be at least 2 characters</p>
+                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Create Button */}
-        <Button
-          className="w-full bg-[#0047AB] hover:bg-[#0047AB]/90"
-          size="lg"
-          onClick={handleCreateGroup}
-          disabled={!groupName || !description}
-        >
-          Create Group
-        </Button>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description *</Label>
+                <Textarea
+                  id="description"
+                  placeholder="What will this group buy together?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  disabled={loading}
+                  rows={3}
+                  maxLength={1000}
+                />
+                <p className="text-xs text-gray-500">{description.length}/1000</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="moqTarget">Minimum Order Quantity (MOQ) *</Label>
+                <Input
+                  id="moqTarget"
+                  type="number"
+                  placeholder="e.g., 100"
+                  value={moqTarget}
+                  onChange={(e) => setMoqTarget(e.target.value === '' ? '' : parseInt(e.target.value))}
+                  disabled={loading}
+                  min="1"
+                />
+                {moqTarget === '' ? (
+                  <p className="text-xs text-red-600">MOQ is required</p>
+                ) : moqTarget < 1 ? (
+                  <p className="text-xs text-red-600">MOQ must be at least 1</p>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Join Code Display (after creation) */}
+          {joinCode && (
+            <Card className="border-green-200 bg-green-50">
+              <CardHeader>
+                <CardTitle className="text-green-900">Group Created! 🎉</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-green-800">
+                  Share this code with friends to let them join your group.
+                </p>
+                <div className="flex gap-2">
+                  <Input 
+                    value={joinCode} 
+                    readOnly 
+                    className="bg-white" 
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyJoinCode}
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Create Button */}
+          <Button
+            className="w-full bg-[#0047AB] hover:bg-[#0047AB]/90 disabled:opacity-50"
+            size="lg"
+            onClick={handleCreateGroup}
+            disabled={!isFormValid || loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Creating Group...
+              </>
+            ) : (
+              'Create Group'
+            )}
+          </Button>
         </div>
       </div>
     </div>

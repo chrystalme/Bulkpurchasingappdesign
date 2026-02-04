@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { fetchGroupById, addMember, removeMember, updateMemberRole } from '../../store/slices/groupsSlice';
+import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { ArrowLeft, Copy, Share2, Users, ShoppingCart, MessageCircle, Package, Store, Info } from 'lucide-react';
+import { ArrowLeft, Copy, Share2, Users, ShoppingCart, MessageCircle, Package, Store, Info, Loader2, AlertCircle } from 'lucide-react';
 import type { Screen } from '../../App';
-import { mockGroups } from '../../lib/mockData';
 import { 
   getConversationById, 
   groupConversations, 
@@ -15,6 +17,14 @@ import {
   type Conversation 
 } from '../../lib/chatMockData';
 import { ChatWindow } from '../chat/ChatWindow';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 
 interface GroupDetailProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -22,19 +32,78 @@ interface GroupDetailProps {
 }
 
 export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
-  const group = mockGroups.find(g => g.id === (groupId || '1')) || mockGroups[0];
+  const dispatch = useAppDispatch();
+  const { currentGroup, loading } = useAppSelector((state) => state.groups);
+  const { user } = useAuth();
+  
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedChat, setSelectedChat] = useState<Conversation | null>(null);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  const [memberEmail, setMemberEmail] = useState('');
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
-  // Find conversations for this group
-  const groupInternalChat = groupConversations.find(c => c.groupId === group.id);
-  const groupVendorChats = vendorConversations.filter(c => c.groupId === group.id);
+  // Fetch group details on mount or when groupId changes
+  useEffect(() => {
+    if (groupId) {
+      dispatch(fetchGroupById(groupId));
+    }
+  }, [groupId, dispatch]);
 
-  // Mock orders for this group
-  const orders = [
-    { id: '1', product: 'Premium Organic Rice (25kg)', status: 'In Progress', amount: 45.99 },
-    { id: '2', product: 'Olive Oil Extra Virgin (5L)', status: 'Pending', amount: 38.99 },
-  ];
+  const handleAddMember = async () => {
+    if (!currentGroup || !memberEmail.trim()) return;
+
+    try {
+      setIsAddingMember(true);
+      await dispatch(
+        addMember({
+          groupId: currentGroup.id,
+          memberData: { email: memberEmail },
+        })
+      ).unwrap();
+      setMemberEmail('');
+      setShowAddMemberDialog(false);
+    } catch (err) {
+      console.error('Failed to add member:', err);
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!currentGroup) return;
+
+    if (!window.confirm('Are you sure you want to remove this member?')) return;
+
+    try {
+      await dispatch(
+        removeMember({
+          groupId: currentGroup.id,
+          memberId,
+        })
+      ).unwrap();
+    } catch (err) {
+      console.error('Failed to remove member:', err);
+    }
+  };
+
+  const handleUpdateRole = async (memberId: string, newRole: 'admin' | 'member') => {
+    if (!currentGroup) return;
+
+    try {
+      await dispatch(
+        updateMemberRole({
+          groupId: currentGroup.id,
+          memberId,
+          roleData: { role: newRole },
+        })
+      ).unwrap();
+    } catch (err) {
+      console.error('Failed to update role:', err);
+    }
+  };
+
+  const isAdmin = currentGroup?.user_role === 'admin';
+  const moqProgress = currentGroup ? (currentGroup.current_quantity / currentGroup.moq_target) * 100 : 0;
 
   // If a chat is selected, show full chat window
   if (selectedChat) {
@@ -45,6 +114,43 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
       />
     );
   }
+
+  // Loading state
+  if (loading && !currentGroup) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-[#0047AB]" />
+          <p className="text-gray-600">Loading group...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentGroup) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5] flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <p className="font-medium text-gray-900 mb-2">Group not found</p>
+            <p className="text-sm text-gray-600 mb-4">The group you're looking for doesn't exist or you don't have access to it.</p>
+            <Button onClick={() => navigate('home')}>Go back to home</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Mock orders for this group
+  const orders = [
+    { id: '1', product: 'Premium Organic Rice (25kg)', status: 'In Progress', amount: 45.99 },
+    { id: '2', product: 'Olive Oil Extra Virgin (5L)', status: 'Pending', amount: 38.99 },
+  ];
+
+  // Find conversations for this group
+  const groupInternalChat = groupConversations.find(c => c.groupId === currentGroup.id);
+  const groupVendorChats = vendorConversations.filter(c => c.groupId === currentGroup.id);
 
   return (
     <div className="min-h-screen bg-[#F4F4F5] pb-20">
@@ -59,7 +165,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h3 className="text-white flex-1">{group.name}</h3>
+          <h3 className="text-white flex-1">{currentGroup.name}</h3>
           <Button
             variant="ghost"
             size="icon"
@@ -73,35 +179,35 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex -space-x-2">
-                {group.members.slice(0, 5).map((member) => (
+                {currentGroup.members.slice(0, 5).map((member) => (
                   <Avatar key={member.id} className="h-8 w-8 border-2 border-white">
                     <AvatarImage src={member.avatar} />
                     <AvatarFallback>{member.name[0]}</AvatarFallback>
                   </Avatar>
                 ))}
-                {group.members.length > 5 && (
+                {currentGroup.members.length > 5 && (
                   <div className="h-8 w-8 rounded-full bg-white/20 border-2 border-white flex items-center justify-center">
-                    <span className="text-xs text-white">+{group.members.length - 5}</span>
+                    <span className="text-xs text-white">+{currentGroup.members.length - 5}</span>
                   </div>
                 )}
               </div>
               <Badge className="bg-white/20 text-white border-white/30">
-                {group.members.length} members
+                {currentGroup.members.length} members
               </Badge>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-white">
                 <span>MOQ Progress</span>
-                <span>{group.currentQuantity}/{group.moqTarget} units</span>
+                <span>{currentGroup.current_quantity}/{currentGroup.moq_target} units</span>
               </div>
-              <Progress value={group.progress} className="h-2 bg-white/20" />
+              <Progress value={moqProgress} className="h-2 bg-white/20" />
             </div>
 
             <div className="flex items-center gap-2 mt-3">
               <div className="flex-1 bg-white/10 rounded-lg p-2 flex items-center gap-2">
                 <Copy className="w-4 h-4 text-white" />
-                <span className="text-white text-sm">{group.joinCode}</span>
+                <span className="text-white text-sm">{currentGroup.join_code}</span>
               </div>
               <Button size="sm" className="bg-[#FACC15] text-[#0047AB] hover:bg-[#FACC15]/90">
                 Invite
@@ -116,7 +222,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
         <Button
           variant="outline"
           className="flex flex-col items-center gap-2 h-auto py-3"
-          onClick={() => navigate('products', group.id)}
+          onClick={() => navigate('products', currentGroup.id)}
         >
           <ShoppingCart className="w-5 h-5 text-[#0047AB]" />
           <span className="text-xs">Add Items</span>
@@ -124,7 +230,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
         <Button
           variant="outline"
           className="flex flex-col items-center gap-2 h-auto py-3"
-          onClick={() => navigate('cart', group.id)}
+          onClick={() => navigate('cart', currentGroup.id)}
         >
           <Package className="w-5 h-5 text-[#0047AB]" />
           <span className="text-xs">View Cart</span>
@@ -182,13 +288,13 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
               <CardContent className="p-4">
                 <h4 className="font-semibold mb-2">About This Group</h4>
                 <p className="text-sm text-gray-600 mb-4">
-                  {group.description}
+                  {currentGroup.description}
                 </p>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Status</span>
                     <Badge className="bg-[#6EE7B7] text-gray-900">
-                      {group.status}
+                      {currentGroup.status}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
@@ -247,7 +353,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                       <div>
                         <h4 className="font-semibold">Group Chat</h4>
                         <p className="text-xs text-gray-500">
-                          {group.members.length} members
+                          {currentGroup.members.length} members
                         </p>
                       </div>
                     </div>
@@ -377,7 +483,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                     </p>
                     <Button
                       className="mt-4"
-                      onClick={() => navigate('products', group.id)}
+                      onClick={() => navigate('products', currentGroup.id)}
                     >
                       Browse Products
                     </Button>
@@ -389,7 +495,14 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
 
           {/* Members Tab */}
           <TabsContent value="members" className="mt-4 space-y-3">
-            {group.members.map((member) => (
+            {isAdmin && (
+              <Button onClick={() => setShowAddMemberDialog(true)} className="w-full">
+                <Users className="w-4 h-4 mr-2" />
+                Add Member
+              </Button>
+            )}
+
+            {currentGroup.members.map((member) => (
               <Card key={member.id}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -398,18 +511,95 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                       <AvatarFallback>{member.name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
-                      <h5>{member.name}</h5>
-                      <p className="text-sm text-gray-500">Member</p>
+                      <div className="flex items-center gap-2">
+                        <h5>{member.name}</h5>
+                        {member.role === 'admin' && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Admin
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500">{member.email}</p>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <MessageCircle className="w-4 h-4" />
-                    </Button>
+
+                    {isAdmin && member.user_id !== user?.id && (
+                      <div className="flex gap-2">
+                        {member.role !== 'admin' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleUpdateRole(member.id, 'admin')}
+                            title="Promote to admin"
+                          >
+                            <Shield className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="text-red-600 hover:text-red-700"
+                          title="Remove member"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {user?.id !== member.user_id && (
+                      <Button variant="ghost" size="sm">
+                        <MessageCircle className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             ))}
           </TabsContent>
         </Tabs>
+
+        {/* Add Member Dialog */}
+        <Dialog open={showAddMemberDialog} onOpenChange={setShowAddMemberDialog}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add Member to Group</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="member@example.com"
+                  value={memberEmail}
+                  onChange={(e) => setMemberEmail(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowAddMemberDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddMember}
+                disabled={isAddingMember || !memberEmail.trim()}
+              >
+                {isAddingMember ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  'Add Member'
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

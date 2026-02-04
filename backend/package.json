@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "docker-compose up -d && nodemon server.js",
+    "dev": "nodemon server.js",
     "migrate": "node db/migrate.js",
     "seed": "node db/seed.js",
     "reset": "node db/reset.js"
