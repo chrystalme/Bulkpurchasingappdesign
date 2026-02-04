@@ -61,7 +61,6 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
   const handleSendMessage = () => {
     if (!inputValue.trim() || !canSendMessages) return;
 
-    console.log('Sending message:', inputValue);
     sendMessage(inputValue);
     setInputValue('');
 

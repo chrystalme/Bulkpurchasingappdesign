@@ -1,18 +1,156 @@
-import type {
-  Product,
-  Group,
-  Member,
-  CartItem,
-  Order,
-  EscrowTransaction,
-  Evidence,
-  Dispute,
-  TrustScore,
-  Vendor,
-  VendorStats,
-  VendorOrder,
-  VendorCustomer
-} from './types';
+export interface Product {
+  id: string;
+  name: string;
+  image: string;
+  bulkPrice: number;
+  retailPrice: number;
+  moq: number;
+  vendorId: string;
+  vendorName: string;
+  vendorRating: number;
+  category: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description: string;
+  members: Member[];
+  joinCode: string;
+  progress: number;
+  moqTarget: number;
+  currentQuantity: number;
+  status: 'active' | 'pending' | 'completed';
+}
+
+export interface Member {
+  id: string;
+  name: string;
+  avatar: string;
+}
+
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
+  memberAllocations: { memberId: string; quantity: number }[];
+}
+
+export interface Order {
+  id: string;
+  groupId: string;
+  status: 'ordered' | 'paid' | 'shipped' | 'delivered';
+  items: CartItem[];
+  total: number;
+  createdAt: string;
+  estimatedDelivery: string;
+}
+
+// Escrow System Interfaces
+export interface EscrowTransaction {
+  id: string;
+  orderId: string;
+  buyerId: string;
+  sellerId: string;
+  amount: number;
+  escrowFee: number;
+  status: 'locked' | 'pending_inspection' | 'released' | 'disputed' | 'refunded';
+  createdAt: string;
+  paidAt?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  inspectionDeadline?: string;
+  autoReleaseAt?: string;
+  releasedAt?: string;
+  productName: string;
+  sellerName: string;
+  sellerVerified: boolean;
+  trackingId?: string;
+  courier?: string;
+}
+
+export interface Evidence {
+  id: string;
+  transactionId: string;
+  uploadedBy: 'buyer' | 'seller';
+  type: 'photo' | 'video' | 'document';
+  url: string;
+  description: string;
+  timestamp: string;
+}
+
+export interface Dispute {
+  id: string;
+  transactionId: string;
+  reason: 'wrong_quantity' | 'damaged' | 'not_as_described' | 'not_received';
+  buyerEvidence: Evidence[];
+  sellerEvidence: Evidence[];
+  status: 'open' | 'under_review' | 'resolved';
+  resolution?: 'refund_buyer' | 'release_seller' | 'partial_split';
+  createdAt: string;
+  resolvedAt?: string;
+  adminNotes?: string;
+}
+
+export interface TrustScore {
+  userId: string;
+  score: number;
+  completedTransactions: number;
+  totalTransactions: number;
+  disputeRate: number;
+  buyerRating: number;
+  sellerRating: number;
+  verifications: {
+    idVerified: boolean;
+    businessVerified: boolean;
+    emailVerified: boolean;
+    phoneVerified: boolean;
+  };
+}
+
+export interface Vendor {
+  id: string;
+  name: string;
+  rating: number;
+  location: string;
+  image: string;
+  verified: boolean;
+}
+
+// Vendor Dashboard Interfaces
+export interface VendorStats {
+  totalRevenue: number;
+  monthlyRevenue: number;
+  totalOrders: number;
+  pendingOrders: number;
+  totalProducts: number;
+  totalCustomers: number;
+  averageRating: number;
+  totalReviews: number;
+}
+
+export interface VendorOrder {
+  id: string;
+  productId: string;
+  productName: string;
+  customerName: string;
+  quantity: number;
+  totalAmount: number;
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  orderDate: string;
+  escrowStatus?: 'locked' | 'pending_inspection' | 'released';
+}
+
+export interface VendorCustomer {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderDate: string;
+  trustScore: number;
+}
 
 export const mockMembers: Member[] = [
   { id: '1', name: 'Afam', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Afam' },

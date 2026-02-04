@@ -4,14 +4,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
-import {
-  Eye,
-  EyeOff,
-  ShoppingBag,
-  Lock,
-  Mail,
-  AlertCircle,
-} from 'lucide-react';
+import { Eye, EyeOff, ShoppingBag, Lock, Mail, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface LoginProps {
@@ -34,7 +27,7 @@ export function Login({ onNavigateToSignup }: LoginProps) {
     const result = await login(email, password);
 
     if (!result.success) {
-      setError(result.error || 'Invalid credentials');
+      setError(result.error || 'Login failed');
     }
 
     setIsLoading(false);
@@ -42,10 +35,10 @@ export function Login({ onNavigateToSignup }: LoginProps) {
 
   // Demo credentials
   const demoAccounts = [
-    { email: 'super@admin.com', password: 'password123', role: 'Super User' },
-    { email: 'admin@savetogether.com', password: 'password123', role: 'Admin' },
-    { email: 'vendor@solartech.com', password: 'password123', role: 'Vendor' },
-    { email: 'afam@example.com', password: 'password123', role: 'Member' },
+    { email: 'super@admin.com', password: 'super123', role: 'Super User' },
+    { email: 'admin@savetogether.com', password: 'admin123', role: 'Admin' },
+    { email: 'vendor@solartech.com', password: 'vendor123', role: 'Vendor' },
+    { email: 'afam@example.com', password: 'member123', role: 'Member' },
   ];
 
   const fillDemo = (email: string, password: string) => {
@@ -86,7 +79,7 @@ export function Login({ onNavigateToSignup }: LoginProps) {
                     type="email"
                     placeholder="you@example.com"
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="pl-9"
                     required
                     autoComplete="email"
@@ -103,7 +96,7 @@ export function Login({ onNavigateToSignup }: LoginProps) {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="pl-9 pr-10"
                     required
                     autoComplete="current-password"
@@ -168,7 +161,7 @@ export function Login({ onNavigateToSignup }: LoginProps) {
               🔓 Demo Accounts - Click to fill
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {demoAccounts.map(account => (
+              {demoAccounts.map((account) => (
                 <Button
                   key={account.email}
                   type="button"
@@ -179,9 +172,7 @@ export function Login({ onNavigateToSignup }: LoginProps) {
                 >
                   <div className="text-left w-full">
                     <div className="font-medium">{account.role}</div>
-                    <div className="text-gray-500 text-[10px] truncate">
-                      {account.email}
-                    </div>
+                    <div className="text-gray-500 text-[10px] truncate">{account.email}</div>
                   </div>
                 </Button>
               ))}

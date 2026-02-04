@@ -34,15 +34,15 @@ class ChatSocketService {
       console.log('✅ Socket.IO connected');
     });
 
-    this.socket.on('disconnect', reason => {
+    this.socket.on('disconnect', (reason) => {
       console.log('❌ Socket.IO disconnected:', reason);
     });
 
-    this.socket.on('connect_error', error => {
+    this.socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
     });
 
-    this.socket.on('error', error => {
+    this.socket.on('error', (error) => {
       console.error('Socket error:', error);
       this.emit('error', error);
     });
@@ -82,65 +82,39 @@ class ChatSocketService {
     });
 
     // User typing indicator
-    this.socket.on(
-      'user-typing',
-      (data: {
-        userId: string;
-        userName: string;
-        conversationId: string;
-        isTyping: boolean;
-      }) => {
-        this.emit('user-typing', data);
-      },
-    );
+    this.socket.on('user-typing', (data: { userId: string; userName: string; conversationId: string; isTyping: boolean }) => {
+      this.emit('user-typing', data);
+    });
 
     // Messages read
-    this.socket.on(
-      'messages-read',
-      (data: { userId: string; conversationId: string; readAt: string }) => {
-        this.emit('messages-read', data);
-      },
-    );
+    this.socket.on('messages-read', (data: { userId: string; conversationId: string; readAt: string }) => {
+      this.emit('messages-read', data);
+    });
 
     // Message deleted
-    this.socket.on(
-      'message-deleted',
-      (data: { messageId: string; conversationId: string }) => {
-        this.emit('message-deleted', data);
-      },
-    );
+    this.socket.on('message-deleted', (data: { messageId: string; conversationId: string }) => {
+      this.emit('message-deleted', data);
+    });
 
     // User joined conversation
-    this.socket.on(
-      'user-joined',
-      (data: { userId: string; conversationId: string }) => {
-        this.emit('user-joined', data);
-      },
-    );
+    this.socket.on('user-joined', (data: { userId: string; conversationId: string }) => {
+      this.emit('user-joined', data);
+    });
 
     // User left conversation
-    this.socket.on(
-      'user-left',
-      (data: { userId: string; conversationId: string }) => {
-        this.emit('user-left', data);
-      },
-    );
+    this.socket.on('user-left', (data: { userId: string; conversationId: string }) => {
+      this.emit('user-left', data);
+    });
 
     // User online status changed
-    this.socket.on(
-      'user-online-status',
-      (data: { userId: string; isOnline: boolean }) => {
-        this.emit('user-online-status', data);
-      },
-    );
+    this.socket.on('user-online-status', (data: { userId: string; isOnline: boolean }) => {
+      this.emit('user-online-status', data);
+    });
 
     // Joined conversation confirmation
-    this.socket.on(
-      'joined-conversation',
-      (data: { conversationId: string }) => {
-        this.emit('joined-conversation', data);
-      },
-    );
+    this.socket.on('joined-conversation', (data: { conversationId: string }) => {
+      this.emit('joined-conversation', data);
+    });
   }
 
   // ============================================
@@ -252,7 +226,7 @@ if (typeof window !== 'undefined') {
   }
 
   // Listen for auth changes
-  window.addEventListener('storage', e => {
+  window.addEventListener('storage', (e) => {
     if (e.key === 'token') {
       if (e.newValue) {
         chatSocket.connect(e.newValue);
