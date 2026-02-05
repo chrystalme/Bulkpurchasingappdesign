@@ -6,36 +6,38 @@ import { Card, CardContent } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Eye, EyeOff, ShoppingBag, Lock, Mail, User, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { isValidEmail, isValidPassword, sanitizeNameField, validateNameField } from '../../lib/sanitizer';
 
 interface SignupProps {
   onNavigateToLogin: () => void;
 }
 
 const validateEmail = (email: string): boolean => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return isValidEmail(email);
 };
 
 const validateName = (name: string): boolean => {
-  return name.trim().length >= 2;
+  return validateNameField(name) && name.trim().length >= 2;
 };
 
 const validatePasswordStrength = (password: string) => {
-  const hasMinLength = password.length >= 6;
+  const hasMinLength = password.length >= 8;
   const hasMaxLength = password.length <= 128;
   const hasUppercase = /[A-Z]/.test(password);
   const hasLowercase = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^a-zA-Z0-9]/.test(password);
 
   const strength =
     hasMinLength && hasMaxLength
-      ? hasNumber && (hasUppercase || hasLowercase)
-        ? hasUppercase && hasLowercase && hasNumber
-          ? 'strong'
-          : 'medium'
-        : 'weak'
+      ? hasNumber && hasUppercase && hasLowercase && hasSpecial
+        ? 'strong'
+        : hasNumber && (hasUppercase || hasLowercase)
+          ? 'medium'
+          : 'weak'
       : 'weak';
 
-  return { strength, requirements: { hasMinLength, hasUppercase, hasLowercase, hasNumber } };
+  return { strength, requirements: { hasMinLength, hasUppercase, hasLowercase, hasNumber, hasSpecial } };
 };
 
 interface ValidationErrors {
@@ -76,8 +78,10 @@ export function Signup({ onNavigateToLogin }: SignupProps) {
 
     if (!password) {
       errors.password = 'Password is required';
-    } else if (password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+    } else if (password.length < 8) {
+      errors.password = 'Password must be at least 8 characters';
+    } else if (!isValidPassword(password)) {
+      errors.password = 'Password must contain uppercase, lowercase, and number';
     }
 
     if (!confirmPassword) {
@@ -92,8 +96,9 @@ export function Signup({ onNavigateToLogin }: SignupProps) {
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setName(value);
-    if (validationErrors.name && value && validateName(value)) {
+    const sanitized = sanitizeNameField(value);
+    setName(sanitized);
+    if (validationErrors.name && sanitized && validateName(sanitized)) {
       setValidationErrors(prev => ({ ...prev, name: undefined }));
     }
   };
@@ -109,7 +114,7 @@ export function Signup({ onNavigateToLogin }: SignupProps) {
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setPassword(value);
-    if (validationErrors.password && value && value.length >= 6) {
+    if (validationErrors.password && value && value.length >= 8 && isValidPassword(value)) {
       setValidationErrors(prev => ({ ...prev, password: undefined }));
     }
     if (validationErrors.confirmPassword && confirmPassword === value) {
@@ -151,7 +156,8 @@ export function Signup({ onNavigateToLogin }: SignupProps) {
     confirmPassword &&
     validateName(name) &&
     validateEmail(email) &&
-    password.length >= 6 &&
+    password.length >= 8 &&
+    isValidPassword(password) &&
     password === confirmPassword;
 
   return (
@@ -348,7 +354,7 @@ export function Signup({ onNavigateToLogin }: SignupProps) {
                       }`}
                     >
                       <CheckCircle2 className={`w-3 h-3 ${passwordStrength.requirements.hasMinLength ? '' : 'opacity-50'}`} />
-                      <span>At least 6 characters</span>
+                      <span>At least 8 characters</span>
                     </div>
                     <div
                       className={`flex items-center gap-2 ${

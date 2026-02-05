@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http'; // For creating the HTTP server for Socket.IO
 import { Server } from 'socket.io'; // For Socket.IO server
 import cors from 'cors';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
@@ -11,6 +12,7 @@ import swaggerSpec from './swagger.js';
 import { generalApiLimiter } from './middleware/rateLimit.js';
 import { csrfErrorHandler } from './middleware/csrf.js';
 import { apiTimeout, responseTimeout, timeoutErrorHandler } from './middleware/timeout.js';
+import { cacheMiddleware, apiCacheMiddleware } from './middleware/caching.js';
 
 // Import routes
 import authRoutes from './routes/auth.routes.js';
@@ -75,6 +77,19 @@ app.use(
     credentials: true,
   }),
 );
+
+// Gzip compression middleware (apply after CORS)
+app.use(compression({
+  level: 6,
+  threshold: 1024, // Only compress responses larger than 1KB
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+}));
+
 app.use(express.json()); // Parses incoming requests with JSON payloads
 app.use(express.urlencoded({ extended: true })); // Parses incoming requests with URL-encoded payloads
 
@@ -84,6 +99,19 @@ app.use(responseTimeout(30000));
 
 // Rate limiting middleware
 app.use(generalApiLimiter);
+
+// Caching middleware
+app.use(cacheMiddleware);
+
+// Endpoint-specific caching
+app.use('/api/products', apiCacheMiddleware.products);
+app.use('/api/vendors', apiCacheMiddleware.vendors);
+app.use('/api/orders', apiCacheMiddleware.orders);
+app.use('/api/groups', apiCacheMiddleware.groups);
+app.use('/api/chat', apiCacheMiddleware.chat);
+app.use('/api/auth', apiCacheMiddleware.auth);
+app.use('/api/users', apiCacheMiddleware.users);
+app.use('/api/escrow', apiCacheMiddleware.escrow);
 
 // Request logging middleware (for development)
 if (process.env.NODE_ENV === 'development') {

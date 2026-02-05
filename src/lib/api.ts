@@ -86,13 +86,42 @@ class ApiClient {
     try {
       const response = await fetch(URL, config);
       const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      
+      // Handle authentication errors
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('userId');
+        window.location.href = '/login';
+        return { success: false, error: 'Authentication required. Please login again.' } as unknown as ApiResponse<T>;
       }
+
+      // Handle forbidden errors
+      if (response.status === 403) {
+        console.warn(`Access denied to ${endpoint}`);
+        return { success: false, error: 'Access denied. You do not have permission to perform this action.' } as unknown as ApiResponse<T>;
+      }
+
+      // Handle rate limiting
+      if (response.status === 429) {
+        console.warn(`Rate limited on ${endpoint}`);
+        return { success: false, error: 'Too many requests. Please try again later.' } as unknown as ApiResponse<T>;
+      }
+
+      if (!response.ok) {
+        const errorMessage = data?.error || `Request failed with status ${response.status}`;
+        console.error(`API error on ${endpoint}:`, errorMessage);
+        throw new Error(errorMessage);
+      }
+      
       return data;
     } catch (error) {
-      console.error('API request error:', error);
-      throw new Error(`Network error: ${(error as Error).message}`);
+      const errorMessage = (error as Error).message;
+      console.error('API request error:', errorMessage);
+      // Return user-friendly error messages, don't expose internal details
+      return { 
+        success: false, 
+        error: 'Unable to complete request. Please try again later.' 
+      } as unknown as ApiResponse<T>;
     }
   }
 

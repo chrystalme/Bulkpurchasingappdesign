@@ -15,13 +15,14 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { isValidEmail } from '../../lib/sanitizer';
 
 interface LoginProps {
   onNavigateToSignup: () => void;
 }
 
 const validateEmail = (email: string): boolean => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return isValidEmail(email);
 };
 
 const validatePassword = (password: string): boolean => {

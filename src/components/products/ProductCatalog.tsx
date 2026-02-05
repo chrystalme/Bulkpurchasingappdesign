@@ -18,6 +18,7 @@ import {
   selectProductsLoading,
   selectProductsError,
 } from '../../store/selectors';
+import { sanitizeSearchInput, validateSearchInput } from '../../lib/sanitizer';
 
 interface ProductCatalogProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -111,8 +112,14 @@ export function ProductCatalog({ navigate, groupId }: ProductCatalogProps) {
           <Input
             placeholder='Search products...'
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={e => {
+              const value = e.target.value;
+              if (validateSearchInput(value)) {
+                setSearchQuery(sanitizeSearchInput(value));
+              }
+            }}
             className='pl-10 pr-10'
+            maxLength={200}
           />
           <Button
             variant='ghost'

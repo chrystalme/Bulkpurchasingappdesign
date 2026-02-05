@@ -7,6 +7,7 @@ import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Alert, AlertDescription } from '../ui/alert';
 import { useConversation } from '../../hooks/useChat';
+import { sanitizeChatMessage, validateChatMessage } from '../../lib/sanitizer';
 import type { Conversation } from '../../lib/api/chatApi';
 
 interface ChatWindowRealProps {
@@ -61,8 +62,14 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
   const handleSendMessage = () => {
     if (!inputValue.trim() || !canSendMessages) return;
 
-    console.log('Sending message:', inputValue);
-    sendMessage(inputValue);
+    if (!validateChatMessage(inputValue)) {
+      alert('Message contains invalid characters or is too long (max 5000 characters)');
+      return;
+    }
+
+    const sanitizedMessage = sanitizeChatMessage(inputValue);
+    console.log('Sending message:', sanitizedMessage);
+    sendMessage(sanitizedMessage);
     setInputValue('');
 
     // Clear typing indicator

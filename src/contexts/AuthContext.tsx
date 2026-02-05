@@ -9,6 +9,14 @@ import React, {
 import { apiClient } from '../lib/api';
 import type { User, UserRole } from '../lib/types/auth.types';
 
+/**
+ * Token storage strategy:
+ * - Auth token stored in localStorage for persistence across sessions
+ * - Token expiry validation happens server-side on API calls
+ * - 401 responses trigger immediate logout and redirect to login
+ * - No sensitive data stored besides auth token
+ */
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -104,6 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     apiClient.auth.logout();
     setUser(null);
+    localStorage.removeItem('userId');
+    localStorage.removeItem('auth_token');
   };
 
   /**

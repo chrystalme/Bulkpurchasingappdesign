@@ -56,5 +56,12 @@
     server: {
       port: 3000,
       open: true,
+      headers: {
+        'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:3001; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+      },
     },
   });
