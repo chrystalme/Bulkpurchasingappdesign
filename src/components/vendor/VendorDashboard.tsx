@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -17,10 +17,23 @@ import {
   Settings,
   BarChart3
 } from 'lucide-react';
-import { Screen } from '../../App';
-import { apiClient } from '../../lib/api';
+import type { Screen } from '../../App';
 import { useAuth } from '../../contexts/AuthContext';
-import type { VendorStats, VendorOrder, VendorCustomer, Product } from '../../lib/types';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { 
+  fetchVendorDashboard, 
+  fetchVendorOrders, 
+  fetchVendorCustomers, 
+  fetchProducts 
+} from '../../store/slices';
+import { 
+  selectDashboard, 
+  selectVendorOrders, 
+  selectVendorCustomers, 
+  selectProductsByVendor,
+  selectVendorsLoading,
+  selectVendorsError
+} from '../../store/selectors';
 
 interface VendorDashboardProps {
   navigate: (screen: Screen) => void;
@@ -29,54 +42,29 @@ interface VendorDashboardProps {
 
 export function VendorDashboard({ navigate, vendorId = '5' }: VendorDashboardProps) {
   const { user } = useAuth();
-  const [stats, setStats] = useState<VendorStats | null>(null);
-  const [orders, setOrders] = useState<VendorOrder[]>([]);
-  const [customers, setCustomers] = useState<VendorCustomer[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retrying, setRetrying] = useState(false);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const vid = Number(vendorId);
-
-      const [dashboardRes, ordersRes, customersRes, productsRes] = await Promise.all([
-        apiClient.vendors.getDashboard(vid),
-        apiClient.vendors.getOrders(vid),
-        apiClient.vendors.getCustomers(vid),
-        apiClient.products.getAll({ vendor_id: vid }),
-      ]);
-
-      if (dashboardRes.success && dashboardRes.data) {
-        setStats(dashboardRes.data);
-      }
-      if (ordersRes.success && ordersRes.data) {
-        setOrders(ordersRes.data);
-      }
-      if (customersRes.success && customersRes.data) {
-        setCustomers(customersRes.data);
-      }
-      if (productsRes.success && productsRes.data) {
-        setProducts(productsRes.data);
-      }
-    } catch (err) {
-      setError((err as Error).message || 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const dispatch = useAppDispatch();
+  
+  const stats = useAppSelector(selectDashboard);
+  const orders = useAppSelector(selectVendorOrders);
+  const customers = useAppSelector(selectVendorCustomers);
+  const loading = useAppSelector(selectVendorsLoading);
+  const error = useAppSelector(selectVendorsError);
+  const products = useAppSelector(selectProductsByVendor(Number(vendorId)));
+  
+  const vid = Number(vendorId);
 
   useEffect(() => {
-    loadDashboardData();
-  }, [vendorId]);
+    dispatch(fetchVendorDashboard(vid));
+    dispatch(fetchVendorOrders(vid));
+    dispatch(fetchVendorCustomers(vid));
+    dispatch(fetchProducts({ vendor_id: vid }));
+  }, [dispatch, vid]);
 
-  const handleRetry = async () => {
-    setRetrying(true);
-    await loadDashboardData();
-    setRetrying(false);
+  const handleRetry = () => {
+    dispatch(fetchVendorDashboard(vid));
+    dispatch(fetchVendorOrders(vid));
+    dispatch(fetchVendorCustomers(vid));
+    dispatch(fetchProducts({ vendor_id: vid }));
   };
 
   if (loading) {

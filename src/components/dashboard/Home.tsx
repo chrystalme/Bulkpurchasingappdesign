@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchGroups } from '../../store/slices/groupsSlice';
+import { fetchProducts, fetchVendors, fetchTransactions } from '../../store/slices';
+import { selectProducts, selectProductsLoading, selectVendors, selectVendorsLoading, selectTransactions, selectTransactionsLoading } from '../../store/selectors';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -8,12 +10,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
 import { Plus, ChevronRight, Star, MapPin, TrendingDown, Users, Shield, Package, MessageCircle, Loader2 } from 'lucide-react';
 import type { Screen } from '../../App';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { useAuth } from '../../contexts/AuthContext';
-import { apiClient } from '../../lib/api';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
-import type { Product, Vendor, EscrowTransaction } from '../../lib/types';
+import { ImageWithFallback } from '../figma/ImageWithFallback';
 
 interface HomeProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -22,47 +22,19 @@ interface HomeProps {
 export function Home({ navigate }: HomeProps) {
   const { user } = useAuth();
   const dispatch = useAppDispatch();
-  const { groups = [], loading: groupsLoading } = useAppSelector((state) => state.groups);
   
-  const [products, setProducts] = useState<Product[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [escrowTransactions, setEscrowTransactions] = useState<EscrowTransaction[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const products = useAppSelector(selectProducts);
+  const loadingProducts = useAppSelector(selectProductsLoading);
+  const vendors = useAppSelector(selectVendors);
+  const escrowTransactions = useAppSelector(selectTransactions);
+  const { groups = [], loading: groupsLoading } = useAppSelector((state) => state.groups);
   
   useEffect(() => {
     dispatch(fetchGroups());
+    dispatch(fetchProducts());
+    dispatch(fetchVendors());
+    dispatch(fetchTransactions('all'));
   }, [dispatch]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoadingProducts(true);
-        setError(null);
-        const [productsRes, vendorsRes, escrowRes] = await Promise.all([
-          apiClient.products.getAll(),
-          apiClient.vendors.getAll(),
-          apiClient.escrow.getTransactions('all'),
-        ]);
-        
-        if (productsRes.success && productsRes.data) {
-          setProducts(productsRes.data);
-        }
-        if (vendorsRes.success && vendorsRes.data) {
-          setVendors(vendorsRes.data);
-        }
-        if (escrowRes.success && escrowRes.data) {
-          setEscrowTransactions(escrowRes.data);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-      } finally {
-        setLoadingProducts(false);
-      }
-    };
-
-    loadData();
-  }, []);
 
   const popularDeals = products.slice(0, 3);
   const activeEscrowTransactions = escrowTransactions.filter(
@@ -371,12 +343,6 @@ export function Home({ navigate }: HomeProps) {
 
         {loadingProducts ? (
           <LoadingState count={3} />
-        ) : error ? (
-          <ErrorState 
-            title="Failed to load deals"
-            description={error}
-            showRetry={false}
-          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {popularDeals.map((product) => (

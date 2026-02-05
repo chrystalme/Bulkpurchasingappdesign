@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -19,7 +20,8 @@ import {
   ChevronRight,
   ArrowUpDown,
 } from 'lucide-react';
-import { apiClient } from '../../lib/api';
+import { fetchTransactions } from '../../store/slices/escrowSlice';
+import { selectTransactions, selectTransactionsLoading, selectEscrowError } from '../../store/selectors/escrowSelectors';
 import type { EscrowTransaction } from '../../lib/types/escrow.types';
 
 type SortField = 'date' | 'amount';
@@ -27,9 +29,7 @@ type SortOrder = 'asc' | 'desc';
 type FilterStatus = 'all' | 'locked' | 'pending_inspection' | 'released' | 'disputed' | 'refunded';
 
 export function TransactionHistory() {
-  const [transactions, setTransactions] = useState<EscrowTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useDispatch();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('all');
   const [sortField, setSortField] = useState<SortField>('date');
@@ -37,28 +37,13 @@ export function TransactionHistory() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const loadTransactions = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') {
-        params.append('status', statusFilter);
-      }
-      const response = await apiClient.escrow.getTransactions(params.toString());
-      if (response.success && response.data) {
-        setTransactions(response.data);
-      }
-    } catch (err) {
-      setError((err as Error).message || 'Failed to load transactions');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const transactions = useSelector(selectTransactions);
+  const loading = useSelector(selectTransactionsLoading);
+  const error = useSelector(selectEscrowError);
 
   useEffect(() => {
-    loadTransactions();
-  }, [statusFilter]);
+    dispatch(fetchTransactions() as any);
+  }, [dispatch]);
 
   const filteredTransactions = transactions.filter((tx) => {
     const matchesSearch =
@@ -117,7 +102,7 @@ export function TransactionHistory() {
   };
 
   const handleRetry = async () => {
-    await loadTransactions();
+    dispatch(fetchTransactions() as any);
   };
 
   if (loading && transactions.length === 0) {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -11,6 +12,8 @@ import { apiClient } from '../../lib/api';
 import type { Product } from '../../lib/types';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState, EmptyState } from '../ui/ErrorState';
+import { fetchProducts } from '../../store/slices';
+import { selectProducts, selectProductsLoading, selectProductsError } from '../../store/selectors';
 
 interface ProductCatalogProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -18,33 +21,23 @@ interface ProductCatalogProps {
 }
 
 export function ProductCatalog({ navigate, groupId }: ProductCatalogProps) {
+  const dispatch = useDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>(['All']);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  // Redux selectors
+  const products = useSelector(selectProducts);
+  const loading = useSelector(selectProductsLoading);
+  const error = useSelector(selectProductsError);
 
-  // Load products on mount
+  // Load products on mount (only if not already loaded)
   useEffect(() => {
-    loadProducts();
-    loadCategories();
-  }, []);
-
-  const loadProducts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await apiClient.products.getAll();
-      if (response.success && response.data) {
-        setProducts(response.data);
-      }
-    } catch (err) {
-      setError((err as Error).message || 'Failed to load products');
-    } finally {
-      setLoading(false);
+    if (products.length === 0) {
+      dispatch(fetchProducts() as any);
     }
-  };
+    loadCategories();
+  }, [dispatch, products.length]);
 
   const loadCategories = async () => {
     try {
@@ -55,6 +48,10 @@ export function ProductCatalog({ navigate, groupId }: ProductCatalogProps) {
     } catch (err) {
       console.error('Failed to load categories:', err);
     }
+  };
+
+  const handleRetry = () => {
+    dispatch(fetchProducts() as any);
   };
 
   const filteredProducts = products.filter(product => {
@@ -141,7 +138,7 @@ export function ProductCatalog({ navigate, groupId }: ProductCatalogProps) {
           <ErrorState
             title="Failed to load products"
             description={error}
-            onRetry={loadProducts}
+            onRetry={handleRetry}
             showRetry={true}
           />
         </div>

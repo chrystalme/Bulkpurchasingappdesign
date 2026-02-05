@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { Provider } from 'react-redux';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { store } from './store/store';
+import { fetchProducts } from './store/slices/productsSlice';
+import { fetchVendors } from './store/slices/vendorsSlice';
+import { fetchOrders } from './store/slices/ordersSlice';
+import { fetchTransactions } from './store/slices/escrowSlice';
+import { fetchUsers } from './store/slices/usersSlice';
 import { Welcome } from './components/onboarding/Welcome';
 import { Login } from './components/auth/Login';
 import { Signup } from './components/auth/Signup';
@@ -66,10 +74,31 @@ export type Screen =
   | 'admin-create-user';
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const dispatch = useDispatch();
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [restorationComplete, setRestorationComplete] = useState(false);
+
+  // Initialize Redux data on app boot
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && restorationComplete) {
+      // Always load these
+      dispatch(fetchProducts() as any);
+      dispatch(fetchVendors() as any);
+
+      // Load if user is authenticated
+      if (user) {
+        dispatch(fetchOrders() as any);
+        dispatch(fetchTransactions() as any);
+        
+        // Only load users if admin
+        if (user.role === 'admin' || user.role === 'superUser') {
+          dispatch(fetchUsers() as any);
+        }
+      }
+    }
+  }, [dispatch, isAuthenticated, isLoading, user, restorationComplete]);
 
   // Authenticated screens that can be restored after refresh
   const authenticatedScreens = new Set<Screen>([
@@ -246,8 +275,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <Provider store={store}>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Provider>
   );
 }

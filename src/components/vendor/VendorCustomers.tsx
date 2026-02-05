@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, Search, Star, Users, Mail } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -6,10 +7,11 @@ import { Input } from '../ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Screen } from '../../App';
-import { apiClient } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
+import { fetchVendorCustomers } from '../../store/slices/vendorsSlice';
+import { selectVendorCustomers, selectVendorsLoading, selectVendorsError } from '../../store/selectors/vendorsSelectors';
 import type { VendorCustomer } from '../../lib/types';
 
 interface VendorCustomersProps {
@@ -17,62 +19,20 @@ interface VendorCustomersProps {
 }
 
 export function VendorCustomers({ navigate }: VendorCustomersProps) {
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [allCustomers, setAllCustomers] = useState<VendorCustomer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const allCustomers = useSelector(selectVendorCustomers);
+  const loading = useSelector(selectVendorsLoading);
+  const error = useSelector(selectVendorsError);
 
   useEffect(() => {
-    const loadCustomers = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const vendorId = Number(user?.vendorId);
-        if (!vendorId) {
-          setError('Vendor ID not found');
-          return;
-        }
-        const response = await apiClient.vendors.getCustomers(vendorId);
-        if (response.success && response.data) {
-          setAllCustomers(response.data);
-        } else {
-          setError(response.error || 'Failed to load customers');
-        }
-      } catch (err) {
-        setError((err as Error).message || 'Failed to load customers');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCustomers();
-  }, [user?.vendorId]);
-
-  const handleRetry = () => {
-    setLoading(true);
-    setError(null);
     const vendorId = Number(user?.vendorId);
-    if (!vendorId) {
-      setError('Vendor ID not found');
-      setLoading(false);
-      return;
+    if (vendorId) {
+      dispatch(fetchVendorCustomers(vendorId) as any);
     }
-    apiClient.vendors.getCustomers(vendorId)
-      .then(response => {
-        if (response.success && response.data) {
-          setAllCustomers(response.data);
-        } else {
-          setError(response.error || 'Failed to load customers');
-        }
-      })
-      .catch(err => {
-        setError((err as Error).message || 'Failed to load customers');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  };
+  }, [user?.vendorId, dispatch]);
 
   const filteredCustomers = allCustomers.filter(customer =>
     customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -125,7 +85,10 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
           <ErrorState
             title="Failed to load customers"
             description={error}
-            onRetry={handleRetry}
+            onRetry={() => {
+              const vendorId = Number(user?.vendorId);
+              if (vendorId) dispatch(fetchVendorCustomers(vendorId) as any);
+            }}
             showRetry={true}
           />
         </div>

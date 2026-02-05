@@ -6,6 +6,7 @@ interface VendorsState {
   vendors: Vendor[];
   currentVendor: Vendor | null;
   dashboard: VendorStats | null;
+  products: any[];
   orders: VendorOrder[];
   customers: VendorCustomer[];
   loading: boolean;
@@ -16,6 +17,7 @@ const initialState: VendorsState = {
   vendors: [],
   currentVendor: null,
   dashboard: null,
+  products: [],
   orders: [],
   customers: [],
   loading: false,
@@ -71,6 +73,18 @@ export const fetchVendorOrders = createAsyncThunk(
   }
 );
 
+export const fetchVendorProducts = createAsyncThunk(
+  'vendors/fetchVendorProducts',
+  async (vendorId: number, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.products.getAll({ vendor_id: vendorId });
+      return response.data || [];
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
 export const fetchVendorCustomers = createAsyncThunk(
   'vendors/fetchVendorCustomers',
   async (vendorId: number, { rejectWithValue }) => {
@@ -94,6 +108,7 @@ const vendorsSlice = createSlice({
     clearVendor: (state) => {
       state.currentVendor = null;
       state.dashboard = null;
+      state.products = [];
       state.orders = [];
       state.customers = [];
     },
@@ -143,6 +158,21 @@ const vendorsSlice = createSlice({
         state.dashboard = action.payload;
       })
       .addCase(fetchVendorDashboard.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+
+    // Fetch Vendor Products
+    builder
+      .addCase(fetchVendorProducts.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchVendorProducts.fulfilled, (state, action) => {
+        state.loading = false;
+        state.products = action.payload;
+      })
+      .addCase(fetchVendorProducts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

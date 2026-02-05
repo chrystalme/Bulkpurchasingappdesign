@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, Search, Package, Shield } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -6,10 +7,11 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Screen } from '../../App';
-import { apiClient } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
+import { fetchVendorOrders } from '../../store/slices/vendorsSlice';
+import { selectVendorOrders, selectVendorsLoading, selectVendorsError } from '../../store/selectors/vendorsSelectors';
 import type { VendorOrder } from '../../lib/types';
 
 interface VendorOrdersProps {
@@ -17,63 +19,21 @@ interface VendorOrdersProps {
 }
 
 export function VendorOrders({ navigate }: VendorOrdersProps) {
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-  const [allOrders, setAllOrders] = useState<VendorOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const allOrders = useSelector(selectVendorOrders);
+  const loading = useSelector(selectVendorsLoading);
+  const error = useSelector(selectVendorsError);
 
   useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const vendorId = Number(user?.vendorId);
-        if (!vendorId) {
-          setError('Vendor ID not found');
-          return;
-        }
-        const response = await apiClient.vendors.getOrders(vendorId);
-        if (response.success && response.data) {
-          setAllOrders(response.data);
-        } else {
-          setError(response.error || 'Failed to load orders');
-        }
-      } catch (err) {
-        setError((err as Error).message || 'Failed to load orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadOrders();
-  }, [user?.vendorId]);
-
-  const handleRetry = () => {
-    setLoading(true);
-    setError(null);
     const vendorId = Number(user?.vendorId);
-    if (!vendorId) {
-      setError('Vendor ID not found');
-      setLoading(false);
-      return;
+    if (vendorId) {
+      dispatch(fetchVendorOrders(vendorId) as any);
     }
-    apiClient.vendors.getOrders(vendorId)
-      .then(response => {
-        if (response.success && response.data) {
-          setAllOrders(response.data);
-        } else {
-          setError(response.error || 'Failed to load orders');
-        }
-      })
-      .catch(err => {
-        setError((err as Error).message || 'Failed to load orders');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  };
+  }, [user?.vendorId, dispatch]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -143,7 +103,10 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
           <ErrorState
             title="Failed to load orders"
             description={error}
-            onRetry={handleRetry}
+            onRetry={() => {
+              const vendorId = Number(user?.vendorId);
+              if (vendorId) dispatch(fetchVendorOrders(vendorId) as any);
+            }}
             showRetry={true}
           />
         </div>

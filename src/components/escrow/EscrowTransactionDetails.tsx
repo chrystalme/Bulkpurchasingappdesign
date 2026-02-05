@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -17,9 +18,10 @@ import {
   MessageSquare,
   Download,
 } from 'lucide-react';
-import { apiClient } from '../../lib/api';
 import { DetailLoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
+import { fetchTransactionById } from '../../store/slices/escrowSlice';
+import { selectCurrentTransaction, selectEscrowLoading, selectEscrowError } from '../../store/selectors/escrowSelectors';
 import type { EscrowTransaction } from '../../lib/types';
 
 interface EscrowDetailsProps {
@@ -31,28 +33,15 @@ export function EscrowTransactionDetails({
   transactionId = '1',
   navigate,
 }: EscrowDetailsProps) {
-  const [transaction, setTransaction] = useState<EscrowTransaction | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useDispatch();
+  
+  const transaction = useSelector(selectCurrentTransaction);
+  const loading = useSelector(selectEscrowLoading);
+  const error = useSelector(selectEscrowError);
 
   useEffect(() => {
-    loadTransaction();
-  }, [transactionId]);
-
-  const loadTransaction = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await apiClient.escrow.getById(parseInt(transactionId));
-      if (response.success && response.data) {
-        setTransaction(response.data);
-      }
-    } catch (err) {
-      setError((err as Error).message || 'Failed to load transaction');
-    } finally {
-      setLoading(false);
-    }
-  };
+    dispatch(fetchTransactionById(parseInt(transactionId)) as any);
+  }, [transactionId, dispatch]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -97,7 +86,7 @@ export function EscrowTransactionDetails({
         <ErrorState
           title="Failed to load transaction"
           description={error || 'Transaction not found'}
-          onRetry={loadTransaction}
+          onRetry={() => dispatch(fetchTransactionById(parseInt(transactionId)) as any)}
           showRetry={true}
         />
       </div>

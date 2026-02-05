@@ -1,43 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ArrowLeft, Package, CreditCard, Truck, CheckCircle, MapPin } from 'lucide-react';
 import type { Screen } from '../../App';
-import { apiClient } from '../../lib/api';
 import type { Order } from '../../lib/types';
 import { ErrorState } from '../ui/ErrorState';
 import { DetailLoadingState } from '../ui/LoadingState';
+import { fetchOrders } from '../../store/slices/ordersSlice';
+import { selectOrders, selectOrdersLoading, selectOrdersError } from '../../store/selectors/ordersSelectors';
 
 interface OrderTrackingProps {
   navigate: (screen: Screen) => void;
 }
 
 export function OrderTracking({ navigate }: OrderTrackingProps) {
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useDispatch();
+  
+  const orders = useSelector(selectOrders);
+  const loading = useSelector(selectOrdersLoading);
+  const error = useSelector(selectOrdersError);
+
+  const order = orders.length > 0 ? orders[0] : null;
 
   useEffect(() => {
-    loadOrder();
-  }, []);
-
-  const loadOrder = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await apiClient.orders.getAll();
-      if (response.data && response.data.length > 0) {
-        setOrder(response.data[0]);
-      } else {
-        setError('No orders found');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load order');
-    } finally {
-      setLoading(false);
+    if (orders.length === 0) {
+      dispatch(fetchOrders() as any);
     }
-  };
+  }, [dispatch, orders.length]);
 
   if (loading) {
     return (
@@ -87,7 +78,7 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
             <ErrorState
               title="Order not found"
               description={error || 'Unable to load order details'}
-              onRetry={loadOrder}
+              onRetry={() => dispatch(fetchOrders() as any)}
             />
           </div>
         </div>

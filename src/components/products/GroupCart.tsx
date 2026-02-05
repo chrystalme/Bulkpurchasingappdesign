@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -7,9 +8,10 @@ import { Separator } from '../ui/separator';
 import { ArrowLeft, Minus, Plus, Trash2, Users } from 'lucide-react';
 import type { Screen } from '../../App';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
-import { apiClient } from '../../lib/api';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
+import { fetchProducts } from '../../store/slices/productsSlice';
+import { selectProducts, selectProductsLoading, selectProductsError } from '../../store/selectors/productsSelectors';
 import type { Product, GroupMember } from '../../lib/types';
 
 interface GroupCartProps {
@@ -24,9 +26,8 @@ interface CartItemData {
 }
 
 export function GroupCart({ navigate, groupId }: GroupCartProps) {
-  const [products, setProducts] = useState<Product[]>([]);
+  const dispatch = useDispatch();
   const [members, setMembers] = useState<GroupMember[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cartItems, setCartItems] = useState<CartItemData[]>([
     {
@@ -48,31 +49,14 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
     },
   ]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [productsRes, membersRes] = await Promise.all([
-          apiClient.products.getAll(),
-          groupId ? apiClient.groups.getMembers(groupId) : Promise.resolve({ success: false, data: [] }),
-        ]);
-        
-        if (productsRes.success && productsRes.data) {
-          setProducts(productsRes.data);
-        }
-        if (membersRes.success && membersRes.data) {
-          setMembers(membersRes.data);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const products = useSelector(selectProducts);
+  const loading = useSelector(selectProductsLoading);
 
-    loadData();
-  }, [groupId]);
+  useEffect(() => {
+    if (products.length === 0) {
+      dispatch(fetchProducts() as any);
+    }
+  }, [dispatch, products.length]);
 
   const cartProducts = products.filter(p => 
     cartItems.some(item => item.productId === p.id?.toString())
@@ -160,7 +144,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
             <ErrorState 
               title="Failed to load cart"
               description={error}
-              onRetry={() => window.location.reload()}
+              onRetry={() => dispatch(fetchProducts() as any)}
             />
           </div>
         </div>

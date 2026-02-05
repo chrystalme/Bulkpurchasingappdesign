@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -13,9 +14,11 @@ import {
   DollarSign,
   Activity,
 } from 'lucide-react';
-import { apiClient } from '../../lib/api';
 import { LoadingState, TableLoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
+import { fetchUsers, fetchUserStats } from '../../store/slices/usersSlice';
+import { selectUsers, selectUserStats, selectUsersLoading, selectUsersError } from '../../store/selectors/usersSelectors';
+import { useAuth } from '../../contexts/AuthContext';
 import type { User } from '../../lib/types';
 
 interface AdminStats {
@@ -34,39 +37,20 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ navigate }: AdminDashboardProps) {
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useDispatch();
+  const { user: authUser } = useAuth();
+  
+  const users = useSelector(selectUsers);
+  const stats = useSelector(selectUserStats);
+  const loading = useSelector(selectUsersLoading);
+  const error = useSelector(selectUsersError);
 
   useEffect(() => {
-    loadAdminData();
-  }, []);
-
-  const loadAdminData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Load stats and users in parallel
-      const [statsResponse, usersResponse] = await Promise.all([
-        apiClient.users.getStats(),
-        apiClient.users.getAll(),
-      ]);
-
-      if (statsResponse.success && statsResponse.data) {
-        setStats(statsResponse.data);
-      }
-
-      if (usersResponse.success && usersResponse.data) {
-        setUsers(usersResponse.data.slice(0, 10)); // Show top 10 users
-      }
-    } catch (err) {
-      setError((err as Error).message || 'Failed to load admin data');
-    } finally {
-      setLoading(false);
+    if (authUser?.role === 'admin' || authUser?.role === 'superUser') {
+      dispatch(fetchUsers() as any);
+      dispatch(fetchUserStats() as any);
     }
-  };
+  }, [authUser?.role, dispatch]);
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -101,12 +85,17 @@ export function AdminDashboard({ navigate }: AdminDashboardProps) {
         <ErrorState
           title="Failed to load admin dashboard"
           description={error}
-          onRetry={loadAdminData}
+          onRetry={() => {
+            dispatch(fetchUsers() as any);
+            dispatch(fetchUserStats() as any);
+          }}
           showRetry={true}
         />
       </div>
     );
   }
+
+  const displayUsers = users.slice(0, 10);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -145,7 +134,7 @@ export function AdminDashboard({ navigate }: AdminDashboardProps) {
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {stats?.activeUsers || 0} active users
+                {(stats?.activeUsers || 0) + (stats?.superUsers || 0)} active users
               </p>
             </CardContent>
           </Card>

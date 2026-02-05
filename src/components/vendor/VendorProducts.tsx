@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { ArrowLeft, Plus, Search, Edit, Trash2, Eye, Package } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -6,11 +7,13 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Screen } from '../../App';
-import { apiClient } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
+import { fetchVendorProducts } from '../../store/slices/vendorsSlice';
+import { selectVendorProducts, selectVendorsLoading, selectVendorsError } from '../../store/selectors/vendorsSelectors';
 import type { Product } from '../../lib/types';
+import { useState } from 'react';
 
 interface VendorProductsProps {
   navigate: (screen: Screen) => void;
@@ -18,54 +21,20 @@ interface VendorProductsProps {
 }
 
 export function VendorProducts({ navigate, vendorId = '5' }: VendorProductsProps) {
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [vendorProducts, setVendorProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const vendorProducts = useSelector(selectVendorProducts);
+  const loading = useSelector(selectVendorsLoading);
+  const error = useSelector(selectVendorsError);
 
   const actualVendorId = user?.vendorId || vendorId;
 
   useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await apiClient.products.getAll({ vendor_id: Number(actualVendorId) });
-        if (response.success && response.data) {
-          setVendorProducts(response.data);
-        } else {
-          setError(response.error || 'Failed to load products');
-        }
-      } catch (err) {
-        setError((err as Error).message || 'Failed to load products');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProducts();
-  }, [actualVendorId]);
-
-  const handleRetry = () => {
-    setLoading(true);
-    setError(null);
-    apiClient.products.getAll({ vendor_id: Number(actualVendorId) })
-      .then(response => {
-        if (response.success && response.data) {
-          setVendorProducts(response.data);
-        } else {
-          setError(response.error || 'Failed to load products');
-        }
-      })
-      .catch(err => {
-        setError((err as Error).message || 'Failed to load products');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  };
+    dispatch(fetchVendorProducts(Number(actualVendorId)) as any);
+  }, [actualVendorId, dispatch]);
   const filteredProducts = vendorProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
@@ -113,7 +82,7 @@ export function VendorProducts({ navigate, vendorId = '5' }: VendorProductsProps
           <ErrorState
             title="Failed to load products"
             description={error}
-            onRetry={handleRetry}
+            onRetry={() => dispatch(fetchVendorProducts(Number(actualVendorId)) as any)}
             showRetry={true}
           />
         </div>
