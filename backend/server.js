@@ -3,8 +3,14 @@ import http from 'http'; // For creating the HTTP server for Socket.IO
 import { Server } from 'socket.io'; // For Socket.IO server
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './swagger.js';
+
+// Import security middleware
+import { generalApiLimiter } from './middleware/rateLimit.js';
+import { csrfErrorHandler } from './middleware/csrf.js';
+import { apiTimeout, responseTimeout, timeoutErrorHandler } from './middleware/timeout.js';
 
 // Import routes
 import authRoutes from './routes/auth.routes.js';
@@ -38,6 +44,30 @@ const io = new Server(server, {
 // Make io accessible to routes (if needed, though direct import in route files is often cleaner for ES Modules)
 app.set('io', io);
 
+// ============================================
+// Security Middleware (Applied First)
+// ============================================
+
+// Helmet.js - Set security HTTP headers
+app.use(helmet({
+  frameguard: { action: 'deny' }, // X-Frame-Options: DENY
+  noSniff: true, // X-Content-Type-Options: nosniff
+  xssFilter: true, // X-XSS-Protection: 1; mode=block
+  hsts: {
+    maxAge: 31536000, // 1 year in seconds
+    includeSubDomains: true,
+    preload: true,
+  },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+    },
+  },
+}));
+
 // Middleware
 app.use(
   cors({
@@ -47,6 +77,13 @@ app.use(
 );
 app.use(express.json()); // Parses incoming requests with JSON payloads
 app.use(express.urlencoded({ extended: true })); // Parses incoming requests with URL-encoded payloads
+
+// Request timeout middleware
+app.use(apiTimeout);
+app.use(responseTimeout(30000));
+
+// Rate limiting middleware
+app.use(generalApiLimiter);
 
 // Request logging middleware (for development)
 if (process.env.NODE_ENV === 'development') {
@@ -90,9 +127,24 @@ app.use((req, res) => {
   });
 });
 
+// CSRF error handler
+app.use(csrfErrorHandler);
+
+// Timeout error handler
+app.use(timeoutErrorHandler);
+
 // Global error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled Server Error:', err); // Log the full error stack in development
+
+  // Handle specific error types
+  if (err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({
+      success: false,
+      error: 'Invalid CSRF token',
+    });
+  }
+
   res.status(err.status || 500).json({
     success: false,
     error: err.message || 'Internal server error',

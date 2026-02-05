@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import pool from '../config/database.js';
+import { socketChatMessageLimiter } from '../middleware/rateLimit.js';
 
 /**
  * Socket.IO Chat Handler
@@ -16,7 +17,7 @@ const authenticateSocket = async (socket, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    socket.userId = decoded.id;
+    socket.userId = decoded.userId;
     socket.userRole = decoded.role;
     
     next();
@@ -107,90 +108,111 @@ const initializeChatSocket = (io) => {
      * Client emits: { conversationId, content }
      */
     socket.on('send-message', async (data) => {
-      const client = await pool.connect();
-      
-      try {
-        const { conversationId, content } = data;
-
-        if (!content || content.trim() === '') {
-          socket.emit('error', { message: 'Message content is required' });
-          return;
-        }
-
-        await client.query('BEGIN');
-
-        // Check if user can send messages
-        const participantCheck = await client.query(
-          `SELECT cp.can_send, u.full_name, u.avatar
-           FROM conversation_participants cp
-           JOIN users u ON cp.user_id = u.id
-           WHERE cp.conversation_id = $1 AND cp.user_id = $2`,
-          [conversationId, socket.userId]
-        );
-
-        if (participantCheck.rows.length === 0) {
-          await client.query('ROLLBACK');
-          socket.emit('error', { message: 'Access denied' });
-          return;
-        }
-
-        if (!participantCheck.rows[0].can_send) {
-          await client.query('ROLLBACK');
+      // Rate limiting check
+      socketChatMessageLimiter(socket.id, (allowed) => {
+        if (!allowed) {
           socket.emit('error', { 
-            message: 'You do not have permission to send messages in this conversation' 
+            message: 'Too many messages, please slow down' 
           });
           return;
         }
 
-        const senderName = participantCheck.rows[0].name;
-        const senderAvatar = participantCheck.rows[0].avatar;
+        // Continue with message sending
+        handleSendMessage(data);
+      });
 
-        // Insert message
-        const messageResult = await client.query(
-          `INSERT INTO messages (conversation_id, sender_id, content)
-           VALUES ($1, $2, $3)
-           RETURNING id, created_at`,
-          [conversationId, socket.userId, content.trim()]
-        );
+      async function handleSendMessage(data) {
+        const client = await pool.connect();
+        
+        try {
+          const { conversationId, content } = data;
 
-        const messageId = messageResult.rows[0].id;
-        const createdAt = messageResult.rows[0].created_at;
+          if (!content || content.trim() === '') {
+            socket.emit('error', { message: 'Message content is required' });
+            return;
+          }
 
-        // Update conversation timestamp
-        await client.query(
-          'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-          [conversationId]
-        );
+          // Validate message length
+          if (content.trim().length > 5000) {
+            socket.emit('error', { message: 'Message is too long (max 5000 characters)' });
+            return;
+          }
 
-        // Clear typing indicator
-        await client.query(
-          'DELETE FROM typing_indicators WHERE conversation_id = $1 AND user_id = $2',
-          [conversationId, socket.userId]
-        );
+          await client.query('BEGIN');
 
-        await client.query('COMMIT');
+          // Check if user can send messages
+          const participantCheck = await client.query(
+            `SELECT cp.can_send, u.name, u.avatar
+             FROM conversation_participants cp
+             JOIN users u ON cp.user_id = u.id
+             WHERE cp.conversation_id = $1 AND cp.user_id = $2`,
+            [conversationId, socket.userId]
+          );
 
-        const message = {
-          id: messageId,
-          conversationId,
-          senderId: socket.userId,
-          senderName,
-          senderAvatar,
-          content: content.trim(),
-          timestamp: createdAt,
-          read: false,
-        };
+          if (participantCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            socket.emit('error', { message: 'Access denied' });
+            return;
+          }
 
-        // Broadcast to all users in the conversation (including sender)
-        io.to(conversationId).emit('new-message', message);
+          if (!participantCheck.rows[0].can_send) {
+            await client.query('ROLLBACK');
+            socket.emit('error', { 
+              message: 'You do not have permission to send messages in this conversation' 
+            });
+            return;
+          }
 
-        console.log(`Message sent in conversation ${conversationId} by user ${socket.userId}`);
-      } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error sending message:', error);
-        socket.emit('error', { message: 'Failed to send message' });
-      } finally {
-        client.release();
+          const senderName = participantCheck.rows[0].name;
+          const senderAvatar = participantCheck.rows[0].avatar;
+
+          // Insert message
+          const messageResult = await client.query(
+            `INSERT INTO messages (conversation_id, sender_id, content)
+             VALUES ($1, $2, $3)
+             RETURNING id, created_at`,
+            [conversationId, socket.userId, content.trim()]
+          );
+
+          const messageId = messageResult.rows[0].id;
+          const createdAt = messageResult.rows[0].created_at;
+
+          // Update conversation timestamp
+          await client.query(
+            'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+            [conversationId]
+          );
+
+          // Clear typing indicator
+          await client.query(
+            'DELETE FROM typing_indicators WHERE conversation_id = $1 AND user_id = $2',
+            [conversationId, socket.userId]
+          );
+
+          await client.query('COMMIT');
+
+          const message = {
+            id: messageId,
+            conversationId,
+            senderId: socket.userId,
+            senderName,
+            senderAvatar,
+            content: content.trim(),
+            timestamp: createdAt,
+            read: false,
+          };
+
+          // Broadcast to all users in the conversation (including sender)
+          io.to(conversationId).emit('new-message', message);
+
+          console.log(`Message sent in conversation ${conversationId} by user ${socket.userId}`);
+        } catch (error) {
+          await client.query('ROLLBACK');
+          console.error('Error sending message:', error);
+          socket.emit('error', { message: 'Failed to send message' });
+        } finally {
+          client.release();
+        }
       }
     });
 
@@ -214,7 +236,7 @@ const initializeChatSocket = (io) => {
 
         if (userResult.rows.length === 0) return;
 
-        const userName = userResult.rows[0].full_name;
+        const userName = userResult.rows[0].name;
 
         if (isTyping) {
           // Add typing indicator
