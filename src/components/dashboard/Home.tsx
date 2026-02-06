@@ -126,7 +126,7 @@ export function Home({ navigate }: HomeProps) {
                   </div>
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                     <span className="text-xs text-gray-500">Escrow Amount</span>
-                    <span className="font-semibold text-[#0047AB]">${transaction.amount.toFixed(2)}</span>
+                    <span className="font-semibold text-[#0047AB]">${Number(transaction.amount).toFixed(2)}</span>
                   </div>
                 </CardContent>
               </Card>

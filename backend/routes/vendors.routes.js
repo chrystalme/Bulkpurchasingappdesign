@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-      vendors: result.rows,
+      data: result.rows,
     });
   } catch (error) {
     console.error('Get vendors error:', error);
@@ -50,7 +50,7 @@ router.get('/:id', async (req, res) => {
 
     res.json({
       success: true,
-      vendor: {
+      data: {
         ...result.rows[0],
         products: productsResult.rows,
       },
@@ -131,7 +131,7 @@ router.get(
 
       res.json({
         success: true,
-        stats: {
+        data: {
           total_revenue: parseFloat(revenueResult.rows[0].total_revenue),
           monthly_revenue: parseFloat(revenueResult.rows[0].monthly_revenue),
           total_orders: parseInt(ordersResult.rows[0].total_orders),
@@ -191,7 +191,7 @@ router.get(
 
       res.json({
         success: true,
-        orders: result.rows,
+        data: result.rows,
       });
     } catch (error) {
       console.error('Get vendor orders error:', error);
@@ -240,7 +240,7 @@ router.get(
 
       res.json({
         success: true,
-        customers: result.rows,
+        data: result.rows,
       });
     } catch (error) {
       console.error('Get vendor customers error:', error);

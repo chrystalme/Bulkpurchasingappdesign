@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-      orders: result.rows,
+      data: result.rows,
     });
   } catch (error) {
     console.error('Get orders error:', error);
@@ -214,7 +214,7 @@ router.post(
 
       res.status(201).json({
         success: true,
-        order: completeOrder.rows[0],
+        data: completeOrder.rows[0],
       });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -271,7 +271,7 @@ router.put('/:id/status', async (req, res) => {
 
     res.json({
       success: true,
-      order: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Update order status error:', error);

@@ -76,14 +76,14 @@ export function TrustScore({ trustScore, variant = 'full', className = '' }: Tru
             <Star className="w-4 h-4 text-[#FACC15]" fill="#FACC15" />
             <div>
               <p className="text-xs text-gray-500">Buyer Rating</p>
-              <p className="text-sm font-semibold text-gray-900">{trustScore.buyerRating.toFixed(1)}</p>
+              <p className="text-sm font-semibold text-gray-900">{Number(trustScore.buyerRating).toFixed(1)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Star className="w-4 h-4 text-[#FACC15]" fill="#FACC15" />
             <div>
               <p className="text-xs text-gray-500">Seller Rating</p>
-              <p className="text-sm font-semibold text-gray-900">{trustScore.sellerRating.toFixed(1)}</p>
+              <p className="text-sm font-semibold text-gray-900">{Number(trustScore.sellerRating).toFixed(1)}</p>
             </div>
           </div>
         </div>

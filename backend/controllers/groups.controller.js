@@ -61,7 +61,7 @@ export const createGroup = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      group: groupResult.rows[0],
+      data: groupResult.rows[0],
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -104,7 +104,7 @@ export const getGroups = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      groups: result.rows,
+      data: result.rows,
     });
   } catch (error) {
     console.error('Get groups error:', error);
@@ -253,7 +253,7 @@ export const updateGroup = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      group: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Update group error:', error);
@@ -411,8 +411,8 @@ export const joinGroup = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Successfully joined group: ${groupName}`,
-      group: updatedGroup.rows[0],
+      message: `Successfully joined data: ${groupName}`,
+      data: updatedGroup.rows[0],
     });
   } catch (error) {
     await client.query('ROLLBACK');

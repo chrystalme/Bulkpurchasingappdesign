@@ -57,7 +57,7 @@ router.get('/transactions', async (req, res) => {
 
     res.json({
       success: true,
-      transactions: result.rows,
+      data: result.rows,
     });
   } catch (error) {
     console.error('Get escrow transactions error:', error);
@@ -159,7 +159,7 @@ router.post('/transactions', async (req, res) => {
 
     res.status(201).json({
       success: true,
-      transaction: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Create escrow transaction error:', error);
@@ -243,7 +243,7 @@ router.put('/transactions/:id/status', async (req, res) => {
 
     res.json({
       success: true,
-      transaction: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Update escrow status error:', error);
@@ -282,7 +282,7 @@ router.post('/transactions/:id/confirm-delivery', async (req, res) => {
 
     res.json({
       success: true,
-      transaction: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Confirm delivery error:', error);
@@ -318,7 +318,7 @@ router.post('/transactions/:id/release', async (req, res) => {
 
     res.json({
       success: true,
-      transaction: result.rows[0],
+      data: result.rows[0],
       message: 'Funds released to seller',
     });
   } catch (error) {

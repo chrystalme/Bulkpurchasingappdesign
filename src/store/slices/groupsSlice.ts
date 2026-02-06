@@ -24,7 +24,7 @@ export const fetchGroups = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.groups.getAll();
-      return response.groups;
+      return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -36,7 +36,7 @@ export const fetchGroupById = createAsyncThunk(
   async (groupId: string, { rejectWithValue }) => {
     try {
       const response = await apiClient.groups.getById(groupId);
-      return response.group;
+      return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -48,7 +48,7 @@ export const createGroup = createAsyncThunk(
   async (groupData: CreateGroupPayload, { rejectWithValue }) => {
     try {
       const response = await apiClient.groups.create(groupData);
-      return response.group;
+      return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -60,7 +60,7 @@ export const updateGroup = createAsyncThunk(
   async ({ groupId, groupData }: { groupId: string; groupData: UpdateGroupPayload }, { rejectWithValue }) => {
     try {
       const response = await apiClient.groups.update(groupId, groupData);
-      return response.group;
+      return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -84,7 +84,7 @@ export const joinGroup = createAsyncThunk(
   async (joinData: JoinGroupPayload, { rejectWithValue }) => {
     try {
       const response = await apiClient.groups.join(joinData);
-      return response.group;
+      return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -98,7 +98,7 @@ export const addMember = createAsyncThunk(
       await apiClient.groups.addMember(groupId, memberData);
       // Fetch updated group to get new member list
       const response = await apiClient.groups.getById(groupId);
-      return response.group;
+      return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -112,7 +112,7 @@ export const removeMember = createAsyncThunk(
       await apiClient.groups.removeMember(groupId, memberId);
       // Fetch updated group to get new member list
       const response = await apiClient.groups.getById(groupId);
-      return response.group;
+      return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -126,7 +126,7 @@ export const updateMemberRole = createAsyncThunk(
       await apiClient.groups.updateMemberRole(groupId, memberId, roleData);
       // Fetch updated group to get updated member roles
       const response = await apiClient.groups.getById(groupId);
-      return response.group;
+      return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }

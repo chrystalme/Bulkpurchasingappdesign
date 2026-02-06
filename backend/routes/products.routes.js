@@ -46,7 +46,7 @@ router.get('/', async (req, res) => {
 
     res.json({
       success: true,
-      products: result.rows,
+      data: result.rows,
     });
   } catch (error) {
     console.error('Get products error:', error);
@@ -66,7 +66,7 @@ router.get('/categories', async (req, res) => {
 
     res.json({
       success: true,
-      categories: result.rows.map(row => row.category),
+      data: result.rows.map(row => row.category),
     });
   } catch (error) {
     console.error('Get categories error:', error);
@@ -95,7 +95,7 @@ router.get('/:id', async (req, res) => {
 
     res.json({
       success: true,
-      product: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Get product error:', error);
@@ -166,7 +166,7 @@ router.post(
 
       res.status(201).json({
         success: true,
-        product: result.rows[0],
+        data: result.rows[0],
       });
     } catch (error) {
       console.error('Create product error:', error);
@@ -262,7 +262,7 @@ router.put(
 
       res.json({
         success: true,
-        product: result.rows[0],
+        data: result.rows[0],
       });
     } catch (error) {
       console.error('Update product error:', error);

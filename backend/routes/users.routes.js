@@ -24,7 +24,7 @@ router.get('/', canManageUsers, async (req, res) => {
 
     res.json({
       success: true,
-      users: result.rows,
+      data: result.rows,
     });
   } catch (error) {
     console.error('Get users error:', error);
@@ -48,7 +48,7 @@ router.get('/stats', canManageUsers, async (req, res) => {
 
     res.json({
       success: true,
-      stats: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Get stats error:', error);
@@ -71,7 +71,7 @@ router.get('/role/:role', canManageUsers, async (req, res) => {
 
     res.json({
       success: true,
-      users: result.rows,
+      data: result.rows,
     });
   } catch (error) {
     console.error('Get users by role error:', error);
@@ -106,7 +106,7 @@ router.get('/:id', async (req, res) => {
 
     res.json({
       success: true,
-      user: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Get user error:', error);
@@ -241,7 +241,7 @@ router.put('/:id', canManageUsers, async (req, res) => {
 
     res.json({
       success: true,
-      user: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Update user error:', error);
@@ -309,7 +309,7 @@ router.post('/:id/deactivate', canManageUsers, async (req, res) => {
 
     res.json({
       success: true,
-      user: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Deactivate user error:', error);
@@ -336,7 +336,7 @@ router.post('/:id/activate', canManageUsers, async (req, res) => {
 
     res.json({
       success: true,
-      user: result.rows[0],
+      data: result.rows[0],
     });
   } catch (error) {
     console.error('Activate user error:', error);
