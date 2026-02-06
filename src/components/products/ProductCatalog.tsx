@@ -59,9 +59,10 @@ export function ProductCatalog({ navigate, groupId }: ProductCatalogProps) {
     dispatch(fetchProducts() as any);
   };
 
-  console.log(products);
 
-  const filteredProducts = products.filter(product => {
+
+
+const filteredProducts = products.filter(product => {
     const matchesSearch = product.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());

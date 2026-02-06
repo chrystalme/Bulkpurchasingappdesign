@@ -1,4 +1,5 @@
-import { Home, Users, ShoppingCart, MessageCircle, User } from 'lucide-react';
+import { Home, Users, ShoppingCart, MessageCircle, User, Shield, Package } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Screen } from '../../App';
 
 interface BottomNavProps {
@@ -7,13 +8,42 @@ interface BottomNavProps {
 }
 
 export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
-  const navItems = [
+  const { user } = useAuth();
+
+  // Base items available to all users
+  const baseItems = [
+    { id: 'home' as Screen, icon: Home, label: 'Home' },
+    { id: 'profile' as Screen, icon: User, label: 'Profile' },
+  ];
+
+  // Admin-only items (replace all other items)
+  const adminItems = [
+    { id: 'home' as Screen, icon: Home, label: 'Home' },
+    { id: 'admin-users' as Screen, icon: Shield, label: 'Users' },
+    { id: 'profile' as Screen, icon: User, label: 'Profile' },
+  ];
+
+  // Vendor-only items (manage their products)
+  const vendorItems = [
+    { id: 'home' as Screen, icon: Home, label: 'Home' },
+    { id: 'vendor-products' as Screen, icon: Package, label: 'Products' },
+    { id: 'profile' as Screen, icon: User, label: 'Profile' },
+  ];
+
+  // Member items (purchase and group management)
+  const memberItems = [
     { id: 'home' as Screen, icon: Home, label: 'Home' },
     { id: 'groups' as Screen, icon: Users, label: 'Groups' },
     { id: 'cart' as Screen, icon: ShoppingCart, label: 'Cart' },
     { id: 'chat-dashboard' as Screen, icon: MessageCircle, label: 'Chat' },
     { id: 'profile' as Screen, icon: User, label: 'Profile' },
   ];
+
+  // Select nav items based on user role
+  const navItems = 
+    user?.role === 'admin' ? adminItems :
+    user?.role === 'vendor' ? vendorItems :
+    memberItems;
 
   return (
     <>

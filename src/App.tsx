@@ -40,6 +40,7 @@ import { VendorOrders } from './components/vendor/VendorOrders';
 import { VendorCustomers } from './components/vendor/VendorCustomers';
 import { UserManagement } from './components/admin/UserManagement';
 import { CreateUser } from './components/admin/CreateUser';
+import { AuthorizationTestPanel } from './components/debug/AuthorizationTestPanel';
 
 export type Screen =
   | 'welcome'
@@ -269,6 +270,8 @@ function AppContent() {
         )}
       </div>
       <Toaster />
+      {/* TODO: Remove this after testing authorization */}
+      <AuthorizationTestPanel />
     </div>
   );
 }

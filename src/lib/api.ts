@@ -133,8 +133,11 @@ class ApiClient {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      if (response.token) {
-        localStorage.setItem('auth_token', response.token);
+      if (response.accessToken) {
+        localStorage.setItem('auth_token', response.accessToken);
+      }
+      if (response.refreshToken) {
+        localStorage.setItem('refresh_token', response.refreshToken);
       }
       return response as unknown as AuthResponse;
     },
@@ -148,8 +151,11 @@ class ApiClient {
         method: 'POST',
         body: JSON.stringify({ email, password, name, role }),
       });
-      if (response.token) {
-        localStorage.setItem('auth_token', response.token);
+      if (response.accessToken) {
+        localStorage.setItem('auth_token', response.accessToken);
+      }
+      if (response.refreshToken) {
+        localStorage.setItem('refresh_token', response.refreshToken);
       }
       return response as unknown as AuthResponse;
     },

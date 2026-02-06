@@ -3,18 +3,19 @@
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token TEXT NOT NULL UNIQUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   expires_at TIMESTAMP NOT NULL,
   revoked_at TIMESTAMP,
   revoked_reason VARCHAR(255),
   ip_address INET,
-  user_agent TEXT,
-  INDEX idx_user_id (user_id),
-  INDEX idx_expires_at (expires_at),
-  INDEX idx_revoked_at (revoked_at)
+  user_agent TEXT
 );
+
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+CREATE INDEX idx_refresh_tokens_revoked_at ON refresh_tokens(revoked_at);
 
 -- Index for finding valid tokens
 CREATE INDEX idx_refresh_tokens_valid ON refresh_tokens(user_id, expires_at) 
