@@ -20,14 +20,15 @@ export interface VendorStats {
 
 export interface VendorOrder {
   id: string;
-  productId: string;
-  productName: string;
-  customerName: string;
+  order_number: string;
+  product_id: string;
+  product_name: string;
+  customer_name: string;
   quantity: number;
-  totalAmount: number;
+  total_amount: string;
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  orderDate: string;
-  escrowStatus?: 'locked' | 'pending_inspection' | 'released';
+  order_date: string;
+  escrow_status?: 'locked' | 'pending_inspection' | 'released';
 }
 
 export interface VendorCustomer {
@@ -35,8 +36,8 @@ export interface VendorCustomer {
   name: string;
   email: string;
   avatar: string;
-  totalOrders: number;
-  totalSpent: number;
-  lastOrderDate: string;
-  trustScore: number;
+  total_orders: string;
+  total_spent: string;
+  last_order_date: string;
+  trust_score: number;
 }

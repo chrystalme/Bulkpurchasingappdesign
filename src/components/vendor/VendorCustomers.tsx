@@ -28,11 +28,10 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
   const error = useSelector(selectVendorsError);
 
   useEffect(() => {
-    const vendorId = Number(user?.vendorId);
-    if (vendorId) {
-      dispatch(fetchVendorCustomers(vendorId) as any);
+    if (user?.vendor_id) {
+      dispatch(fetchVendorCustomers(user.vendor_id as string) as any);
     }
-  }, [user?.vendorId, dispatch]);
+  }, [user?.vendor_id, dispatch]);
 
   const filteredCustomers = allCustomers.filter(customer =>
     customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -86,8 +85,8 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
             title="Failed to load customers"
             description={error}
             onRetry={() => {
-              const vendorId = Number(user?.vendorId);
-              if (vendorId) dispatch(fetchVendorCustomers(vendorId) as any);
+              const vendor_id = user?.vendor_id;
+              if (vendor_id) dispatch(fetchVendorCustomers(vendor_id as string) as any);
             }}
             showRetry={true}
           />
@@ -144,7 +143,7 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
               <div>
                 <p className="text-xs text-gray-600">Avg. Trust Score</p>
                 <p className="text-lg font-semibold text-gray-900">
-                  {allCustomers.length > 0 ? (allCustomers.reduce((sum, c) => sum + c.trustScore, 0) / allCustomers.length).toFixed(0) : 0}
+                  {allCustomers.length > 0 ? (allCustomers.reduce((sum, c) => sum + c.trust_score, 0) / allCustomers.length).toFixed(0) : 0}
                 </p>
               </div>
             </div>
@@ -179,24 +178,24 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
                         </div>
                       </div>
                       <Badge variant="secondary" className="bg-gray-100 text-gray-700">
-                        <Star className={`w-3 h-3 mr-1 ${getTrustScoreColor(customer.trustScore)}`} fill="currentColor" />
-                        {customer.trustScore}
+                        <Star className={`w-3 h-3 mr-1 ${getTrustScoreColor(customer.trust_score)}`} fill="currentColor" />
+                        {customer.trust_score}
                       </Badge>
                     </div>
 
                     <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-100">
                       <div>
                         <p className="text-xs text-gray-600">Orders</p>
-                        <p className="text-sm font-semibold text-gray-900">{customer.totalOrders}</p>
+                        <p className="text-sm font-semibold text-gray-900">{customer.total_orders}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-600">Total Spent</p>
-                        <p className="text-sm font-semibold text-[#10B981]">${customer.totalSpent.toLocaleString()}</p>
+                        <p className="text-sm font-semibold text-[#10B981]">${parseFloat(customer.total_spent || '0').toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-600">Last Order</p>
                         <p className="text-sm text-gray-900">
-                          {new Date(customer.lastOrderDate).toLocaleDateString('en-US', {
+                          {new Date(customer.last_order_date).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric'
                           })}

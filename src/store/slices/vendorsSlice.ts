@@ -1,5 +1,10 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { Vendor, VendorStats, VendorOrder, VendorCustomer } from '../../lib/types';
+import type {
+  Vendor,
+  VendorStats,
+  VendorOrder,
+  VendorCustomer,
+} from '../../lib/types';
 import { apiClient } from '../../lib/api';
 
 interface VendorsState {
@@ -30,71 +35,98 @@ export const fetchVendors = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.vendors.getAll();
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch vendors.');
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
-  }
+  },
 );
 
 export const fetchVendorById = createAsyncThunk(
   'vendors/fetchVendorById',
-  async (id: number, { rejectWithValue }) => {
+  async (id: string, { rejectWithValue }) => {
     try {
       const response = await apiClient.vendors.getById(id);
+      // API should return 404 for not found, but we handle it gracefully here. This should be replicated across all thunks for consistency.
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch vendor.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
-  }
+  },
 );
 
 export const fetchVendorDashboard = createAsyncThunk(
   'vendors/fetchVendorDashboard',
-  async (vendorId: number, { rejectWithValue }) => {
+  async (vendorId: string, { rejectWithValue }) => {
     try {
       const response = await apiClient.vendors.getDashboard(vendorId);
+      if (!response.success) {
+        return rejectWithValue(
+          response.error || 'Failed to fetch vendor dashboard.',
+        );
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
-  }
+  },
 );
 
 export const fetchVendorOrders = createAsyncThunk(
   'vendors/fetchVendorOrders',
-  async (vendorId: number, { rejectWithValue }) => {
+  async (vendorId: string, { rejectWithValue }) => {
     try {
       const response = await apiClient.vendors.getOrders(vendorId);
+      if (!response.success) {
+        return rejectWithValue(
+          response.error || 'Failed to fetch vendor orders.',
+        );
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
-  }
+  },
 );
 
 export const fetchVendorProducts = createAsyncThunk(
   'vendors/fetchVendorProducts',
-  async (vendorId: number, { rejectWithValue }) => {
+  async (vendorId: string, { rejectWithValue }) => {
     try {
       const response = await apiClient.products.getAll({ vendor_id: vendorId });
+      if (!response.success) {
+        return rejectWithValue(
+          response.error || 'Failed to fetch vendor products.',
+        );
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
-  }
+  },
 );
 
 export const fetchVendorCustomers = createAsyncThunk(
   'vendors/fetchVendorCustomers',
-  async (vendorId: number, { rejectWithValue }) => {
+  async (vendorId: string, { rejectWithValue }) => {
     try {
       const response = await apiClient.vendors.getCustomers(vendorId);
+      if (!response.success) {
+        return rejectWithValue(
+          response.error || 'Failed to fetch vendor customers.',
+        );
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
-  }
+  },
 );
 
 // Slice
@@ -105,21 +137,21 @@ const vendorsSlice = createSlice({
     setCurrentVendor: (state, action) => {
       state.currentVendor = action.payload;
     },
-    clearVendor: (state) => {
+    clearVendor: state => {
       state.currentVendor = null;
       state.dashboard = null;
       state.products = [];
       state.orders = [];
       state.customers = [];
     },
-    clearError: (state) => {
+    clearError: state => {
       state.error = null;
     },
   },
-  extraReducers: (builder) => {
+  extraReducers: builder => {
     // Fetch Vendors
     builder
-      .addCase(fetchVendors.pending, (state) => {
+      .addCase(fetchVendors.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -134,7 +166,7 @@ const vendorsSlice = createSlice({
 
     // Fetch Vendor By ID
     builder
-      .addCase(fetchVendorById.pending, (state) => {
+      .addCase(fetchVendorById.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -149,7 +181,7 @@ const vendorsSlice = createSlice({
 
     // Fetch Vendor Dashboard
     builder
-      .addCase(fetchVendorDashboard.pending, (state) => {
+      .addCase(fetchVendorDashboard.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -164,7 +196,7 @@ const vendorsSlice = createSlice({
 
     // Fetch Vendor Products
     builder
-      .addCase(fetchVendorProducts.pending, (state) => {
+      .addCase(fetchVendorProducts.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -179,7 +211,7 @@ const vendorsSlice = createSlice({
 
     // Fetch Vendor Orders
     builder
-      .addCase(fetchVendorOrders.pending, (state) => {
+      .addCase(fetchVendorOrders.pending, state => {
         state.loading = true;
         state.error = null;
       })
@@ -194,13 +226,13 @@ const vendorsSlice = createSlice({
 
     // Fetch Vendor Customers
     builder
-      .addCase(fetchVendorCustomers.pending, (state) => {
+      .addCase(fetchVendorCustomers.pending, state => {
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchVendorCustomers.fulfilled, (state, action) => {
         state.loading = false;
-        state.customers = action.payload;
+        state.customers = action.payload || [];
       })
       .addCase(fetchVendorCustomers.rejected, (state, action) => {
         state.loading = false;
@@ -209,5 +241,6 @@ const vendorsSlice = createSlice({
   },
 });
 
-export const { setCurrentVendor, clearVendor, clearError } = vendorsSlice.actions;
+export const { setCurrentVendor, clearVendor, clearError } =
+  vendorsSlice.actions;
 export default vendorsSlice.reducer;

@@ -29,6 +29,9 @@ export const fetchOrders = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.orders.getAll();
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch orders.');
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -41,6 +44,9 @@ export const fetchOrderById = createAsyncThunk(
   async (id: number, { rejectWithValue }) => {
     try {
       const response = await apiClient.orders.getById(id);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch order.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -53,6 +59,9 @@ export const createOrder = createAsyncThunk(
   async ({ items, groupId }: { items: any[]; groupId: number }, { rejectWithValue }) => {
     try {
       const response = await apiClient.orders.create(items, groupId);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to create order.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -65,6 +74,9 @@ export const updateOrderStatus = createAsyncThunk(
   async ({ id, status }: { id: number; status: string }, { rejectWithValue }) => {
     try {
       const response = await apiClient.orders.updateStatus(id, status);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to update order status.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);

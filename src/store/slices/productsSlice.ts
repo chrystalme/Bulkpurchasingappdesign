@@ -29,6 +29,9 @@ export const fetchProducts = createAsyncThunk(
   async (filter?: ProductsFilter, { rejectWithValue }) => {
     try {
       const response = await apiClient.products.getAll(filter);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch products.');
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -41,6 +44,9 @@ export const fetchProductById = createAsyncThunk(
   async (id: number, { rejectWithValue }) => {
     try {
       const response = await apiClient.products.getById(id);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch product.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -53,6 +59,9 @@ export const fetchCategories = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.products.getCategories();
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch categories.');
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);

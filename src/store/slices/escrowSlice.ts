@@ -28,6 +28,10 @@ export const fetchTransactions = createAsyncThunk(
   async (type?: 'seller' | 'buyer' | 'all', { rejectWithValue }) => {
     try {
       const response = await apiClient.escrow.getTransactions(type);
+      // API should return 404 for not found, but we handle it gracefully here. This should be replicated across all thunks for consistency.
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch transactions.');
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -40,6 +44,10 @@ export const fetchTransactionById = createAsyncThunk(
   async (id: number, { rejectWithValue }) => {
     try {
       const response = await apiClient.escrow.getById(id);
+      // API should return 404 for not found, but we handle it gracefully here. This should be replicated across all thunks for consistency.
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch transaction.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -55,6 +63,10 @@ export const createEscrowTransaction = createAsyncThunk(
   ) => {
     try {
       const response = await apiClient.escrow.createTransaction(orderId, sellerId, amount, escrowFee);
+      // API should return 404 for not found, but we handle it gracefully here. This should be replicated across all thunks for consistency.
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to create escrow transaction.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -70,6 +82,10 @@ export const updateTransactionStatus = createAsyncThunk(
   ) => {
     try {
       const response = await apiClient.escrow.updateStatus(id, status, trackingId, courier);
+      // API should return 404 for not found, but we handle it gracefully here. This should be replicated across all thunks for consistency.
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to update transaction status.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);

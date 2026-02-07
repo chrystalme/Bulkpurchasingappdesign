@@ -31,6 +31,9 @@ export const fetchUsers = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.users.getAll();
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch users.');
+      }
       return response.data || [];
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -43,6 +46,9 @@ export const fetchUserStats = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await apiClient.users.getStats();
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch user stats.');
+      }
       return response.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
