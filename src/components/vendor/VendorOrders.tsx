@@ -11,7 +11,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
 import { fetchVendorOrders } from '../../store/slices/vendorsSlice';
-import { selectVendorOrders, selectVendorsLoading, selectVendorsError } from '../../store/selectors/vendorsSelectors';
+import {
+  selectVendorOrders,
+  selectVendorsLoading,
+  selectVendorsError,
+} from '../../store/selectors/vendorsSelectors';
 import type { VendorOrder } from '../../lib/types';
 
 interface VendorOrdersProps {
@@ -29,20 +33,26 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
   const error = useSelector(selectVendorsError);
 
   useEffect(() => {
-    const vendorId = Number(user?.vendorId);
+    const vendorId = user?.vendor_id;
     if (vendorId) {
       dispatch(fetchVendorOrders(vendorId) as any);
     }
-  }, [user?.vendorId, dispatch]);
+  }, [user?.vendor_id, dispatch]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-[#FACC15]/10 text-[#FACC15] border-[#FACC15]/20';
-      case 'confirmed': return 'bg-[#0047AB]/10 text-[#0047AB] border-[#0047AB]/20';
-      case 'shipped': return 'bg-[#6EE7B7]/10 text-[#10B981] border-[#6EE7B7]/20';
-      case 'delivered': return 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20';
-      case 'cancelled': return 'bg-[#FB7185]/10 text-[#FB7185] border-[#FB7185]/20';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'pending':
+        return 'bg-[#FACC15]/10 text-[#FACC15] border-[#FACC15]/20';
+      case 'confirmed':
+        return 'bg-[#0047AB]/10 text-[#0047AB] border-[#0047AB]/20';
+      case 'shipped':
+        return 'bg-[#6EE7B7]/10 text-[#10B981] border-[#6EE7B7]/20';
+      case 'delivered':
+        return 'bg-[#10B981]/10 text-[#10B981] border-[#10B981]/20';
+      case 'cancelled':
+        return 'bg-[#FB7185]/10 text-[#FB7185] border-[#FB7185]/20';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
@@ -52,10 +62,15 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
       filtered = filtered.filter(order => order.status === status);
     }
     if (searchQuery) {
-      filtered = filtered.filter(order =>
-        order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.id.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter(
+        order =>
+          order.product_name
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          order.customer_name
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          order.id.toLowerCase().includes(searchQuery.toLowerCase()),
       );
     }
     return filtered;
@@ -69,7 +84,10 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
       <div className="min-h-screen bg-[#F4F4F5] pb-6">
         <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
           <div className="flex items-center gap-3 mb-4">
-            <button onClick={() => navigate('vendor-dashboard')} className="p-1">
+            <button
+              onClick={() => navigate('vendor-dashboard')}
+              className="p-1"
+            >
               <ArrowLeft className="w-5 h-5 text-gray-700" />
             </button>
             <div className="flex-1">
@@ -90,12 +108,17 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
       <div className="min-h-screen bg-[#F4F4F5] pb-6">
         <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
           <div className="flex items-center gap-3 mb-4">
-            <button onClick={() => navigate('vendor-dashboard')} className="p-1">
+            <button
+              onClick={() => navigate('vendor-dashboard')}
+              className="p-1"
+            >
               <ArrowLeft className="w-5 h-5 text-gray-700" />
             </button>
             <div className="flex-1">
               <h1 className="font-semibold text-gray-900">Orders</h1>
-              <p className="text-xs text-gray-500">{allOrders.length} total orders</p>
+              <p className="text-xs text-gray-500">
+                {allOrders.length} total orders
+              </p>
             </div>
           </div>
         </div>
@@ -104,8 +127,8 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
             title="Failed to load orders"
             description={error}
             onRetry={() => {
-              const vendorId = Number(user?.vendorId);
-              if (vendorId) dispatch(fetchVendorOrders(vendorId) as any);
+              const vendorId = user?.vendor_id;
+              if (vendorId) dispatch(fetchVendorOrders(vendorId));
             }}
             showRetry={true}
           />
@@ -124,7 +147,9 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
           </button>
           <div className="flex-1">
             <h1 className="font-semibold text-gray-900">Orders</h1>
-            <p className="text-xs text-gray-500">{allOrders.length} total orders</p>
+            <p className="text-xs text-gray-500">
+              {allOrders.length} total orders
+            </p>
           </div>
           {pendingCount > 0 && (
             <Badge className="bg-[#FACC15]/10 text-[#FACC15] border-[#FACC15]/20">
@@ -139,7 +164,7 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
           <Input
             placeholder="Search by order ID, product, or customer..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -163,30 +188,43 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
                   <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-600 mb-2">No orders found</p>
                   <p className="text-sm text-gray-500">
-                    {searchQuery ? 'Try a different search term' : 'No orders in this category yet'}
+                    {searchQuery
+                      ? 'Try a different search term'
+                      : 'No orders in this category yet'}
                   </p>
                 </div>
               </Card>
             ) : (
-              orders.map((order) => (
+              orders.map(order => (
                 <Card key={order.id} className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-gray-900">{order.id}</p>
-                        <Badge variant="secondary" className={getStatusColor(order.status)}>
+                        <p className="font-semibold text-gray-900">
+                          {order.order_number}
+                        </p>
+                        <Badge
+                          variant="secondary"
+                          className={getStatusColor(order.status)}
+                        >
                           {order.status}
                         </Badge>
-                        {order.escrowStatus && (
-                          <Badge variant="secondary" className="bg-[#0047AB]/10 text-[#0047AB] border-[#0047AB]/20">
+                        {order.escrow_status && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-[#0047AB]/10 text-[#0047AB] border-[#0047AB]/20"
+                          >
                             <Shield className="w-3 h-3 mr-1" />
                             Escrow
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-gray-900 mb-1">{order.productName}</p>
+                      <p className="text-sm text-gray-900 mb-1">
+                        {order.product_name}
+                      </p>
                       <p className="text-xs text-gray-600">
-                        Customer: {order.customerName} • Qty: {order.quantity} units
+                        Customer: {order.customer_name} • Qty: {order.quantity}{' '}
+                        units
                       </p>
                     </div>
                   </div>
@@ -195,25 +233,37 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
                     <div>
                       <p className="text-xs text-gray-600">Order Date</p>
                       <p className="text-sm text-gray-900">
-                        {new Date(order.orderDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
+                        {new Date(order.order_date).toLocaleDateString(
+                          'en-US',
+                          {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          },
+                        )}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-600">Total Amount</p>
-                      <p className="text-lg font-semibold text-[#10B981]">${order.totalAmount.toFixed(2)}</p>
+                      <p className="text-lg font-semibold text-[#10B981]">
+                        ${(parseFloat(order.total_amount) || 0).toFixed(2)}
+                      </p>
                     </div>
                   </div>
 
                   {order.status === 'pending' && (
                     <div className="flex gap-2 mt-3">
-                      <Button size="sm" className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90">
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90"
+                      >
                         Confirm Order
                       </Button>
-                      <Button size="sm" variant="outline" className="flex-1 text-[#FB7185] border-[#FB7185]/20">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-[#FB7185] border-[#FB7185]/20"
+                      >
                         Reject
                       </Button>
                     </div>
@@ -221,8 +271,8 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
 
                   {order.status === 'confirmed' && (
                     <div className="mt-3">
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         className="w-full bg-[#0047AB] hover:bg-[#0047AB]/90"
                         onClick={() => navigate('escrow-seller-upload')}
                       >

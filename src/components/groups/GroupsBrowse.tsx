@@ -6,7 +6,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
-import { Plus, ChevronRight, Users, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, ChevronRight, Users, Loader2, AlertTriangle, Link } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import type { Screen } from '../../App';
 

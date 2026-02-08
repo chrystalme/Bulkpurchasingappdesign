@@ -7,7 +7,7 @@ import {
   Eye,
   DollarSign,
 } from 'lucide-react';
-import { EscrowTransaction } from '../../lib/mockData';
+import { EscrowTransaction } from '../../lib/_AImockData';
 
 interface EscrowTimelineProps {
   transaction: EscrowTransaction;

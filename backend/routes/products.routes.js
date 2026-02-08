@@ -117,7 +117,7 @@ router.post(
       .isFloat({ min: 0 })
       .withMessage('Valid retail price is required'),
     body('moq').isInt({ min: 1 }).withMessage('Valid MOQ is required'),
-    body('vendor_id').isInt().withMessage('Valid vendor ID is required'),
+    body('vendor_id').isUUID().withMessage('Valid vendor ID is required'),
     body('category').notEmpty().withMessage('Category is required'),
   ],
   async (req, res) => {
@@ -138,15 +138,10 @@ router.post(
       } = req.body;
 
       // If user is a vendor, they can only create products for their own vendor
-      if (
-        req.user.role === 'vendor' &&
-        req.user.vendor_id !== parseInt(vendor_id)
-      ) {
-        return res
-          .status(403)
-          .json({
-            error: 'You can only create products for your own vendor account',
-          });
+      if (req.user.role === 'vendor' && req.user.vendor_id !== vendor_id) {
+        return res.status(403).json({
+          error: 'You can only create products for your own vendor account',
+        });
       }
 
       const result = await pool.query(

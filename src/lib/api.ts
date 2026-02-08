@@ -16,8 +16,8 @@ import type {
   UpdateGroupPayload,
   AddMemberPayload,
   UpdateMemberRolePayload,
-  JoinGroupPayload
-} from "./types";
+  JoinGroupPayload,
+} from './types';
 
 const API_URL = 'http://localhost:3001/api'; //import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
@@ -25,7 +25,7 @@ interface ApiResponse<T> {
   success: boolean;
   data?: T;
   // message?: string;
-  token?: string;
+  accessToken?: string;
   user?: User;
   error?: string;
 }
@@ -61,7 +61,14 @@ interface GroupListResponse {
 
 interface UsersResponse extends ApiResponse<User[]> {}
 interface UserResponse extends ApiResponse<User> {}
-interface UserStatsResponse extends ApiResponse<{total: number; active: number; superUsers: number; admins: number; vendors: number; members: number}> {}
+interface UserStatsResponse extends ApiResponse<{
+  total: number;
+  active: number;
+  superUsers: number;
+  admins: number;
+  vendors: number;
+  members: number;
+}> {}
 
 class ApiClient {
   private getAuthHeader(): HeadersInit {
@@ -71,7 +78,7 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<ApiResponse<T>> {
     const URL = `${API_URL}/${endpoint}`;
     const config: RequestInit = {
@@ -86,41 +93,52 @@ class ApiClient {
     try {
       const response = await fetch(URL, config);
       const data = await response.json();
-      
+
       // Handle authentication errors
       if (response.status === 401) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('userId');
         window.location.href = '/login';
-        return { success: false, error: 'Authentication required. Please login again.' } as unknown as ApiResponse<T>;
+        return {
+          success: false,
+          error: 'Authentication required. Please login again.',
+        } as unknown as ApiResponse<T>;
       }
 
       // Handle forbidden errors
       if (response.status === 403) {
         console.warn(`Access denied to ${endpoint}`);
-        return { success: false, error: 'Access denied. You do not have permission to perform this action.' } as unknown as ApiResponse<T>;
+        return {
+          success: false,
+          error:
+            'Access denied. You do not have permission to perform this action.',
+        } as unknown as ApiResponse<T>;
       }
 
       // Handle rate limiting
       if (response.status === 429) {
         console.warn(`Rate limited on ${endpoint}`);
-        return { success: false, error: 'Too many requests. Please try again later.' } as unknown as ApiResponse<T>;
+        return {
+          success: false,
+          error: 'Too many requests. Please try again later.',
+        } as unknown as ApiResponse<T>;
       }
 
       if (!response.ok) {
-        const errorMessage = data?.error || `Request failed with status ${response.status}`;
+        const errorMessage =
+          data?.error || `Request failed with status ${response.status}`;
         console.error(`API error on ${endpoint}:`, errorMessage);
         throw new Error(errorMessage);
       }
-      
+
       return data;
     } catch (error) {
       const errorMessage = (error as Error).message;
       console.error('API request error:', errorMessage);
       // Return user-friendly error messages, don't expose internal details
-      return { 
-        success: false, 
-        error: 'Unable to complete request. Please try again later.' 
+      return {
+        success: false,
+        error: 'Unable to complete request. Please try again later.',
       } as unknown as ApiResponse<T>;
     }
   }
@@ -145,7 +163,7 @@ class ApiClient {
       email: string,
       password: string,
       name: string,
-      role = 'member'
+      role = 'member',
     ): Promise<AuthResponse> => {
       const response = await this.request<null>('auth/signup', {
         method: 'POST',
@@ -172,12 +190,17 @@ class ApiClient {
   // Products endpoints
 
   products = {
-    getAll: async (filters?: {category?: string; vendor_id?: number}): Promise<ProductsResponse> => {
+    getAll: async (filters?: {
+      category?: string;
+      vendor_id?: string;
+    }): Promise<ProductsResponse> => {
       const params = new URLSearchParams(filters as any);
-      const response = await this.request<Product[]>(`products?${params.toString()}`);
+      const response = await this.request<Product[]>(
+        `products?${params.toString()}`,
+      );
       return response as unknown as ProductsResponse;
     },
-    getById: async (id: number): Promise<ProductResponse> => {
+    getById: async (id: string): Promise<ProductResponse> => {
       const response = await this.request<Product>(`products/${id}`);
       return response as unknown as ProductResponse;
     },
@@ -185,21 +208,26 @@ class ApiClient {
       const response = await this.request<string[]>('products/categories');
       return response as unknown as CategoriesResponse;
     },
-    create: async (productData: Omit<Product, 'id'>): Promise<ProductResponse> => {
+    create: async (
+      productData: Omit<Product, 'id'>,
+    ): Promise<ProductResponse> => {
       const response = await this.request<Product>('products', {
         method: 'POST',
         body: JSON.stringify(productData),
       });
       return response as unknown as ProductResponse;
     },
-    update: async (id: number, productData: Partial<Product>): Promise<ProductResponse> => {
+    update: async (
+      id: string,
+      productData: Partial<Product>,
+    ): Promise<ProductResponse> => {
       const response = await this.request<Product>(`products/${id}`, {
         method: 'PUT',
         body: JSON.stringify(productData),
       });
       return response as unknown as ProductResponse;
     },
-    delete: async (id: number): Promise<ApiResponse<null>> => {
+    delete: async (id: string): Promise<ApiResponse<null>> => {
       return this.request<null>(`products/${id}`, {
         method: 'DELETE',
       });
@@ -213,11 +241,14 @@ class ApiClient {
       const response = await this.request<Order[]>('orders');
       return response as unknown as OrdersResponse;
     },
-    getById: async (id: number): Promise<OrderResponse> => {
+    getById: async (id: string): Promise<OrderResponse> => {
       const response = await this.request<Order>(`orders/${id}`);
       return response as unknown as OrderResponse;
     },
-    create: async (orderData: any[], groupId: number): Promise<OrderResponse> => {
+    create: async (
+      orderData: any[],
+      groupId: string,
+    ): Promise<OrderResponse> => {
       const response = await this.request<Order>('orders', {
         method: 'POST',
         body: JSON.stringify({ items: orderData, group_id: groupId }),
@@ -225,7 +256,10 @@ class ApiClient {
       return response as unknown as OrderResponse;
     },
 
-    updateStatus: async(id: number, status: string): Promise<OrderResponse> => {
+    updateStatus: async (
+      id: string,
+      status: string,
+    ): Promise<OrderResponse> => {
       const response = await this.request<Order>(`orders/${id}/status`, {
         method: 'PUT',
         body: JSON.stringify({ status }),
@@ -241,20 +275,28 @@ class ApiClient {
       const response = await this.request<Vendor[]>('vendors');
       return response as unknown as VendorsResponse;
     },
-    getById: async (id: number): Promise<VendorResponse> => {
+    getById: async (id: string): Promise<VendorResponse> => {
       const response = await this.request<Vendor>(`vendors/${id}`);
       return response as unknown as VendorResponse;
     },
-    getDashboard: async (vendorId: number): Promise<VendorStatsResponse> => {
-      const response = await this.request<VendorStats>(`vendors/${vendorId}/dashboard`);
+    getDashboard: async (vendorId: string): Promise<VendorStatsResponse> => {
+      const response = await this.request<VendorStats>(
+        `vendors/${vendorId}/dashboard`,
+      );
       return response as unknown as VendorStatsResponse;
     },
-    getOrders: async (vendorId: number): Promise<VendorOrdersResponse> => {
-      const response = await this.request<VendorOrder[]>(`vendors/${vendorId}/orders`);
+    getOrders: async (vendorId: string): Promise<VendorOrdersResponse> => {
+      const response = await this.request<VendorOrder[]>(
+        `vendors/${vendorId}/orders`,
+      );
       return response as unknown as VendorOrdersResponse;
     },
-    getCustomers: async (vendorId: number): Promise<VendorCustomersResponse> => {
-      const response = await this.request<VendorCustomer[]>(`vendors/${vendorId}/customers`);
+    getCustomers: async (
+      vendorId: string,
+    ): Promise<VendorCustomersResponse> => {
+      const response = await this.request<VendorCustomer[]>(
+        `vendors/${vendorId}/customers`,
+      );
       return response as unknown as VendorCustomersResponse;
     },
   };
@@ -262,34 +304,66 @@ class ApiClient {
   // Escrow endpoints
 
   escrow = {
-    getTransactions: async (type?: 'seller' | 'buyer' | 'all'): Promise<EscrowTransactionsResponse> => {
-      const params = type ? new URLSearchParams({ type }) : new URLSearchParams();
-      const response = await this.request<EscrowTransaction[]>(`escrow/transactions?${params.toString()}`);
+    getTransactions: async (
+      type?: 'seller' | 'buyer' | 'all',
+    ): Promise<EscrowTransactionsResponse> => {
+      const params = type
+        ? new URLSearchParams({ type })
+        : new URLSearchParams();
+      const response = await this.request<EscrowTransaction[]>(
+        `escrow/transactions?${params.toString()}`,
+      );
       return response as unknown as EscrowTransactionsResponse;
     },
 
-    getById: async (id: number): Promise<EscrowTransactionResponse> => {
-      const response = await this.request<EscrowTransaction>(`escrow/transactions/${id}`);
+    getById: async (id: string): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>(
+        `escrow/transactions/${id}`,
+      );
       return response as unknown as EscrowTransactionResponse;
     },
-    createTransaction: async (orderId: number, sellerId: number, amount: number, escrowFee: number): Promise<EscrowTransactionResponse> => {
-      const response = await this.request<EscrowTransaction>('escrow/transactions', {
-        method: 'POST',
-        body: JSON.stringify({ order_id: orderId, seller_id: sellerId, amount, escrow_fee: escrowFee }),
-      });
+    createTransaction: async (
+      orderId: string,
+      sellerId: string,
+      amount: number,
+      escrowFee: number,
+    ): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>(
+        'escrow/transactions',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            order_id: orderId,
+            seller_id: sellerId,
+            amount,
+            escrow_fee: escrowFee,
+          }),
+        },
+      );
       return response as unknown as EscrowTransactionResponse;
     },
-    updateStatus: async (id: number, status: string, trackingId?: string, courier?: string): Promise<EscrowTransactionResponse> => {
-      const response = await this.request<EscrowTransaction>(`escrow/transactions/${id}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({ status, tracking_id: trackingId, courier }),
-      });
+    updateStatus: async (
+      id: string,
+      status: string,
+      trackingId?: string,
+      courier?: string,
+    ): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>(
+        `escrow/transactions/${id}/status`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ status, tracking_id: trackingId, courier }),
+        },
+      );
       return response as unknown as EscrowTransactionResponse;
     },
-    confirmDelivery: async (id: number): Promise<EscrowTransactionResponse> => {
-      const response = await this.request<EscrowTransaction>(`escrow/transactions/${id}/release `, {
-        method: 'POST',
-      });
+    confirmDelivery: async (id: string): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>(
+        `escrow/transactions/${id}/release `,
+        {
+          method: 'POST',
+        },
+      );
       return response as unknown as EscrowTransactionResponse;
     },
   };
@@ -301,41 +375,53 @@ class ApiClient {
       const response = await this.request<User[]>('users');
       return response as unknown as UsersResponse;
     },
-    getById: async (id: number): Promise<UserResponse> => {
+    getById: async (id: string): Promise<UserResponse> => {
       const response = await this.request<User>(`users/${id}`);
       return response as unknown as UserResponse;
     },
     getStats: async (): Promise<UserStatsResponse> => {
-      const response = await this.request<{total: number; active: number; superUsers: number; admins: number; vendors: number; members: number}>('users/stats');
+      const response = await this.request<{
+        total: number;
+        active: number;
+        superUsers: number;
+        admins: number;
+        vendors: number;
+        members: number;
+      }>('users/stats');
       return response as unknown as UserStatsResponse;
     },
 
-    create: async (userData: Omit<User, 'id' | 'createdAt'>): Promise<UserResponse> => {
+    create: async (
+      userData: Omit<User, 'id' | 'createdAt'>,
+    ): Promise<UserResponse> => {
       const response = await this.request<User>('users', {
         method: 'POST',
         body: JSON.stringify(userData),
       });
       return response as unknown as UserResponse;
     },
-    update: async (id: number, userData: Partial<User>): Promise<UserResponse> => {
+    update: async (
+      id: string,
+      userData: Partial<User>,
+    ): Promise<UserResponse> => {
       const response = await this.request<User>(`users/${id}`, {
         method: 'PUT',
         body: JSON.stringify(userData),
       });
       return response as unknown as UserResponse;
     },
-    delete: async (id: number): Promise<ApiResponse<null>> => {
+    delete: async (id: string): Promise<ApiResponse<null>> => {
       return this.request<null>(`users/${id}`, {
         method: 'DELETE',
       });
     },
-    activate: async (id: number): Promise<UserResponse> => {
+    activate: async (id: string): Promise<UserResponse> => {
       const response = await this.request<User>(`users/${id}/activate`, {
         method: 'POST',
       });
       return response as unknown as UserResponse;
     },
-    deactivate: async (id: number): Promise<UserResponse> => {
+    deactivate: async (id: string): Promise<UserResponse> => {
       const response = await this.request<User>(`users/${id}/deactivate`, {
         method: 'POST',
       });
@@ -360,7 +446,10 @@ class ApiClient {
       });
       return response as unknown as GroupResponse;
     },
-    update: async (id: string, groupData: UpdateGroupPayload): Promise<GroupResponse> => {
+    update: async (
+      id: string,
+      groupData: UpdateGroupPayload,
+    ): Promise<GroupResponse> => {
       const response = await this.request<Group>(`groups/${id}`, {
         method: 'PUT',
         body: JSON.stringify(groupData),
@@ -379,28 +468,42 @@ class ApiClient {
       });
       return response as unknown as GroupResponse;
     },
-    addMember: async (groupId: string, memberData: AddMemberPayload): Promise<ApiResponse<null>> => {
+    addMember: async (
+      groupId: string,
+      memberData: AddMemberPayload,
+    ): Promise<ApiResponse<null>> => {
       return this.request<null>(`groups/${groupId}/members`, {
         method: 'POST',
         body: JSON.stringify(memberData),
       });
     },
-    removeMember: async (groupId: string, memberId: string): Promise<ApiResponse<null>> => {
+    removeMember: async (
+      groupId: string,
+      memberId: string,
+    ): Promise<ApiResponse<null>> => {
       return this.request<null>(`groups/${groupId}/members/${memberId}`, {
         method: 'DELETE',
       });
     },
-    updateMemberRole: async (groupId: string, memberId: string, roleData: UpdateMemberRolePayload): Promise<ApiResponse<null>> => {
+    updateMemberRole: async (
+      groupId: string,
+      memberId: string,
+      roleData: UpdateMemberRolePayload,
+    ): Promise<ApiResponse<null>> => {
       return this.request<null>(`groups/${groupId}/members/${memberId}`, {
         method: 'PUT',
         body: JSON.stringify(roleData),
       });
     },
-    getMembers: async (groupId: string): Promise<ApiResponse<GroupMember[]>> => {
-      const response = await this.request<GroupMember[]>(`groups/${groupId}/members`);
+    getMembers: async (
+      groupId: string,
+    ): Promise<ApiResponse<GroupMember[]>> => {
+      const response = await this.request<GroupMember[]>(
+        `groups/${groupId}/members`,
+      );
       return response as unknown as ApiResponse<GroupMember[]>;
     },
-  }
-};
+  };
+}
 
 export const apiClient = new ApiClient();

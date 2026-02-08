@@ -12,7 +12,7 @@ import { Card } from '../../ui/card';
 import { Badge } from '../../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { Screen } from '../../../App';
-import { mockDisputes, Evidence } from '../../../lib/mockData';
+import { mockDisputes, Evidence } from '../../../lib/_AImockData';
 
 interface DisputeMediationProps {
   navigate: (screen: Screen) => void;

@@ -1,7 +1,7 @@
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Shield, CheckCircle2, Star, TrendingUp } from 'lucide-react';
-import { TrustScore as TrustScoreType } from '../../lib/mockData';
+import { TrustScore as TrustScoreType } from '../../lib/_AImockData';
 import { Progress } from '../ui/progress';
 
 interface TrustScoreProps {

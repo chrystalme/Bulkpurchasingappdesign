@@ -92,7 +92,7 @@ function AppContent() {
       if (user) {
         dispatch(fetchOrders() as any);
         dispatch(fetchTransactions() as any);
-        
+
         // Only load users if admin
         if (user.role === 'admin' || user.role === 'superUser') {
           dispatch(fetchUsers() as any);
@@ -103,13 +103,32 @@ function AppContent() {
 
   // Authenticated screens that can be restored after refresh
   const authenticatedScreens = new Set<Screen>([
-    'home', 'group-create', 'group-detail', 'products', 'cart', 'chat', 'chat-dashboard',
-    'checkout', 'tracking', 'review', 'profile',
-    'escrow-checkout', 'escrow-buyer-dashboard', 'escrow-inspection',
-    'escrow-seller-order', 'escrow-seller-upload', 'escrow-seller-awaiting',
-    'escrow-dispute', 'escrow-mediation',
-    'vendor-dashboard', 'vendor-add-product', 'vendor-products', 'vendor-orders', 'vendor-customers',
-    'admin-users', 'admin-create-user'
+    'home',
+    'group-create',
+    'group-detail',
+    'products',
+    'cart',
+    'chat',
+    'chat-dashboard',
+    'checkout',
+    'tracking',
+    'review',
+    'profile',
+    'escrow-checkout',
+    'escrow-buyer-dashboard',
+    'escrow-inspection',
+    'escrow-seller-order',
+    'escrow-seller-upload',
+    'escrow-seller-awaiting',
+    'escrow-dispute',
+    'escrow-mediation',
+    'vendor-dashboard',
+    'vendor-add-product',
+    'vendor-products',
+    'vendor-orders',
+    'vendor-customers',
+    'admin-users',
+    'admin-create-user',
   ]);
 
   // Restore persisted screen state when authenticated
@@ -117,7 +136,7 @@ function AppContent() {
     if (isAuthenticated && !isLoading) {
       const savedScreen = localStorage.getItem('lastScreen') as Screen | null;
       const savedGroupId = localStorage.getItem('lastGroupId');
-      
+
       // Only restore if it's a valid authenticated screen
       if (savedScreen && authenticatedScreens.has(savedScreen)) {
         setCurrentScreen(savedScreen);
@@ -148,7 +167,7 @@ function AppContent() {
       localStorage.removeItem('lastScreen');
       localStorage.removeItem('lastGroupId');
     }
-    
+
     if (groupId) setSelectedGroupId(groupId);
     setCurrentScreen(screen);
   };

@@ -11,7 +11,7 @@ import { Card } from '../../ui/card';
 import { InfoCard } from '../InfoCard';
 import { EscrowStatusBadge } from '../EscrowStatusBadge';
 import { Screen } from '../../../App';
-import { mockEscrowTransactions } from '../../../lib/mockData';
+import { mockEscrowTransactions } from '../../../lib/_AImockData';
 
 interface SellerOrderReceivedProps {
   navigate: (screen: Screen) => void;

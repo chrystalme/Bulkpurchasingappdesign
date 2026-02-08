@@ -15,7 +15,7 @@ import { CountdownTimer } from '../CountdownTimer';
 import { EvidenceUploader } from '../EvidenceUploader';
 import { InfoCard } from '../InfoCard';
 import { Screen } from '../../../App';
-import { mockEscrowTransactions } from '../../../lib/mockData';
+import { mockEscrowTransactions } from '../../../lib/_AImockData';
 import { toast } from 'sonner';
 
 interface InspectionWindowProps {

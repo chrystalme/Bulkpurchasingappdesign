@@ -7,8 +7,8 @@ export interface User {
   name: string;
   role: UserRole;
   avatar?: string;
-  vendorId?: string; // For vendor users
-  createdAt: string;
-  isActive: boolean;
-  trustScore?: number;
+  vendor_id?: string | number; // For vendor users - matches backend field name
+  trust_score?: number;
+  created_at?: string;
+  is_active?: boolean;
 }

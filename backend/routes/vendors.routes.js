@@ -71,7 +71,7 @@ router.get(
       const { id } = req.params;
 
       // Check if user has permission to view this vendor's dashboard
-      if (req.user.role === 'vendor' && req.user.vendor_id !== parseInt(id)) {
+      if (req.user.role === 'vendor' && req.user.vendor_id !== id) {
         return res
           .status(403)
           .json({ error: 'You can only view your own vendor dashboard' });
@@ -159,7 +159,7 @@ router.get(
       const { id } = req.params;
 
       // Check if user has permission
-      if (req.user.role === 'vendor' && req.user.vendor_id !== parseInt(id)) {
+      if (req.user.role === 'vendor' && req.user.vendor_id !== id) {
         return res
           .status(403)
           .json({ error: 'You can only view your own orders' });
@@ -210,7 +210,7 @@ router.get(
       const { id } = req.params;
 
       // Check if user has permission
-      if (req.user.role === 'vendor' && req.user.vendor_id !== parseInt(id)) {
+      if (req.user.role === 'vendor' && req.user.vendor_id !== id) {
         return res
           .status(403)
           .json({ error: 'You can only view your own customers' });

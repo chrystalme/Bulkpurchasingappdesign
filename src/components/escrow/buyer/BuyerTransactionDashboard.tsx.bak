@@ -13,7 +13,7 @@ import { EscrowStatusBadge } from '../EscrowStatusBadge';
 import { CountdownTimer } from '../CountdownTimer';
 import { InfoCard } from '../InfoCard';
 import { Screen } from '../../../App';
-import { mockEscrowTransactions } from '../../../lib/mockData';
+import { mockEscrowTransactions } from '../../../lib/_AImockData';
 
 interface BuyerTransactionDashboardProps {
   navigate: (screen: Screen) => void;
