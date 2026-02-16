@@ -82,9 +82,6 @@
     "build": "vite build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "lint-staged": {
-      "*.{js,jsx,ts,tsx}": "eslint --fix"
-    },
     "prepare": "husky"
   }
 }

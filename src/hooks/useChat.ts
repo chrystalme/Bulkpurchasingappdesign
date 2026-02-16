@@ -13,6 +13,7 @@ import {
   type ConversationParticipant,
 } from '../lib/api/chatApi';
 import { chatSocket } from '../lib/socket/chatSocket';
+import { useAuth } from '../contexts/AuthContext';
 
 export function useChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -87,12 +88,24 @@ export function useChat() {
       );
     };
 
+    const handleUserOnlineStatus = (data: { userId: string; isOnline: boolean }) => {
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.vendorId === data.userId
+            ? { ...conv, isOnline: data.isOnline }
+            : conv
+        )
+      );
+    };
+
     chatSocket.on('new-message', handleNewMessage);
     chatSocket.on('user-typing', handleUserTyping);
+    chatSocket.on('user-online-status', handleUserOnlineStatus);
 
     return () => {
       chatSocket.off('new-message', handleNewMessage);
       chatSocket.off('user-typing', handleUserTyping);
+      chatSocket.off('user-online-status', handleUserOnlineStatus);
     };
   }, []);
 
@@ -105,6 +118,7 @@ export function useChat() {
 }
 
 export function useConversation(conversationId: string | null) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [participants, setParticipants] = useState<ConversationParticipant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,11 +155,26 @@ export function useConversation(conversationId: string | null) {
     }
   }, [conversationId]);
 
-  // Send message via Socket.IO
+  // Send message via Socket.IO with optimistic local update
   const sendMessage = useCallback((content: string) => {
     if (!conversationId || !content.trim()) return;
+
+    // Optimistically add the message to local state so it appears immediately
+    const optimisticMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      conversationId,
+      senderId: user?.id || '',
+      senderName: user?.name || 'You',
+      senderAvatar: user?.avatar || '',
+      content: content.trim(),
+      timestamp: new Date().toISOString(),
+      read: false,
+      isOwn: true,
+    };
+    setMessages(prev => [...prev, optimisticMessage]);
+
     chatSocket.sendMessage(conversationId, content.trim());
-  }, [conversationId]);
+  }, [conversationId, user]);
 
   // Send typing indicator
   const sendTypingIndicator = useCallback((isTyping: boolean) => {
@@ -184,7 +213,18 @@ export function useConversation(conversationId: string | null) {
   useEffect(() => {
     const handleNewMessage = (message: ChatMessage) => {
       if (message.conversationId === conversationId) {
-        setMessages(prev => [...prev, message]);
+        setMessages(prev => {
+          // If this is our own message echoed back, replace the optimistic temp entry
+          if (message.isOwn) {
+            const withoutTemp = prev.filter(m => !m.id.startsWith('temp-'));
+            // Only add if not already present (dedup by server id)
+            if (withoutTemp.some(m => m.id === message.id)) return withoutTemp;
+            return [...withoutTemp, message];
+          }
+          // For other users' messages, just append (dedup by id)
+          if (prev.some(m => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
         scrollToBottom();
         
         // Mark as read if not own message
@@ -212,14 +252,26 @@ export function useConversation(conversationId: string | null) {
       }
     };
 
+    const handleUserOnlineStatus = (data: { userId: string; isOnline: boolean }) => {
+      setParticipants(prev =>
+        prev.map(participant =>
+          participant.userId === data.userId
+            ? { ...participant, isOnline: data.isOnline }
+            : participant
+        )
+      );
+    };
+
     chatSocket.on('new-message', handleNewMessage);
     chatSocket.on('user-typing', handleUserTyping);
     chatSocket.on('message-deleted', handleMessageDeleted);
+    chatSocket.on('user-online-status', handleUserOnlineStatus);
 
     return () => {
       chatSocket.off('new-message', handleNewMessage);
       chatSocket.off('user-typing', handleUserTyping);
       chatSocket.off('message-deleted', handleMessageDeleted);
+      chatSocket.off('user-online-status', handleUserOnlineStatus);
     };
   }, [conversationId, scrollToBottom, markAsRead]);
 

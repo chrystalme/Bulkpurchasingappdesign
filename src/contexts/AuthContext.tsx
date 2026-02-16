@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { apiClient } from '../lib/api';
 import type { User, UserRole } from '../lib/types/auth.types';
+import { chatSocket } from '../lib/socket/chatSocket';
 
 /**
  * Token storage strategy:
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await apiClient.auth.me();
         if (response.success && response.user) {
           setUser(response.user);
+          chatSocket.connect(token);
         } else {
           apiClient.auth.logout();
           setUser(null);
@@ -82,6 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(response.user);
       localStorage.setItem('userId', response.user.id);
+      const token = localStorage.getItem('auth_token');
+      if (token) chatSocket.connect(token);
       return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -103,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(response.user);
       localStorage.setItem('userId', response.user.id);
+      const token = localStorage.getItem('auth_token');
+      if (token) chatSocket.connect(token);
       return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -110,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    chatSocket.disconnect();
     apiClient.auth.logout();
     setUser(null);
     localStorage.removeItem('userId');

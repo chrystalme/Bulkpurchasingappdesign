@@ -11,6 +11,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 class ChatSocketService {
   private socket: Socket | null = null;
   private listeners: Map<string, Set<Function>> = new Map();
+  private joinedConversations: Set<string> = new Set();
 
   /**
    * Connect to Socket.IO server
@@ -21,9 +22,15 @@ class ChatSocketService {
       return;
     }
 
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
     this.socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
@@ -32,6 +39,9 @@ class ChatSocketService {
 
     this.socket.on('connect', () => {
       console.log('✅ Socket.IO connected');
+      this.joinedConversations.forEach(conversationId => {
+        this.socket?.emit('join-conversation', { conversationId });
+      });
     });
 
     this.socket.on('disconnect', reason => {
@@ -59,6 +69,7 @@ class ChatSocketService {
       this.socket.disconnect();
       this.socket = null;
       this.listeners.clear();
+      this.joinedConversations.clear();
       console.log('Socket.IO disconnected');
     }
   }
@@ -78,7 +89,11 @@ class ChatSocketService {
 
     // New message received
     this.socket.on('new-message', (message: ChatMessage) => {
-      this.emit('new-message', message);
+      const currentUserId = localStorage.getItem('userId');
+      this.emit('new-message', {
+        ...message,
+        isOwn: message.senderId === currentUserId,
+      });
     });
 
     // User typing indicator
@@ -151,21 +166,38 @@ class ChatSocketService {
    * Join a conversation room
    */
   joinConversation(conversationId: string): void {
-    this.socket?.emit('join-conversation', { conversationId });
+    this.joinedConversations.add(conversationId);
+    if (this.socket?.connected) {
+      this.socket.emit('join-conversation', { conversationId });
+    }
   }
 
   /**
    * Leave a conversation room
    */
   leaveConversation(conversationId: string): void {
-    this.socket?.emit('leave-conversation', { conversationId });
+    this.joinedConversations.delete(conversationId);
+    if (this.socket?.connected) {
+      this.socket.emit('leave-conversation', { conversationId });
+    }
   }
 
   /**
    * Send a message via Socket.IO
    */
   sendMessage(conversationId: string, content: string): void {
-    this.socket?.emit('send-message', { conversationId, content });
+    if (!this.socket?.connected) {
+      console.warn('Socket not connected — message not sent. Attempting reconnect...');
+      this.joinConversation(conversationId);
+      const token = localStorage.getItem('auth_token');
+      if (!token) return;
+      this.connect(token);
+      this.socket?.once('connect', () => {
+        this.socket?.emit('send-message', { conversationId, content });
+      });
+      return;
+    }
+    this.socket.emit('send-message', { conversationId, content });
   }
 
   /**

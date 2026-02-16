@@ -9,7 +9,6 @@ import { Card, CardContent } from '../ui/card';
 import { ChatWindowReal } from './ChatWindowReal';
 import { useChat } from '../../hooks/useChat';
 import type { Screen } from '../../App';
-import type { Conversation } from '../../lib/api/chatApi';
 
 interface ChatDashboardRealProps {
   navigate: (screen: Screen) => void;
@@ -18,9 +17,15 @@ interface ChatDashboardRealProps {
 export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'group' | 'vendor'>('all');
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
   const { conversations, loading, error } = useChat();
+  const selectedConversation = useMemo(
+    () => selectedConversationId
+      ? conversations.find(conversation => conversation.id === selectedConversationId) || null
+      : null,
+    [selectedConversationId, conversations],
+  );
 
   // Filter conversations
   const filteredConversations = useMemo(() => {
@@ -68,7 +73,7 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
     return (
       <ChatWindowReal
         conversation={selectedConversation}
-        onBack={() => setSelectedConversation(null)}
+        onBack={() => setSelectedConversationId(null)}
       />
     );
   }
@@ -180,7 +185,7 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
               <Card
                 key={conversation.id}
                 className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => setSelectedConversation(conversation)}
+                onClick={() => setSelectedConversationId(conversation.id)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
