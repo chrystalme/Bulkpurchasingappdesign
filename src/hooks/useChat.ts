@@ -3,7 +3,7 @@
  * Custom React hook for chat functionality with real-time updates
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   getUserConversations, 
   getMessages, 
@@ -42,6 +42,16 @@ export function useChat() {
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  // Join all conversation rooms so we receive real-time events (online status, typing, new messages)
+  const conversationIds = useMemo(
+    () => conversations.map(c => c.id),
+    [conversations],
+  );
+
+  useEffect(() => {
+    conversationIds.forEach(id => chatSocket.joinConversation(id));
+  }, [conversationIds]);
 
   // Listen for real-time updates
   useEffect(() => {
@@ -205,7 +215,7 @@ export function useConversation(conversationId: string | null) {
 
     // Cleanup
     return () => {
-      chatSocket.leaveConversation(conversationId);
+      // Room membership is managed by useChat(); no leave needed here
     };
   }, [conversationId, loadMessages, loadParticipants]);
 
