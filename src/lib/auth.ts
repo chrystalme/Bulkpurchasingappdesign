@@ -1,7 +1,7 @@
 import type { UserRole, User } from './types';
 
 // Mock user database (mutable)
-let users: User[] = [
+const users: User[] = [
   {
     id: 'user-1',
     email: 'super@admin.com',
