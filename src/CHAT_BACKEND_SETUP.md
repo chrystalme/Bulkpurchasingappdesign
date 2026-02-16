@@ -496,5 +496,57 @@ You now have a fully functional real-time chat system with:
 ✅ Transparent vendor negotiations  
 ✅ Role-based permissions  
 ✅ Auto-scaling database schema  
+✅ External notifications (SMS/WhatsApp via Sent.dm)
+
+---
+
+## 📲 External Notification System (Sent.dm)
+
+The chat system supports sending SMS/WhatsApp notifications to offline users via the [Sent.dm](https://sent.dm) API. This is opt-in and gracefully degrades when credentials are not configured.
+
+### Architecture
+
+```
+backend/services/notifications/
+├── notificationProvider.js   # Abstract interface
+├── sentProvider.js            # Sent.dm implementation
+├── notificationService.js    # Orchestration service (singleton)
+└── index.js                   # Barrel export
+```
+
+### Setup
+
+Add to your `backend/.env`:
+
+```env
+SENT_SENDER_ID=your-sender-id
+SENT_API_KEY=your-api-key
+SENT_DEFAULT_TEMPLATE_ID=your-template-id
+```
+
+The notification service auto-initializes on first use. When Sent.dm credentials are present, offline users with phone numbers on file will receive SMS/WhatsApp notifications for new chat messages.
+
+### Adding Custom Providers
+
+Extend `NotificationProvider` and implement `sendSMS()`, `sendWhatsApp()`, `sendMessage()`, and `isConfigured()`:
+
+```js
+import { NotificationProvider } from './notificationProvider.js';
+
+class MyProvider extends NotificationProvider {
+  get name() { return 'my-provider'; }
+  isConfigured() { /* ... */ }
+  async sendSMS(phone, message, options) { /* ... */ }
+  async sendWhatsApp(phone, message, options) { /* ... */ }
+  async sendMessage(phone, message, options) { /* ... */ }
+}
+```
+
+Then set it on the service:
+
+```js
+import { notificationService } from './services/notifications/index.js';
+notificationService.setProvider(new MyProvider());
+```
 
 **Happy chatting! 💬**

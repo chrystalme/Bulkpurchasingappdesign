@@ -246,14 +246,14 @@ export const chatSocket = new ChatSocketService();
 
 // Auto-connect when token is available
 if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('auth_token');
   if (token) {
     chatSocket.connect(token);
   }
 
   // Listen for auth changes
   window.addEventListener('storage', e => {
-    if (e.key === 'token') {
+    if (e.key === 'auth_token') {
       if (e.newValue) {
         chatSocket.connect(e.newValue);
       } else {

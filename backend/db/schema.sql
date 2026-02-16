@@ -26,7 +26,8 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_active BOOLEAN DEFAULT true,
   trust_score INTEGER DEFAULT 0,
-  is_online BOOLEAN DEFAULT FALSE
+  is_online BOOLEAN DEFAULT FALSE,
+  last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for faster queries

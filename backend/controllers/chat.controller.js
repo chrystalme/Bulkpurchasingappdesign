@@ -1,4 +1,5 @@
 import pool from '../config/database.js';
+import { notificationService } from '../services/notifications/index.js';
 
 // ============================================
 // CONVERSATION CONTROLLERS
@@ -246,9 +247,17 @@ export const createGroupVendorConversation = async (req, res) => {
     const isAdmin = groupCheck.rows[0].role === 'admin';
     const groupName = groupCheck.rows[0].name;
 
+    if (!isAdmin) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        success: false,
+        error: 'Only group admins can initiate vendor conversations',
+      });
+    }
+
     // Check if vendor exists
     const vendorCheck = await client.query(
-      'SELECT full_name, avatar FROM users WHERE id = $1 AND role = $2',
+      'SELECT name, avatar FROM users WHERE id = $1 AND role = $2',
       [vendorId, 'vendor']
     );
 
@@ -260,7 +269,7 @@ export const createGroupVendorConversation = async (req, res) => {
       });
     }
 
-    const vendorName = vendorCheck.rows[0].full_name;
+    const vendorName = vendorCheck.rows[0].name;
     const vendorAvatar = vendorCheck.rows[0].avatar;
 
     // Check if conversation already exists
@@ -384,7 +393,7 @@ export const getConversationParticipants = async (req, res) => {
 
     const participants = result.rows.map(row => ({
       userId: row.user_id,
-      name: row.full_name,
+      name: row.name,
       avatar: row.avatar,
       role: row.role,
       canSend: row.can_send,
@@ -583,6 +592,11 @@ export const sendMessage = async (req, res) => {
       req.app.get('io').to(conversationId).emit('new-message', message);
     }
 
+    // Notify offline participants via external channels (SMS/WhatsApp)
+    notificationService.notifyOfflineParticipants(
+      conversationId, userId, senderName, content.trim()
+    ).catch(() => {}); // Fire-and-forget, never block response
+
     res.status(201).json({
       success: true,
       data: message,
@@ -768,7 +782,7 @@ export const getTypingUsers = async (req, res) => {
 
     const typingUsers = result.rows.map(row => ({
       userId: row.user_id,
-      userName: row.full_name,
+      userName: row.name,
     }));
 
     res.json({

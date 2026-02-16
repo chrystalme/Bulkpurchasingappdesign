@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import pool from '../config/database.js';
 import { socketChatMessageLimiter } from '../middleware/rateLimit.js';
+import { notificationService } from '../services/notifications/index.js';
 
 /**
  * Socket.IO Chat Handler
@@ -109,7 +110,7 @@ const initializeChatSocket = (io) => {
      */
     socket.on('send-message', async (data) => {
       // Rate limiting check
-      socketChatMessageLimiter(socket.id, (allowed) => {
+      socketChatMessageLimiter(socket.id, async (allowed) => {
         if (!allowed) {
           socket.emit('error', { 
             message: 'Too many messages, please slow down' 
@@ -118,7 +119,12 @@ const initializeChatSocket = (io) => {
         }
 
         // Continue with message sending
-        handleSendMessage(data);
+        try {
+          await handleSendMessage(data);
+        } catch (err) {
+          console.error('Unhandled error in send-message:', err);
+          socket.emit('error', { message: 'Failed to send message' });
+        }
       });
 
       async function handleSendMessage(data) {
@@ -204,6 +210,11 @@ const initializeChatSocket = (io) => {
 
           // Broadcast to all users in the conversation (including sender)
           io.to(conversationId).emit('new-message', message);
+
+          // Notify offline participants via external channels
+          notificationService.notifyOfflineParticipants(
+            conversationId, socket.userId, senderName, content.trim()
+          ).catch(() => {});
 
           console.log(`Message sent in conversation ${conversationId} by user ${socket.userId}`);
         } catch (error) {
