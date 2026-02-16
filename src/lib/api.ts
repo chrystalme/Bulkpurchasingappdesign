@@ -73,9 +73,72 @@ interface UserStatsResponse extends ApiResponse<{
 }> {}
 
 class ApiClient {
+  private isRefreshing = false;
+  private refreshPromise: Promise<boolean> | null = null;
+
   private getAuthHeader(): HeadersInit {
     const token = localStorage.getItem('auth_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  private async attemptTokenRefresh(): Promise<boolean> {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) return false;
+
+    try {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      if (data.success && data.accessToken) {
+        localStorage.setItem('auth_token', data.accessToken);
+        if (data.refreshToken) {
+          localStorage.setItem('refresh_token', data.refreshToken);
+        }
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  private async refreshAndRetry<T>(
+    endpoint: string,
+    options: RequestInit,
+  ): Promise<ApiResponse<T> | null> {
+    // Deduplicate concurrent refresh attempts
+    if (!this.isRefreshing) {
+      this.isRefreshing = true;
+      this.refreshPromise = this.attemptTokenRefresh().finally(() => {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      });
+    }
+
+    const success = await this.refreshPromise;
+    if (!success) return null;
+
+    // Retry the original request with the new token
+    const URL = `${API_URL}/${endpoint}`;
+    const config: RequestInit = {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeader(),
+        ...options.headers,
+      },
+    };
+    const retryResponse = await fetch(URL, config);
+    if (retryResponse.ok) {
+      return await retryResponse.json();
+    }
+    return null;
   }
 
   private async request<T>(
@@ -96,14 +159,19 @@ class ApiClient {
       const response = await fetch(URL, config);
       const data = await response.json();
 
-      // Handle authentication errors
+      // Handle authentication errors - try refreshing token first
       if (response.status === 401) {
+        const retryResult = await this.refreshAndRetry<T>(endpoint, options);
+        if (retryResult) return retryResult;
+
+        // Refresh failed — clear auth and redirect
         localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
         localStorage.removeItem('userId');
         window.location.href = '/login';
         return {
           success: false,
-          error: 'Authentication required. Please login again.',
+          error: 'Session expired. Please login again.',
         } as unknown as ApiResponse<T>;
       }
 

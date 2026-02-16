@@ -9,10 +9,10 @@ const getIP = (req) => {
     'unknown';
 };
 
-// Login rate limiter - 5 attempts per 15 minutes per IP
+// Login rate limiter - 20 attempts per 15 minutes per IP
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
   message: 'Too many login attempts, please try again after 15 minutes',
   statusCode: 429,
   standardHeaders: true,
@@ -26,7 +26,7 @@ export const loginLimiter = rateLimit({
   },
 });
 
-// Signup rate limiter - 3 attempts per 30 minutes per IP
+// Signup rate limiter - 10 attempts per 30 minutes per IP
 export const signupLimiter = rateLimit({
   windowMs: 30 * 60 * 1000,
   max: 3,
