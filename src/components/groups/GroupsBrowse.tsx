@@ -1,13 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchGroups, clearError } from '../../store/slices/groupsSlice';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Progress } from '../ui/progress';
-import { Plus, ChevronRight, Users, Loader2, AlertTriangle, Link } from 'lucide-react';
+import { Plus, ChevronRight, Users, Loader2, AlertTriangle, KeyRound, Globe } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
+import { JoinByCodeDialog } from './JoinByCodeDialog';
 import type { Screen } from '../../App';
 
 interface GroupsBrowseProps {
@@ -17,6 +17,7 @@ interface GroupsBrowseProps {
 export function GroupsBrowse({ navigate }: GroupsBrowseProps) {
   const dispatch = useAppDispatch();
   const { groups = [], loading, error } = useAppSelector((state) => state.groups);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
 
   useEffect(() => {
     dispatch(fetchGroups());
@@ -32,10 +33,20 @@ export function GroupsBrowse({ navigate }: GroupsBrowseProps) {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-gray-900">My Groups</h1>
-          <Button onClick={() => navigate('group-create')} size="sm">
-            <Plus className="w-4 h-4 mr-2" />
-            New Group
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('group-discover')}>
+              <Globe className="w-4 h-4 mr-2" />
+              Browse
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowJoinDialog(true)}>
+              <KeyRound className="w-4 h-4 mr-2" />
+              Join by Code
+            </Button>
+            <Button onClick={() => navigate('group-create')} size="sm">
+              <Plus className="w-4 h-4 mr-2" />
+              New Group
+            </Button>
+          </div>
         </div>
         <p className="text-gray-600">Join or manage your purchasing groups</p>
       </div>
@@ -73,8 +84,13 @@ export function GroupsBrowse({ navigate }: GroupsBrowseProps) {
                 <Plus className="w-4 h-4 mr-2" />
                 Create a Group
               </Button>
-              <Button variant="outline" disabled>
-                Join by Code (Coming Soon)
+              <Button variant="outline" onClick={() => setShowJoinDialog(true)}>
+                <KeyRound className="w-4 h-4 mr-2" />
+                Join by Code
+              </Button>
+              <Button variant="outline" onClick={() => navigate('group-discover')}>
+                <Globe className="w-4 h-4 mr-2" />
+                Browse Groups
               </Button>
             </div>
           </div>
@@ -140,6 +156,12 @@ export function GroupsBrowse({ navigate }: GroupsBrowseProps) {
           ))
         )}
       </div>
+
+      <JoinByCodeDialog
+        open={showJoinDialog}
+        onClose={() => setShowJoinDialog(false)}
+        navigate={navigate}
+      />
     </div>
   );
 }

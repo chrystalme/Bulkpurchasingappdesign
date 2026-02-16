@@ -8,6 +8,7 @@ import { fetchVendors } from './store/slices/vendorsSlice';
 import { fetchOrders } from './store/slices/ordersSlice';
 import { fetchTransactions } from './store/slices/escrowSlice';
 import { fetchUsers } from './store/slices/usersSlice';
+import { joinGroup } from './store/slices/groupsSlice';
 import { Welcome } from './components/onboarding/Welcome';
 import { Login } from './components/auth/Login';
 import { Signup } from './components/auth/Signup';
@@ -15,6 +16,7 @@ import { Home } from './components/dashboard/Home';
 import { GroupCreate } from './components/groups/GroupCreate';
 import { GroupDetailNew } from './components/groups/GroupDetailNew';
 import { GroupsBrowse } from './components/groups/GroupsBrowse';
+import { GroupDiscover } from './components/groups/GroupDiscover';
 import { ProductCatalog } from './components/products/ProductCatalog';
 import { GroupCart } from './components/products/GroupCart';
 import { VendorChat } from './components/chat/VendorChat';
@@ -50,6 +52,7 @@ export type Screen =
   | 'groups'
   | 'group-create'
   | 'group-detail'
+  | 'group-discover'
   | 'products'
   | 'cart'
   | 'chat'
@@ -106,6 +109,7 @@ function AppContent() {
     'home',
     'group-create',
     'group-detail',
+    'group-discover',
     'products',
     'cart',
     'chat',
@@ -151,6 +155,28 @@ function AppContent() {
       setRestorationComplete(true);
     }
   }, [isAuthenticated, isLoading]);
+
+  // Handle ?join=CODE deep link
+  useEffect(() => {
+    if (!isAuthenticated || !restorationComplete) return;
+    const params = new URLSearchParams(window.location.search);
+    const joinCode = params.get('join');
+    if (!joinCode) return;
+
+    // Clean the URL
+    window.history.replaceState({}, '', window.location.pathname);
+
+    // Auto-join via invite link
+    dispatch(joinGroup({ join_code: joinCode }) as any).then((result: any) => {
+      if (result.meta?.requestStatus === 'fulfilled' && result.payload?.id) {
+        setSelectedGroupId(result.payload.id);
+        setCurrentScreen('group-detail');
+      } else {
+        // Show groups page on failure — user will see the error in Redux state
+        setCurrentScreen('groups');
+      }
+    });
+  }, [isAuthenticated, restorationComplete, dispatch]);
 
   const navigate = (screen: Screen, groupId?: string) => {
     // Persist navigation for authenticated users
@@ -223,6 +249,8 @@ function AppContent() {
         return <GroupCreate navigate={navigate} />;
       case 'group-detail':
         return <GroupDetailNew navigate={navigate} groupId={selectedGroupId} />;
+      case 'group-discover':
+        return <GroupDiscover navigate={navigate} />;
       case 'products':
         return <ProductCatalog navigate={navigate} groupId={selectedGroupId} />;
       case 'cart':

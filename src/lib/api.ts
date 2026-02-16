@@ -17,6 +17,8 @@ import type {
   AddMemberPayload,
   UpdateMemberRolePayload,
   JoinGroupPayload,
+  DiscoverableGroup,
+  JoinRequest,
 } from './types';
 
 const API_URL = 'http://localhost:3001/api'; //import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
@@ -502,6 +504,39 @@ class ApiClient {
         `groups/${groupId}/members`,
       );
       return response as unknown as ApiResponse<GroupMember[]>;
+    },
+    discover: async (search?: string): Promise<ApiResponse<DiscoverableGroup[]>> => {
+      const params = search ? `?search=${encodeURIComponent(search)}` : '';
+      const response = await this.request<DiscoverableGroup[]>(`groups/discover${params}`);
+      return response as unknown as ApiResponse<DiscoverableGroup[]>;
+    },
+    createJoinRequest: async (
+      groupId: string,
+      message?: string,
+    ): Promise<ApiResponse<JoinRequest>> => {
+      const response = await this.request<JoinRequest>(`groups/${groupId}/join-requests`, {
+        method: 'POST',
+        body: JSON.stringify({ message: message || '' }),
+      });
+      return response as unknown as ApiResponse<JoinRequest>;
+    },
+    getJoinRequests: async (
+      groupId: string,
+      status?: string,
+    ): Promise<ApiResponse<JoinRequest[]>> => {
+      const params = status ? `?status=${status}` : '';
+      const response = await this.request<JoinRequest[]>(`groups/${groupId}/join-requests${params}`);
+      return response as unknown as ApiResponse<JoinRequest[]>;
+    },
+    reviewJoinRequest: async (
+      groupId: string,
+      requestId: string,
+      action: 'approved' | 'rejected',
+    ): Promise<ApiResponse<null>> => {
+      return this.request<null>(`groups/${groupId}/join-requests/${requestId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ action }),
+      });
     },
   };
 }

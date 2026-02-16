@@ -658,3 +658,265 @@ export const updateMemberRole = async (req, res) => {
     res.status(500).json({ error: 'Failed to update member role' });
   }
 };
+
+// ============================================
+// DISCOVER GROUPS
+// ============================================
+
+/**
+ * Discover groups the user is NOT a member of
+ */
+export const discoverGroups = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { search } = req.query;
+
+    let query = `
+      SELECT 
+        g.id,
+        g.name,
+        g.description,
+        g.moq_target,
+        g.current_quantity,
+        g.status,
+        g.created_at,
+        (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
+        EXISTS(
+          SELECT 1 FROM group_join_requests 
+          WHERE group_id = g.id AND user_id = $1 AND status = 'pending'
+        ) as has_pending_request
+      FROM groups g
+      WHERE g.status = 'active'
+        AND g.id NOT IN (
+          SELECT group_id FROM group_members WHERE user_id = $1
+        )
+    `;
+
+    const params = [userId];
+
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      query += ` AND (g.name ILIKE $${params.length} OR g.description ILIKE $${params.length})`;
+    }
+
+    query += ' ORDER BY g.created_at DESC';
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      success: true,
+      data: result.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        moq_target: row.moq_target,
+        current_quantity: row.current_quantity,
+        status: row.status,
+        created_at: row.created_at,
+        member_count: parseInt(row.member_count) || 0,
+        has_pending_request: row.has_pending_request,
+      })),
+    });
+  } catch (error) {
+    console.error('Discover groups error:', error);
+    res.status(500).json({ error: 'Failed to discover groups' });
+  }
+};
+
+// ============================================
+// JOIN REQUESTS
+// ============================================
+
+/**
+ * Create a join request for a group
+ */
+export const createJoinRequest = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const groupId = req.params.id;
+    const { message } = req.body;
+
+    // Check group exists and is active
+    const group = await pool.query(
+      'SELECT id, name, status FROM groups WHERE id = $1',
+      [groupId],
+    );
+
+    if (group.rows.length === 0) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    if (group.rows[0].status !== 'active') {
+      return res.status(400).json({ error: 'Group is not accepting new members' });
+    }
+
+    // Check if already a member
+    const memberCheck = await pool.query(
+      'SELECT id FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, userId],
+    );
+
+    if (memberCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'You are already a member of this group' });
+    }
+
+    // Check for existing pending request
+    const existingRequest = await pool.query(
+      "SELECT id FROM group_join_requests WHERE group_id = $1 AND user_id = $2 AND status = 'pending'",
+      [groupId, userId],
+    );
+
+    if (existingRequest.rows.length > 0) {
+      return res.status(400).json({ error: 'You already have a pending request for this group' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO group_join_requests (group_id, user_id, message)
+       VALUES ($1, $2, $3)
+       RETURNING id, group_id, user_id, message, status, created_at`,
+      [groupId, userId, message || ''],
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Join request sent successfully',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    if (error.code === '23505') {
+      return res.status(400).json({ error: 'You already have a request for this group' });
+    }
+    console.error('Create join request error:', error);
+    res.status(500).json({ error: 'Failed to create join request' });
+  }
+};
+
+/**
+ * Get join requests for a group (admin only)
+ */
+export const getJoinRequests = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const groupId = req.params.id;
+    const { status } = req.query;
+
+    // Check admin role
+    const adminCheck = await pool.query(
+      'SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, userId],
+    );
+
+    if (adminCheck.rows.length === 0 || adminCheck.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can view join requests' });
+    }
+
+    let query = `
+      SELECT 
+        jr.id,
+        jr.group_id,
+        jr.user_id,
+        jr.message,
+        jr.status,
+        jr.created_at,
+        jr.updated_at,
+        u.name as user_name,
+        u.email as user_email,
+        u.avatar as user_avatar
+      FROM group_join_requests jr
+      JOIN users u ON jr.user_id = u.id
+      WHERE jr.group_id = $1
+    `;
+
+    const params = [groupId];
+
+    if (status) {
+      params.push(status);
+      query += ` AND jr.status = $${params.length}`;
+    }
+
+    query += ' ORDER BY jr.created_at DESC';
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      success: true,
+      data: result.rows,
+    });
+  } catch (error) {
+    console.error('Get join requests error:', error);
+    res.status(500).json({ error: 'Failed to fetch join requests' });
+  }
+};
+
+/**
+ * Review (approve/reject) a join request
+ */
+export const reviewJoinRequest = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const userId = req.user.id;
+    const groupId = req.params.id;
+    const requestId = req.params.requestId;
+    const { action } = req.body;
+
+    if (!['approved', 'rejected'].includes(action)) {
+      return res.status(400).json({ error: 'Action must be "approved" or "rejected"' });
+    }
+
+    // Check admin role
+    const adminCheck = await pool.query(
+      'SELECT role FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [groupId, userId],
+    );
+
+    if (adminCheck.rows.length === 0 || adminCheck.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can review join requests' });
+    }
+
+    // Fetch the request
+    const request = await pool.query(
+      "SELECT * FROM group_join_requests WHERE id = $1 AND group_id = $2 AND status = 'pending'",
+      [requestId, groupId],
+    );
+
+    if (request.rows.length === 0) {
+      return res.status(404).json({ error: 'Join request not found or already reviewed' });
+    }
+
+    const joinRequest = request.rows[0];
+
+    await client.query('BEGIN');
+
+    // Update request status
+    await client.query(
+      `UPDATE group_join_requests 
+       SET status = $1, reviewed_by = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [action, userId, requestId],
+    );
+
+    // If approved, add user to group
+    if (action === 'approved') {
+      await client.query(
+        `INSERT INTO group_members (group_id, user_id, role, joined_at)
+         VALUES ($1, $2, 'member', CURRENT_TIMESTAMP)`,
+        [groupId, joinRequest.user_id],
+      );
+      // NOTE: Database trigger auto-adds user to internal group chat
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: action === 'approved' ? 'Request approved — user added to group' : 'Request rejected',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Review join request error:', error);
+    res.status(500).json({ error: 'Failed to review join request' });
+  } finally {
+    client.release();
+  }
+};

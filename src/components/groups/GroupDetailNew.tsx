@@ -5,6 +5,8 @@ import {
   addMember,
   removeMember,
   updateMemberRole,
+  fetchJoinRequests,
+  reviewJoinRequest,
 } from '../../store/slices/groupsSlice';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardContent } from '../ui/card';
@@ -27,6 +29,9 @@ import {
   AlertCircle,
   Shield,
   Trash2,
+  CheckCircle2,
+  XCircle,
+  UserPlus,
 } from 'lucide-react';
 import type { Screen } from '../../App';
 import {
@@ -47,7 +52,7 @@ interface GroupDetailProps {
 
 export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
   const dispatch = useAppDispatch();
-  const { currentGroup, loading } = useAppSelector(state => state.groups);
+  const { currentGroup, loading, joinRequests } = useAppSelector(state => state.groups);
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -55,6 +60,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
   const [isAddingMember, setIsAddingMember] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   // Fetch group details on mount or when groupId changes
   useEffect(() => {
@@ -62,6 +68,13 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
       dispatch(fetchGroupById(groupId));
     }
   }, [groupId, dispatch]);
+
+  // Fetch join requests if admin
+  useEffect(() => {
+    if (groupId && isAdmin) {
+      dispatch(fetchJoinRequests({ groupId }));
+    }
+  }, [groupId, isAdmin, dispatch]);
 
   const handleAddMember = async () => {
     if (!currentGroup || !memberEmail.trim()) return;
@@ -120,6 +133,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
   };
 
   const isAdmin = currentGroup?.user_role === 'admin';
+  const pendingRequests = joinRequests.filter(r => r.status === 'pending');
   const moqProgress = currentGroup
     ? (currentGroup.current_quantity / currentGroup.moq_target) * 100
     : 0;
@@ -258,8 +272,14 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
               <Button
                 size='sm'
                 className='bg-[#FACC15] text-[#0047AB] hover:bg-[#FACC15]/90'
+                onClick={() => {
+                  const url = `${window.location.origin}?join=${currentGroup.join_code}`;
+                  navigator.clipboard.writeText(url);
+                  setInviteCopied(true);
+                  setTimeout(() => setInviteCopied(false), 2000);
+                }}
               >
-                Invite
+                {inviteCopied ? 'Copied!' : 'Invite'}
               </Button>
             </div>
           </CardContent>
@@ -329,6 +349,11 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
             <TabsTrigger value='members'>
               <Users className='w-4 h-4 mr-1' />
               Members
+              {isAdmin && pendingRequests.length > 0 && (
+                <Badge className='ml-1 bg-[#FB7185] text-white text-xs px-1.5'>
+                  {pendingRequests.length}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -580,6 +605,61 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                 <Users className='w-4 h-4 mr-2' />
                 Add Member
               </Button>
+            )}
+
+            {/* Pending Join Requests (admin only) */}
+            {isAdmin && pendingRequests.length > 0 && (
+              <Card className='border-amber-200 bg-amber-50'>
+                <CardContent className='p-4'>
+                  <h4 className='font-semibold text-amber-800 mb-3 flex items-center gap-2'>
+                    <UserPlus className='w-4 h-4' />
+                    Join Requests ({pendingRequests.length})
+                  </h4>
+                  <div className='space-y-3'>
+                    {pendingRequests.map(request => (
+                      <div key={request.id} className='flex items-center gap-3 bg-white rounded-lg p-3'>
+                        <Avatar className='h-10 w-10'>
+                          <AvatarImage src={request.user_avatar} />
+                          <AvatarFallback>{request.user_name?.[0] || '?'}</AvatarFallback>
+                        </Avatar>
+                        <div className='flex-1 min-w-0'>
+                          <p className='font-medium text-sm'>{request.user_name}</p>
+                          <p className='text-xs text-gray-500 truncate'>{request.user_email}</p>
+                          {request.message && (
+                            <p className='text-xs text-gray-600 mt-1 italic'>"{request.message}"</p>
+                          )}
+                        </div>
+                        <div className='flex gap-1'>
+                          <Button
+                            size='sm'
+                            variant='ghost'
+                            className='text-green-600 hover:text-green-700 hover:bg-green-50'
+                            onClick={() => dispatch(reviewJoinRequest({
+                              groupId: currentGroup.id,
+                              requestId: request.id,
+                              action: 'approved',
+                            }))}
+                          >
+                            <CheckCircle2 className='w-5 h-5' />
+                          </Button>
+                          <Button
+                            size='sm'
+                            variant='ghost'
+                            className='text-red-600 hover:text-red-700 hover:bg-red-50'
+                            onClick={() => dispatch(reviewJoinRequest({
+                              groupId: currentGroup.id,
+                              requestId: request.id,
+                              action: 'rejected',
+                            }))}
+                          >
+                            <XCircle className='w-5 h-5' />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             {currentGroup.members.map(member => (

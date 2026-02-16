@@ -11,6 +11,10 @@ import {
   addMember,
   removeMember,
   updateMemberRole,
+  discoverGroups,
+  createJoinRequest,
+  getJoinRequests,
+  reviewJoinRequest,
 } from '../controllers/groups.controller.js';
 
 const router = express.Router();
@@ -101,6 +105,10 @@ router.post('/', authenticateToken, validateCreateGroup, handleValidationErrors,
 // GET /api/groups
 router.get('/', authenticateToken, getGroups);
 
+// Discover groups (must be before /:id routes)
+// GET /api/groups/discover
+router.get('/discover', authenticateToken, discoverGroups);
+
 // Get specific group details with members
 // GET /api/groups/:id
 router.get('/:id', authenticateToken, getGroupById);
@@ -145,6 +153,24 @@ router.put(
   validateUpdateMemberRole,
   handleValidationErrors,
   updateMemberRole,
+);
+
+// Create a join request
+// POST /api/groups/:id/join-requests
+router.post('/:id/join-requests', authenticateToken, createJoinRequest);
+
+// Get join requests for a group (admin only)
+// GET /api/groups/:id/join-requests
+router.get('/:id/join-requests', authenticateToken, getJoinRequests);
+
+// Review (approve/reject) a join request
+// PUT /api/groups/:id/join-requests/:requestId
+router.put(
+  '/:id/join-requests/:requestId',
+  authenticateToken,
+  [body('action').isIn(['approved', 'rejected']).withMessage('Action must be "approved" or "rejected"')],
+  handleValidationErrors,
+  reviewJoinRequest,
 );
 
 export default router;

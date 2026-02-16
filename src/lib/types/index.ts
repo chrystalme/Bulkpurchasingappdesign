@@ -12,7 +12,9 @@ export type {
   UpdateGroupPayload, 
   AddMemberPayload, 
   UpdateMemberRolePayload,
-  JoinGroupPayload 
+  JoinGroupPayload,
+  DiscoverableGroup,
+  JoinRequest,
 } from './group.types';
 
 // Escrow types

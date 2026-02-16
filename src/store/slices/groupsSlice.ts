@@ -6,6 +6,8 @@ import type {
   AddMemberPayload,
   UpdateMemberRolePayload,
   JoinGroupPayload,
+  DiscoverableGroup,
+  JoinRequest,
 } from '../../lib/types';
 import { apiClient } from '../../lib/api';
 
@@ -13,6 +15,8 @@ interface GroupsState {
   groups: Group[];
   currentGroup: Group | null;
   selectedGroupId: string | null;
+  discoverableGroups: DiscoverableGroup[];
+  joinRequests: JoinRequest[];
   loading: boolean;
   error: string | null;
 }
@@ -21,6 +25,8 @@ const initialState: GroupsState = {
   groups: [],
   currentGroup: null,
   selectedGroupId: null,
+  discoverableGroups: [],
+  joinRequests: [],
   loading: false,
   error: null,
 };
@@ -186,6 +192,75 @@ export const updateMemberRole = createAsyncThunk(
         return rejectWithValue(response.error || 'Failed to fetch updated group after updating member role.');
       }
       return response.data;
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  },
+);
+
+export const discoverGroups = createAsyncThunk(
+  'groups/discoverGroups',
+  async (search: string | undefined, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.groups.discover(search);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to discover groups.');
+      }
+      return response.data!;
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  },
+);
+
+export const requestToJoin = createAsyncThunk(
+  'groups/requestToJoin',
+  async (
+    { groupId, message }: { groupId: string; message?: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await apiClient.groups.createJoinRequest(groupId, message);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to send join request.');
+      }
+      return { groupId, data: response.data! };
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  },
+);
+
+export const fetchJoinRequests = createAsyncThunk(
+  'groups/fetchJoinRequests',
+  async (
+    { groupId, status }: { groupId: string; status?: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await apiClient.groups.getJoinRequests(groupId, status);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to fetch join requests.');
+      }
+      return response.data!;
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  },
+);
+
+export const reviewJoinRequest = createAsyncThunk(
+  'groups/reviewJoinRequest',
+  async (
+    { groupId, requestId, action }: { groupId: string; requestId: string; action: 'approved' | 'rejected' },
+    { rejectWithValue },
+  ) => {
+    try {
+      const response = await apiClient.groups.reviewJoinRequest(groupId, requestId, action);
+      if (!response.success) {
+        return rejectWithValue(response.error || 'Failed to review join request.');
+      }
+      return { requestId, action };
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -378,6 +453,73 @@ const groupsSlice = createSlice({
         }
       })
       .addCase(updateMemberRole.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+
+    // Discover Groups
+    builder
+      .addCase(discoverGroups.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(discoverGroups.fulfilled, (state, action) => {
+        state.loading = false;
+        state.discoverableGroups = action.payload;
+      })
+      .addCase(discoverGroups.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+
+    // Request to Join
+    builder
+      .addCase(requestToJoin.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(requestToJoin.fulfilled, (state, action) => {
+        state.loading = false;
+        const group = state.discoverableGroups.find(g => g.id === action.payload.groupId);
+        if (group) {
+          group.has_pending_request = true;
+        }
+      })
+      .addCase(requestToJoin.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+
+    // Fetch Join Requests
+    builder
+      .addCase(fetchJoinRequests.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchJoinRequests.fulfilled, (state, action) => {
+        state.loading = false;
+        state.joinRequests = action.payload;
+      })
+      .addCase(fetchJoinRequests.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+
+    // Review Join Request
+    builder
+      .addCase(reviewJoinRequest.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(reviewJoinRequest.fulfilled, (state, action) => {
+        state.loading = false;
+        const { requestId, action: reviewAction } = action.payload;
+        const request = state.joinRequests.find(r => r.id === requestId);
+        if (request) {
+          request.status = reviewAction;
+        }
+      })
+      .addCase(reviewJoinRequest.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

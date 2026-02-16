@@ -29,10 +29,28 @@ async function runMigrations() {
       'utf8',
     );
 
+    const lastSeenToUsersSchemaPath = path.join(
+      __dirname,
+      '../migrations/008_add_last_seen_to_users.sql',
+    );
+
+    const lastSeenToUsersSchema = fs.readFileSync(
+      lastSeenToUsersSchemaPath,
+      'utf8',
+    );
+
+    const joinRequestsSchemaPath = path.join(
+      __dirname,
+      '../migrations/009_create_join_requests_table.sql',
+    );
+    const joinRequestsSchema = fs.readFileSync(joinRequestsSchemaPath, 'utf8');
+
     // Execute the schema
     await pool.query(schema);
     await pool.query(chatSchema);
     await pool.query(refreshTokensSchema);
+    await pool.query(lastSeenToUsersSchema);
+    await pool.query(joinRequestsSchema);
 
     console.log('✅ Database migration completed successfully!');
     console.log('📊 All tables created.');

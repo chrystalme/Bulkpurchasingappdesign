@@ -13,12 +13,12 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   user_agent TEXT
 );
 
-CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
-CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
-CREATE INDEX idx_refresh_tokens_revoked_at ON refresh_tokens(revoked_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_revoked_at ON refresh_tokens(revoked_at);
 
 -- Index for finding valid tokens
-CREATE INDEX idx_refresh_tokens_valid ON refresh_tokens(user_id, expires_at) 
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_valid ON refresh_tokens(user_id, expires_at) 
 WHERE revoked_at IS NULL;
 
 -- Add columns to users table for token management

@@ -51,3 +51,29 @@ export interface UpdateMemberRolePayload {
 export interface JoinGroupPayload {
   join_code: string;
 }
+
+export interface DiscoverableGroup {
+  id: string;
+  name: string;
+  description: string;
+  moq_target: number;
+  current_quantity: number;
+  status: string;
+  created_at: string;
+  member_count: number;
+  has_pending_request: boolean;
+}
+
+export interface JoinRequest {
+  id: string;
+  group_id: string;
+  user_id: string;
+  message: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by?: string;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  user_email: string;
+  user_avatar?: string;
+}
