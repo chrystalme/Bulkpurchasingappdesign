@@ -160,8 +160,9 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
             </p>
             <p className='text-sm text-gray-600 mb-4'>
               {groupId
-                ? error ||
+                ? ((error && error.trim()) ||
                   "The group you're looking for doesn't exist or you don't have access to it."
+                )
                 : 'Join or create a group first, then open group details.'}
             </p>
             <Button onClick={() => navigate('home')}>Go back to home</Button>

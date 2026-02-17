@@ -104,7 +104,9 @@ const filteredProducts = products.filter(product => {
           <Button
             variant='ghost'
             size='icon'
-            onClick={() => navigate(groupId ? 'group-detail' : 'home', groupId || undefined)}
+            onClick={() =>
+              groupId ? navigate('group-detail', groupId) : navigate('home')
+            }
           >
             <ArrowLeft className='w-5 h-5' />
           </Button>
