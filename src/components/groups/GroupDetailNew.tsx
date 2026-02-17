@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   fetchGroupById,
+  clearCurrentGroup,
   addMember,
   removeMember,
   updateMemberRole,
@@ -47,7 +48,7 @@ interface GroupDetailProps {
 
 export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
   const dispatch = useAppDispatch();
-  const { currentGroup, loading } = useAppSelector(state => state.groups);
+  const { currentGroup, loading, error } = useAppSelector(state => state.groups);
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -58,9 +59,11 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
 
   // Fetch group details on mount or when groupId changes
   useEffect(() => {
-    if (groupId) {
-      dispatch(fetchGroupById(groupId));
+    if (!groupId) {
+      dispatch(clearCurrentGroup());
+      return;
     }
+    dispatch(fetchGroupById(groupId));
   }, [groupId, dispatch]);
 
   const handleAddMember = async () => {
@@ -152,10 +155,15 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
         <Card className='max-w-md'>
           <CardContent className='p-6 text-center'>
             <AlertCircle className='w-12 h-12 text-red-500 mx-auto mb-4' />
-            <p className='font-medium text-gray-900 mb-2'>Group not found</p>
+            <p className='font-medium text-gray-900 mb-2'>
+              {groupId ? 'Group not found' : 'No group selected'}
+            </p>
             <p className='text-sm text-gray-600 mb-4'>
-              The group you're looking for doesn't exist or you don't have
-              access to it.
+              {groupId
+                ? ((error && error.trim()) ||
+                  "The group you're looking for doesn't exist or you don't have access to it."
+                )
+                : 'Join or create a group first, then open group details.'}
             </p>
             <Button onClick={() => navigate('home')}>Go back to home</Button>
           </CardContent>

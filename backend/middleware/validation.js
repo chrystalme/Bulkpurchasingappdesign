@@ -12,7 +12,9 @@ export const validatePasswordStrength = () => {
     .matches(/[0-9]/)
     .withMessage('Password must contain at least one number')
     .matches(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/)
-    .withMessage('Password must contain at least one special character (!@#$%^&*...)');
+    .withMessage(
+      'Password must contain at least one special character (!@#$%^&*...)',
+    );
 };
 
 // Email validator
@@ -56,13 +58,11 @@ export const validateNumericRange = (fieldName, min, max) => {
 export const validateEnum = (fieldName, allowedValues) => {
   return body(fieldName)
     .isIn(allowedValues)
-    .withMessage(
-      `${fieldName} must be one of: ${allowedValues.join(', ')}`,
-    );
+    .withMessage(`${fieldName} must be one of: ${allowedValues.join(', ')}`);
 };
 
 // Sanitize string input (remove dangerous characters)
-export const sanitizeString = (fieldName) => {
+export const sanitizeString = fieldName => {
   return body(fieldName)
     .trim()
     .escape()
@@ -79,7 +79,7 @@ export const sanitizeEmail = (fieldName = 'email') => {
 export const signupValidationRules = () => {
   return [
     validateEmail('email'),
-    body('email').custom((value) => {
+    body('email').custom(value => {
       if (value.length > 255) {
         throw new Error('Email is too long');
       }
@@ -90,9 +90,14 @@ export const signupValidationRules = () => {
       .isLength({ min: 2, max: 100 })
       .withMessage('Name must be between 2 and 100 characters')
       .matches(/^[a-zA-Z\s'-]+$/)
-      .withMessage('Name can only contain letters, spaces, hyphens, and apostrophes'),
+      .withMessage(
+        'Name can only contain letters, spaces, hyphens, and apostrophes',
+      ),
     validatePasswordStrength(),
-    validateEnum('role', ['member', 'vendor']),
+    body('role')
+      .optional()
+      .isIn(['member', 'vendor'])
+      .withMessage('role must be one of: member, vendor'),
   ];
 };
 
@@ -115,13 +120,12 @@ export const passwordChangeValidationRules = () => {
       .notEmpty()
       .withMessage('Current password is required'),
     validatePasswordStrength(),
-    body('confirmPassword')
-      .custom((value, { req }) => {
-        if (value !== req.body.password) {
-          throw new Error('Passwords do not match');
-        }
-        return true;
-      }),
+    body('confirmPassword').custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    }),
   ];
 };
 
@@ -135,7 +139,9 @@ export const productValidationRules = () => {
     body('description')
       .trim()
       .isLength({ min: 10, max: 2000 })
-      .withMessage('Product description must be between 10 and 2000 characters'),
+      .withMessage(
+        'Product description must be between 10 and 2000 characters',
+      ),
     body('price')
       .isFloat({ min: 0.01, max: 999999 })
       .withMessage('Price must be a valid number between 0.01 and 999999'),
@@ -165,7 +171,9 @@ export const chatMessageValidationRules = () => {
 // Validation rules for order submission
 export const orderValidationRules = () => {
   return [
-    body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
+    body('items')
+      .isArray({ min: 1 })
+      .withMessage('At least one item is required'),
     body('items.*.productId')
       .isInt({ min: 1 })
       .withMessage('Valid product ID is required for each item'),
@@ -189,12 +197,18 @@ export const validateRequest = (req, res, next) => {
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
+    const formattedErrors = errors.array().map(err => ({
+      field: err.path || err.param,
+      message: err.msg,
+      location: err.location,
+      value: err.value,
+    }));
+
     return res.status(400).json({
       success: false,
-      errors: errors.array().map((err) => ({
-        field: err.param,
-        message: err.msg,
-      })),
+      error: 'Validation failed',
+      message: 'Request validation failed. Check the errors array for details.',
+      errors: formattedErrors,
     });
   }
 

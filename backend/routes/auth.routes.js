@@ -22,7 +22,7 @@ const router = express.Router();
 // Helper function to store refresh token
 const storeRefreshToken = async (userId, refreshToken, req) => {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  
+
   try {
     await pool.query(
       `INSERT INTO refresh_tokens (user_id, token, created_at, expires_at, ip_address, user_agent)
@@ -36,7 +36,7 @@ const storeRefreshToken = async (userId, refreshToken, req) => {
 };
 
 // Helper function to generate tokens
-const generateTokens = (user) => {
+const generateTokens = user => {
   const accessToken = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
     process.env.JWT_SECRET,
@@ -56,8 +56,8 @@ const generateTokens = (user) => {
 router.post(
   '/login',
   loginLimiter,
-  logValidationAttempts,
   loginValidationRules(),
+  logValidationAttempts,
   validateRequest,
   async (req, res) => {
     try {
@@ -70,9 +70,9 @@ router.post(
       );
 
       if (result.rows.length === 0) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           success: false,
-          error: 'Invalid email or password' 
+          error: 'Invalid email or password',
         });
       }
 
@@ -80,19 +80,22 @@ router.post(
 
       // Check if account is active
       if (!user.is_active) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           success: false,
-          error: 'Account is deactivated' 
+          error: 'Account is deactivated',
         });
       }
 
       // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password_hash);
+      const isValidPassword = await bcrypt.compare(
+        password,
+        user.password_hash,
+      );
 
       if (!isValidPassword) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           success: false,
-          error: 'Invalid email or password' 
+          error: 'Invalid email or password',
         });
       }
 
@@ -113,9 +116,9 @@ router.post(
       });
     } catch (error) {
       console.error('Login error:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: 'Internal server error' 
+        error: 'Internal server error',
       });
     }
   },
@@ -124,9 +127,9 @@ router.post(
 // POST /api/auth/signup
 router.post(
   '/signup',
-  signupLimiter,
-  logValidationAttempts,
+  // signupLimiter,
   signupValidationRules(),
+  logValidationAttempts,
   validateRequest,
   async (req, res) => {
     try {
@@ -139,9 +142,9 @@ router.post(
       );
 
       if (existingUser.rows.length > 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          error: 'Email already exists' 
+          error: 'Email already exists',
         });
       }
 
@@ -183,9 +186,9 @@ router.post(
       });
     } catch (error) {
       console.error('Signup error:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: 'Internal server error' 
+        error: 'Internal server error',
       });
     }
   },
@@ -200,9 +203,9 @@ router.get('/me', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Internal server error' 
+      error: 'Internal server error',
     });
   }
 });
@@ -213,9 +216,9 @@ router.post('/refresh', async (req, res) => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        error: 'Refresh token required' 
+        error: 'Refresh token required',
       });
     }
 
@@ -224,9 +227,9 @@ router.post('/refresh', async (req, res) => {
     try {
       decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
     } catch (error) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
-        error: 'Invalid or expired refresh token' 
+        error: 'Invalid or expired refresh token',
       });
     }
 
@@ -238,9 +241,9 @@ router.post('/refresh', async (req, res) => {
     );
 
     if (tokenRecord.rows.length === 0) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
-        error: 'Refresh token not found or revoked' 
+        error: 'Refresh token not found or revoked',
       });
     }
 
@@ -251,9 +254,9 @@ router.post('/refresh', async (req, res) => {
     );
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        error: 'User not found' 
+        error: 'User not found',
       });
     }
 
@@ -279,9 +282,9 @@ router.post('/refresh', async (req, res) => {
     });
   } catch (error) {
     console.error('Refresh token error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Internal server error' 
+      error: 'Internal server error',
     });
   }
 });
@@ -306,9 +309,9 @@ router.post('/logout', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Logout error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Internal server error' 
+      error: 'Internal server error',
     });
   }
 });
@@ -332,9 +335,9 @@ router.post(
       );
 
       if (userResult.rows.length === 0) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: 'User not found' 
+          error: 'User not found',
         });
       }
 
@@ -345,9 +348,9 @@ router.post(
       );
 
       if (!isValidPassword) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           success: false,
-          error: 'Current password is incorrect' 
+          error: 'Current password is incorrect',
         });
       }
 
@@ -355,10 +358,10 @@ router.post(
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Update password
-      await pool.query(
-        'UPDATE users SET password_hash = $1 WHERE id = $2',
-        [hashedPassword, userId],
-      );
+      await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [
+        hashedPassword,
+        userId,
+      ]);
 
       // Revoke all refresh tokens (force re-login)
       await pool.query(
@@ -373,9 +376,9 @@ router.post(
       });
     } catch (error) {
       console.error('Change password error:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: 'Internal server error' 
+        error: 'Internal server error',
       });
     }
   },
