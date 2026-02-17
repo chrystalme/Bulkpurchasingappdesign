@@ -178,7 +178,7 @@ export const getGroupById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      group,
+      data: group,
     });
   } catch (error) {
     console.error('Get group by ID error:', error);

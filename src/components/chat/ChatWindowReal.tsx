@@ -100,7 +100,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-[100dvh] bg-white">
       {/* Header */}
       <div className="bg-gradient-to-r from-[#0047AB] to-[#6EE7B7] p-4 flex items-center gap-3">
         <Button
@@ -158,7 +158,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 min-h-0 p-4">
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="w-8 h-8 border-4 border-[#0047AB] border-t-transparent rounded-full animate-spin" />
@@ -232,7 +232,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t p-4 bg-white">
+      <div className="border-t p-4 bg-white shrink-0">
         {canSendMessages ? (
           <div className="flex items-center gap-2">
             <Input

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   fetchGroupById,
@@ -35,13 +35,9 @@ import {
   UserPlus,
 } from 'lucide-react';
 import type { Screen } from '../../App';
-import {
-  getConversationById,
-  groupConversations,
-  vendorConversations,
-  type Conversation,
-} from '../../lib/chatMockData';
-import { ChatWindow } from '../chat/ChatWindow';
+import { useChat } from '../../hooks/useChat';
+import type { Conversation } from '../../lib/api/chatApi';
+import { ChatWindowReal } from '../chat/ChatWindowReal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -62,6 +58,11 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
   const [memberEmail, setMemberEmail] = useState('');
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
+
+  const { conversations, loading: chatsLoading } = useChat();
+
+  const isAdmin = currentGroup?.user_role === 'admin';
+  const pendingRequests = joinRequests.filter(r => r.status === 'pending');
 
   // Fetch group details on mount or when groupId changes
   useEffect(() => {
@@ -135,8 +136,6 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
     }
   };
 
-  const isAdmin = currentGroup?.user_role === 'admin';
-  const pendingRequests = joinRequests.filter(r => r.status === 'pending');
   const moqProgress = currentGroup
     ? (currentGroup.current_quantity / currentGroup.moq_target) * 100
     : 0;
@@ -144,7 +143,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
   // If a chat is selected, show full chat window
   if (selectedChat) {
     return (
-      <ChatWindow
+      <ChatWindowReal
         conversation={selectedChat}
         onBack={() => setSelectedChat(null)}
       />
@@ -202,12 +201,12 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
     },
   ];
 
-  // Find conversations for this group
-  const groupInternalChat = groupConversations.find(
-    c => c.groupId === currentGroup.id,
-  );
-  const groupVendorChats = vendorConversations.filter(
-    c => c.groupId === currentGroup.id,
+  // Find conversations for this group from real data
+  const groupInternalChat = conversations.find(
+    c => c.groupId === currentGroup.id && c.type === 'group',
+  ) || null;
+  const groupVendorChats = conversations.filter(
+    c => c.groupId === currentGroup.id && c.type === 'group-vendor',
   );
 
   return (
