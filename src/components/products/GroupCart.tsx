@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -12,6 +12,13 @@ import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
 import { fetchProducts } from '../../store/slices/productsSlice';
 import { selectProducts, selectProductsLoading, selectProductsError } from '../../store/selectors/productsSelectors';
+import {
+  setCartGroup,
+  addItem,
+  removeItem,
+  updateQuantity,
+  updateAllocation,
+} from '../../store/slices/cartSlice';
 import type { Product, GroupMember } from '../../lib/types';
 
 interface GroupCartProps {
@@ -19,38 +26,22 @@ interface GroupCartProps {
   groupId: string | null;
 }
 
-interface CartItemData {
-  productId: string;
-  quantity: number;
-  allocations: { memberId: string; quantity: number }[];
-}
-
 export function GroupCart({ navigate, groupId }: GroupCartProps) {
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [cartItems, setCartItems] = useState<CartItemData[]>([
-    {
-      productId: '1',
-      quantity: 12,
-      allocations: [
-        { memberId: '1', quantity: 4 },
-        { memberId: '2', quantity: 5 },
-        { memberId: '3', quantity: 3 },
-      ],
-    },
-    {
-      productId: '4',
-      quantity: 8,
-      allocations: [
-        { memberId: '1', quantity: 3 },
-        { memberId: '2', quantity: 5 },
-      ],
-    },
-  ]);
 
-  const products = useSelector(selectProducts);
-  const loading = useSelector(selectProductsLoading);
+  const products = useAppSelector(selectProducts);
+  const loading = useAppSelector(selectProductsLoading);
+  const cartItems = useAppSelector(state => state.cart.items);
+  const cartGroupId = useAppSelector(state => state.cart.groupId);
+
+  // Set cart group when component mounts or groupId changes
+  useEffect(() => {
+    if (groupId && cartGroupId !== groupId) {
+      dispatch(setCartGroup(groupId));
+    }
+  }, [dispatch, groupId, cartGroupId]);
 
   useEffect(() => {
     if (products.length === 0) {
@@ -62,18 +53,12 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
     cartItems.some(item => item.productId === p.id?.toString())
   );
 
-  const updateQuantity = (productId: string, delta: number) => {
-    setCartItems(items =>
-      items.map(item =>
-        item.productId === productId
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
-    );
+  const handleUpdateQuantity = (productId: string, delta: number) => {
+    dispatch(updateQuantity({ productId, delta }));
   };
 
-  const removeItem = (productId: string) => {
-    setCartItems(items => items.filter(item => item.productId !== productId));
+  const handleRemoveItem = (productId: string) => {
+    dispatch(removeItem(productId));
   };
 
   const calculateSubtotal = () => {
@@ -203,7 +188,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                       variant="ghost"
                       size="icon"
                       className="flex-shrink-0"
-                      onClick={() => removeItem(product.id?.toString() || '')}
+                      onClick={() => handleRemoveItem(product.id?.toString() || '')}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
@@ -218,7 +203,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuantity(product.id?.toString() || '', -1)}
+                        onClick={() => handleUpdateQuantity(product.id?.toString() || '', -1)}
                       >
                         <Minus className="w-3 h-3" />
                       </Button>
@@ -227,7 +212,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => updateQuantity(product.id?.toString() || '', 1)}
+                        onClick={() => handleUpdateQuantity(product.id?.toString() || '', 1)}
                       >
                         <Plus className="w-3 h-3" />
                       </Button>

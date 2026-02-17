@@ -4,7 +4,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
-import type { ChatMessage, TypingUser } from '../api/chatApi';
+import type { ChatMessage, TypingUser } from '../types/chat.types';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
 
@@ -88,12 +88,9 @@ class ChatSocketService {
     if (!this.socket) return;
 
     // New message received
+    // Note: isOwn computation moved to Redux middleware to use Redux state
     this.socket.on('new-message', (message: ChatMessage) => {
-      const currentUserId = localStorage.getItem('userId');
-      this.emit('new-message', {
-        ...message,
-        isOwn: message.senderId === currentUserId,
-      });
+      this.emit('new-message', message);
     });
 
     // User typing indicator
@@ -189,8 +186,12 @@ class ChatSocketService {
     if (!this.socket?.connected) {
       console.warn('Socket not connected — message not sent. Attempting reconnect...');
       this.joinConversation(conversationId);
+      // Token should be provided by Redux middleware, but fallback for backward compatibility
       const token = localStorage.getItem('auth_token');
-      if (!token) return;
+      if (!token) {
+        console.error('No auth token available for socket connection');
+        return;
+      }
       this.connect(token);
       this.socket?.once('connect', () => {
         this.socket?.emit('send-message', { conversationId, content });
@@ -276,23 +277,7 @@ class ChatSocketService {
 // Export singleton instance
 export const chatSocket = new ChatSocketService();
 
-// Auto-connect when token is available
-if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    chatSocket.connect(token);
-  }
-
-  // Listen for auth changes
-  window.addEventListener('storage', e => {
-    if (e.key === 'auth_token') {
-      if (e.newValue) {
-        chatSocket.connect(e.newValue);
-      } else {
-        chatSocket.disconnect();
-      }
-    }
-  });
-}
+// Note: Socket connection is now managed by Redux middleware (chatSocketMiddleware)
+// Auto-connect logic removed - middleware handles connection lifecycle
 
 export default chatSocket;

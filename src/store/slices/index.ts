@@ -5,6 +5,7 @@ export { default as vendorsReducer } from './vendorsSlice';
 export { default as ordersReducer } from './ordersSlice';
 export { default as escrowReducer } from './escrowSlice';
 export { default as usersReducer } from './usersSlice';
+export { default as chatReducer } from './chatSlice';
 
 // Export all thunks
 export {
@@ -17,7 +18,6 @@ export {
   addMember,
   removeMember,
   updateMemberRole,
-  setSelectedGroupId,
   clearCurrentGroup,
 } from './groupsSlice';
 
@@ -63,3 +63,45 @@ export {
   fetchUserStats,
   clearUsers,
 } from './usersSlice';
+
+export {
+  fetchConversations,
+  fetchMessages,
+  fetchParticipants,
+  sendMessage,
+  messageReceived,
+  typingStatusChanged,
+  userOnlineStatusChanged,
+  messageDeleted,
+  conversationRead,
+  selectConversation,
+  addOptimisticMessage,
+  removeOptimisticMessage,
+  clearChat,
+} from './chatSlice';
+
+export {
+  bootstrapAuth,
+  login,
+  signup,
+  logout,
+  updateCurrentUser,
+  setAccessToken,
+  clearError,
+} from './authSlice';
+
+export {
+  navigate,
+  setSelectedGroupId,
+  setRestorationComplete,
+  restoreFromPersistedState,
+} from './navigationSlice';
+
+export {
+  setCartGroup,
+  addItem,
+  removeItem,
+  updateQuantity,
+  updateAllocation,
+  clearCart,
+} from './cartSlice';

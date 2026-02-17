@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ArrowLeft, Search, MessageCircle, Users, Store } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -7,19 +7,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Card, CardContent } from '../ui/card';
 import { ChatWindowReal } from './ChatWindowReal';
-import { useChat } from '../../hooks/useChat';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { fetchConversations, selectConversation } from '../../store/slices/chatSlice';
 import type { Screen } from '../../App';
+import type { Conversation } from '../../lib/types/chat.types';
 
 interface ChatDashboardRealProps {
   navigate: (screen: Screen) => void;
 }
 
 export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
+  const dispatch = useAppDispatch();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'group' | 'vendor'>('all');
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
-  const { conversations, loading, error } = useChat();
+  const conversations = useAppSelector(state => state.chat.conversations);
+  const loading = useAppSelector(state => state.chat.conversationsLoading);
+  const error = useAppSelector(state => state.chat.conversationsError);
+  const selectedConversationId = useAppSelector(state => state.chat.selectedConversationId);
+
+  // Fetch conversations on mount
+  useEffect(() => {
+    dispatch(fetchConversations());
+  }, [dispatch]);
+
   const selectedConversation = useMemo(
     () => selectedConversationId
       ? conversations.find(conversation => conversation.id === selectedConversationId) || null
@@ -165,7 +176,7 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
             <Card>
               <CardContent className="p-8 text-center">
                 <p className="text-red-500">{error}</p>
-                <Button className="mt-4" onClick={() => window.location.reload()}>
+                <Button className="mt-4" onClick={() => dispatch(fetchConversations())}>
                   Retry
                 </Button>
               </CardContent>
@@ -185,7 +196,7 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
               <Card
                 key={conversation.id}
                 className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => setSelectedConversationId(conversation.id)}
+                onClick={() => dispatch(selectConversation(conversation.id))}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">

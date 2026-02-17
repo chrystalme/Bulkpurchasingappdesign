@@ -3,19 +3,22 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useState,
   ReactNode,
 } from 'react';
-import { apiClient } from '../lib/api';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import {
+  bootstrapAuth,
+  login as loginThunk,
+  signup as signupThunk,
+  logout as logoutAction,
+  updateCurrentUser as updateCurrentUserAction,
+} from '../store/slices/authSlice';
 import type { User, UserRole } from '../lib/types/auth.types';
-import { chatSocket } from '../lib/socket/chatSocket';
 
 /**
- * Token storage strategy:
- * - Auth token stored in localStorage for persistence across sessions
- * - Token expiry validation happens server-side on API calls
- * - 401 responses trigger immediate logout and redirect to login
- * - No sensitive data stored besides auth token
+ * AuthContext - Thin wrapper around Redux auth slice
+ * Provides backward compatibility for components using useAuth()
+ * Socket connection is handled by Redux middleware
  */
 
 interface AuthContextType {
@@ -39,56 +42,24 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(state => state.auth.user);
+  const isLoading = useAppSelector(state => state.auth.isLoading);
+  const error = useAppSelector(state => state.auth.error);
 
   /**
-   * Rehydrate session on app load
-   * Token presence is validated server-side via /auth/me
+   * Bootstrap auth on mount
    */
   useEffect(() => {
-    const bootstrapAuth = async () => {
-      try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-          setIsLoading(false);
-          return;
-        }
-
-        const response = await apiClient.auth.me();
-        if (response.success && response.user) {
-          setUser(response.user);
-          chatSocket.connect(token);
-        } else {
-          apiClient.auth.logout();
-          setUser(null);
-        }
-      } catch {
-        apiClient.auth.logout();
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    bootstrapAuth();
-  }, []);
+    dispatch(bootstrapAuth());
+  }, [dispatch]);
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await apiClient.auth.login(email, password);
-
-      if (!response.success || !response.user) {
-        return { success: false, error: response.error || 'Login failed' };
-      }
-
-      setUser(response.user);
-      localStorage.setItem('userId', response.user.id);
-      const token = localStorage.getItem('auth_token');
-      if (token) chatSocket.connect(token);
+      const result = await dispatch(loginThunk({ email, password })).unwrap();
       return { success: true };
-    } catch (error) {
-      return { success: false, error: (error as Error).message };
+    } catch (err) {
+      return { success: false, error: err as string };
     }
   };
 
@@ -99,36 +70,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: UserRole = 'member',
   ) => {
     try {
-      const response = await apiClient.auth.signup(email, password, name, role);
-
-      if (!response.success || !response.user) {
-        return { success: false, error: response.error || 'Signup failed' };
-      }
-
-      setUser(response.user);
-      localStorage.setItem('userId', response.user.id);
-      const token = localStorage.getItem('auth_token');
-      if (token) chatSocket.connect(token);
+      const result = await dispatch(signupThunk({ email, password, name, role })).unwrap();
       return { success: true };
-    } catch (error) {
-      return { success: false, error: (error as Error).message };
+    } catch (err) {
+      return { success: false, error: err as string };
     }
   };
 
   const logout = () => {
-    chatSocket.disconnect();
-    apiClient.auth.logout();
-    setUser(null);
-    localStorage.removeItem('userId');
-    localStorage.removeItem('auth_token');
+    dispatch(logoutAction());
   };
 
-  /**
-   * Local optimistic update.
-   * Use only for UI sync, not as a persistence mechanism.
-   */
   const updateCurrentUser = (updates: Partial<User>) => {
-    setUser(prev => (prev ? { ...prev, ...updates } : prev));
+    dispatch(updateCurrentUserAction(updates));
   };
 
   const value = useMemo<AuthContextType>(
@@ -141,8 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       updateCurrentUser,
     }),
-    [user, isLoading],
-
+    [user, isLoading, dispatch],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

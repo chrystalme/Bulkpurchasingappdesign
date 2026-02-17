@@ -164,11 +164,15 @@ class ApiClient {
         const retryResult = await this.refreshAndRetry<T>(endpoint, options);
         if (retryResult) return retryResult;
 
-        // Refresh failed — clear auth and redirect
+        // Refresh failed — clear auth
+        // Note: Redux middleware will handle logout and navigation
         localStorage.removeItem('auth_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('userId');
-        window.location.href = '/login';
+        
+        // Dispatch logout action if store is available (avoid circular dependency)
+        // The auth slice logout action will be dispatched by the component/middleware
+        // For now, we'll let the component handle navigation via Redux
         return {
           success: false,
           error: 'Session expired. Please login again.',
@@ -496,6 +500,48 @@ class ApiClient {
         method: 'POST',
       });
       return response as unknown as UserResponse;
+    },
+  };
+
+  // Chat endpoints
+  chat = {
+    getConversations: async (filters?: {
+      type?: 'group' | 'group-vendor';
+      groupId?: string;
+    }): Promise<ApiResponse<any[]>> => {
+      const params = new URLSearchParams();
+      if (filters?.type) params.append('type', filters.type);
+      if (filters?.groupId) params.append('groupId', filters.groupId);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const response = await this.request<any[]>(`chat/conversations${query}`);
+      return response as unknown as ApiResponse<any[]>;
+    },
+    getMessages: async (
+      conversationId: string,
+      params?: { limit?: number; before?: string }
+    ): Promise<ApiResponse<any[]>> => {
+      const queryParams = new URLSearchParams();
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.before) queryParams.append('before', params.before);
+      const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
+      const response = await this.request<any[]>(
+        `chat/conversations/${conversationId}/messages${query}`
+      );
+      return response as unknown as ApiResponse<any[]>;
+    },
+    getParticipants: async (
+      conversationId: string
+    ): Promise<ApiResponse<any[]>> => {
+      const response = await this.request<any[]>(
+        `chat/conversations/${conversationId}/participants`
+      );
+      return response as unknown as ApiResponse<any[]>;
+    },
+    markAsRead: async (conversationId: string): Promise<ApiResponse<null>> => {
+      return this.request<null>(
+        `chat/conversations/${conversationId}/read`,
+        { method: 'PUT' }
+      );
     },
   };
 

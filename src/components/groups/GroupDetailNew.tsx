@@ -35,8 +35,8 @@ import {
   UserPlus,
 } from 'lucide-react';
 import type { Screen } from '../../App';
-import { useChat } from '../../hooks/useChat';
-import type { Conversation } from '../../lib/api/chatApi';
+import { fetchConversations } from '../../store/slices/chatSlice';
+import type { Conversation } from '../../lib/types/chat.types';
 import { ChatWindowReal } from '../chat/ChatWindowReal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
@@ -59,7 +59,15 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
 
-  const { conversations, loading: chatsLoading } = useChat();
+  const conversations = useAppSelector(state => state.chat.conversations);
+  const chatsLoading = useAppSelector(state => state.chat.conversationsLoading);
+
+  // Fetch conversations for this group
+  useEffect(() => {
+    if (groupId) {
+      dispatch(fetchConversations({ groupId }));
+    }
+  }, [dispatch, groupId]);
 
   const isAdmin = currentGroup?.user_role === 'admin';
   const pendingRequests = joinRequests.filter(r => r.status === 'pending');

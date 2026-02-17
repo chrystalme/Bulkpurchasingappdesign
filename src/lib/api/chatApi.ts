@@ -1,108 +1,47 @@
 /**
  * Chat API Service
  * Handles all HTTP requests to the chat backend
+ * 
+ * NOTE: This file is kept for backward compatibility during migration.
+ * New code should use apiClient.chat.* from ../api.ts instead.
  */
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import type {
+  Conversation,
+  ChatMessage,
+  ConversationParticipant,
+  TypingUser,
+} from '../types/chat.types';
+import { apiClient } from '../api';
 
-// Helper to get auth token
-const getAuthToken = (): string | null => {
-  return localStorage.getItem('auth_token');
+// Re-export types for backward compatibility
+export type {
+  Conversation,
+  ChatMessage,
+  ConversationParticipant,
+  TypingUser,
 };
 
-// Helper to make authenticated requests
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const token = getAuthToken();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {}),
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
-  }
-
-  return response.json();
-}
+// Legacy functions - now wrap apiClient.chat
+// These are kept for components that haven't been migrated yet
 
 // ============================================
 // CONVERSATION API
 // ============================================
 
-export interface Conversation {
-  id: string;
-  type: 'group' | 'group-vendor';
-  title: string;
-  avatar?: string;
-  groupId: string;
-  groupName?: string;
-  vendorId?: string;
-  vendorName?: string;
-  vendorAvatar?: string;
-  productId?: string;
-  isOnline?: boolean;
-  lastMessage?: ChatMessage;
-  unreadCount: number;
-  typingUsers?: TypingUser[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  senderName: string;
-  senderAvatar?: string;
-  content: string;
-  timestamp: string;
-  read: boolean;
-  isOwn?: boolean;
-}
-
-export interface ConversationParticipant {
-  userId: string;
-  name: string;
-  avatar?: string;
-  role: 'admin' | 'member' | 'vendor';
-  canSend: boolean;
-  isOnline?: boolean;
-}
-
-export interface TypingUser {
-  userId: string;
-  userName: string;
-}
-
 /**
  * Get all conversations for the current user
+ * @deprecated Use apiClient.chat.getConversations() instead
  */
 export async function getUserConversations(params?: {
   type?: 'group' | 'group-vendor';
   groupId?: string;
 }): Promise<Conversation[]> {
-  const queryParams = new URLSearchParams();
-
-  if (params?.type) queryParams.append('type', params.type);
-  if (params?.groupId) queryParams.append('groupId', params.groupId);
-
-  const url = `${API_BASE_URL}/chat/conversations${queryParams.toString() ? `?${queryParams}` : ''}`;
-  const response = await fetchWithAuth(url);
-
-  return response.data;
+  const response = await apiClient.chat.getConversations(params);
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to fetch conversations');
+  }
+  return response.data || [];
 }
 
 /**
@@ -138,14 +77,16 @@ export async function createGroupVendorConversation(data: {
 
 /**
  * Get participants in a conversation
+ * @deprecated Use apiClient.chat.getParticipants() instead
  */
 export async function getConversationParticipants(
   conversationId: string,
 ): Promise<ConversationParticipant[]> {
-  const response = await fetchWithAuth(
-    `${API_BASE_URL}/chat/conversations/${conversationId}/participants`,
-  );
-  return response.data;
+  const response = await apiClient.chat.getParticipants(conversationId);
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to fetch participants');
+  }
+  return response.data || [];
 }
 
 // ============================================
@@ -154,6 +95,7 @@ export async function getConversationParticipants(
 
 /**
  * Get messages for a conversation
+ * @deprecated Use apiClient.chat.getMessages() instead
  */
 export async function getMessages(
   conversationId: string,
@@ -162,15 +104,11 @@ export async function getMessages(
     before?: string;
   },
 ): Promise<ChatMessage[]> {
-  const queryParams = new URLSearchParams();
-
-  if (params?.limit) queryParams.append('limit', params.limit.toString());
-  if (params?.before) queryParams.append('before', params.before);
-
-  const url = `${API_BASE_URL}/chat/conversations/${conversationId}/messages${queryParams.toString() ? `?${queryParams}` : ''}`;
-  const response = await fetchWithAuth(url);
-
-  return response.data;
+  const response = await apiClient.chat.getMessages(conversationId, params);
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to fetch messages');
+  }
+  return response.data || [];
 }
 
 /**

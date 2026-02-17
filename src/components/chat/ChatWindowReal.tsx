@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Send, Users, Store, Info, ShieldAlert } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -6,10 +6,17 @@ import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 import { Alert, AlertDescription } from '../ui/alert';
-import { useConversation } from '../../hooks/useChat';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import {
+  fetchMessages,
+  fetchParticipants,
+  addOptimisticMessage,
+  conversationRead,
+} from '../../store/slices/chatSlice';
+import { chatSocket } from '../../lib/socket/chatSocket';
 import { sanitizeChatMessage, validateChatMessage } from '../../lib/sanitizer';
-import type { Conversation } from '../../lib/api/chatApi';
+import type { Conversation } from '../../lib/types/chat.types';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ChatWindowRealProps {
   conversation: Conversation;
@@ -17,21 +24,43 @@ interface ChatWindowRealProps {
 }
 
 export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
+  const dispatch = useAppDispatch();
+  const { user } = useAuth();
   const [inputValue, setInputValue] = useState('');
   const [isTypingTimeout, setIsTypingTimeout] = useState<NodeJS.Timeout | null>(
     null,
   );
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
   const currentGroup = useAppSelector(state => state.groups.currentGroup);
-  const {
-    messages,
-    participants,
-    loading,
-    typingUsers,
-    messagesEndRef,
-    sendMessage,
-    sendTypingIndicator,
-    markAsRead,
-  } = useConversation(conversation.id);
+  const messages = useAppSelector(state => 
+    state.chat.messagesByConversation[conversation.id] || []
+  );
+  const participants = useAppSelector(state =>
+    state.chat.participantsByConversation[conversation.id] || []
+  );
+  const typingUsers = useAppSelector(state =>
+    state.chat.typingUsersByConversation[conversation.id] || []
+  );
+  const loading = useAppSelector(state =>
+    state.chat.messagesLoading[conversation.id] || false
+  );
+
+  // Fetch messages and participants on mount
+  useEffect(() => {
+    dispatch(fetchMessages(conversation.id));
+    dispatch(fetchParticipants(conversation.id));
+  }, [dispatch, conversation.id]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Mark as read when messages change
+  useEffect(() => {
+    dispatch(conversationRead(conversation.id));
+  }, [dispatch, conversation.id, messages.length]);
 
   // For vendor chats, only group admin can send; for internal chats, all members can
   const isGroupAdmin = currentGroup?.user_role === 'admin';
@@ -44,7 +73,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
 
     // Send typing indicator
     if (!isTypingTimeout) {
-      sendTypingIndicator(true);
+      chatSocket.sendTypingIndicator(conversation.id, true);
     }
 
     // Clear previous timeout
@@ -54,7 +83,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
 
     // Set new timeout to stop typing indicator
     const timeout = setTimeout(() => {
-      sendTypingIndicator(false);
+      chatSocket.sendTypingIndicator(conversation.id, false);
       setIsTypingTimeout(null);
     }, 3000);
 
@@ -73,8 +102,31 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
     }
 
     const sanitizedMessage = sanitizeChatMessage(inputValue);
-    console.log('Sending message:', sanitizedMessage);
-    sendMessage(sanitizedMessage);
+    const tempId = `temp-${Date.now()}`;
+    
+    // Create optimistic message
+    const optimisticMessage = {
+      id: tempId,
+      conversationId: conversation.id,
+      senderId: user?.id || '',
+      senderName: user?.name || 'You',
+      senderAvatar: user?.avatar || '',
+      content: sanitizedMessage,
+      timestamp: new Date().toISOString(),
+      read: false,
+      isOwn: true,
+      tempId,
+    };
+
+    // Add optimistic message to Redux
+    dispatch(addOptimisticMessage({
+      conversationId: conversation.id,
+      message: optimisticMessage,
+    }));
+
+    // Send via socket (middleware will handle the actual sending)
+    chatSocket.sendMessage(conversation.id, sanitizedMessage);
+    
     setInputValue('');
 
     // Clear typing indicator
@@ -82,7 +134,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
       clearTimeout(isTypingTimeout);
       setIsTypingTimeout(null);
     }
-    sendTypingIndicator(false);
+    chatSocket.sendTypingIndicator(conversation.id, false);
   };
 
   // Handle key press
@@ -93,10 +145,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
     }
   };
 
-  // Mark as read when messages change
-  useEffect(() => {
-    markAsRead();
-  }, [messages, markAsRead]);
+  // Mark as read handled in useEffect above
 
   // Format message time
   const formatMessageTime = (timestamp: string) => {
@@ -242,7 +291,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
                   />
                 </div>
                 <span>
-                  {typingUsers.join(', ')}{' '}
+                  {typingUsers.map(u => u.userName).join(', ')}{' '}
                   {typingUsers.length === 1 ? 'is' : 'are'} typing...
                 </span>
               </div>

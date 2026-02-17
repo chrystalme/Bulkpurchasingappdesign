@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { Provider } from 'react-redux';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { store } from './store/store';
+import React, { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { useAuth } from './contexts/AuthContext';
 import { fetchProducts } from './store/slices/productsSlice';
 import { fetchVendors } from './store/slices/vendorsSlice';
 import { fetchOrders } from './store/slices/ordersSlice';
 import { fetchTransactions } from './store/slices/escrowSlice';
 import { fetchUsers } from './store/slices/usersSlice';
 import { joinGroup } from './store/slices/groupsSlice';
+import {
+  navigate,
+  setRestorationComplete,
+} from './store/slices/navigationSlice';
 import { Welcome } from './components/onboarding/Welcome';
 import { Login } from './components/auth/Login';
 import { Signup } from './components/auth/Signup';
@@ -79,10 +81,10 @@ export type Screen =
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const dispatch = useDispatch();
-  const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [restorationComplete, setRestorationComplete] = useState(false);
+  const dispatch = useAppDispatch();
+  const currentScreen = useAppSelector(state => state.navigation.currentScreen);
+  const selectedGroupId = useAppSelector(state => state.navigation.selectedGroupId);
+  const restorationComplete = useAppSelector(state => state.navigation.restorationComplete);
 
   // Initialize Redux data on app boot
   useEffect(() => {
@@ -136,25 +138,23 @@ function AppContent() {
   ]);
 
   // Restore persisted screen state when authenticated
+  // Note: redux-persist handles persistence automatically, but we need to validate restored state
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      const savedScreen = localStorage.getItem('lastScreen') as Screen | null;
-      const savedGroupId = localStorage.getItem('lastGroupId');
-
-      // Only restore if it's a valid authenticated screen
-      if (savedScreen && authenticatedScreens.has(savedScreen)) {
-        setCurrentScreen(savedScreen);
-        if (savedGroupId) setSelectedGroupId(savedGroupId);
+    if (isAuthenticated && !isLoading && !restorationComplete) {
+      // Validate that restored screen is valid for authenticated users
+      if (currentScreen && authenticatedScreens.has(currentScreen)) {
+        // Screen is valid, restoration already handled by redux-persist
+        dispatch(setRestorationComplete(true));
       } else {
-        // Default to home if no valid screen is saved
-        setCurrentScreen('home');
+        // Invalid screen, navigate to home
+        dispatch(navigate({ screen: 'home' }));
+        dispatch(setRestorationComplete(true));
       }
-      setRestorationComplete(true);
-    } else if (!isAuthenticated && !isLoading) {
+    } else if (!isAuthenticated && !isLoading && !restorationComplete) {
       // Not authenticated, allow normal auth flow
-      setRestorationComplete(true);
+      dispatch(setRestorationComplete(true));
     }
-  }, [isAuthenticated, isLoading]);
+  }, [dispatch, isAuthenticated, isLoading, restorationComplete, currentScreen, authenticatedScreens]);
 
   // Handle ?join=CODE deep link
   useEffect(() => {
@@ -169,46 +169,29 @@ function AppContent() {
     // Auto-join via invite link
     dispatch(joinGroup({ join_code: joinCode }) as any).then((result: any) => {
       if (result.meta?.requestStatus === 'fulfilled' && result.payload?.id) {
-        setSelectedGroupId(result.payload.id);
-        setCurrentScreen('group-detail');
+        dispatch(navigate({ screen: 'group-detail', groupId: result.payload.id }));
       } else {
         // Show groups page on failure — user will see the error in Redux state
-        setCurrentScreen('groups');
+        dispatch(navigate({ screen: 'groups' }));
       }
     });
   }, [isAuthenticated, restorationComplete, dispatch]);
 
-  const navigate = (screen: Screen, groupId?: string) => {
-    // Persist navigation for authenticated users
-    if (isAuthenticated && authenticatedScreens.has(screen)) {
-      localStorage.setItem('lastScreen', screen);
-      if (groupId) {
-        setSelectedGroupId(groupId);
-        localStorage.setItem('lastGroupId', groupId);
-      } else {
-        setSelectedGroupId(null);
-        localStorage.removeItem('lastGroupId');
-      }
-    } else if (!authenticatedScreens.has(screen)) {
-      // Clear persisted state when navigating to auth screens
-      localStorage.removeItem('lastScreen');
-      localStorage.removeItem('lastGroupId');
-    }
-
-    if (groupId) setSelectedGroupId(groupId);
-    setCurrentScreen(screen);
+  const handleNavigate = (screen: Screen, groupId?: string) => {
+    // Redux-persist handles persistence automatically
+    dispatch(navigate({ screen, groupId }));
   };
 
   const handleGetStarted = () => {
-    setCurrentScreen('login');
+    dispatch(navigate({ screen: 'login' }));
   };
 
   const handleNavigateToSignup = () => {
-    setCurrentScreen('signup');
+    dispatch(navigate({ screen: 'signup' }));
   };
 
   const handleNavigateToLogin = () => {
-    setCurrentScreen('login');
+    dispatch(navigate({ screen: 'login' }));
   };
 
   // Show loading state
@@ -239,67 +222,67 @@ function AppContent() {
       case 'signup':
         // Only redirect if restoration is complete (avoid race condition with useEffect)
         if (restorationComplete) {
-          navigate('home');
+          handleNavigate('home');
         }
-        return <Home navigate={navigate} />;
+        return <Home navigate={handleNavigate} />;
       case 'home':
-        return <Home navigate={navigate} />;
+        return <Home navigate={handleNavigate} />;
       case 'groups':
-        return <GroupsBrowse navigate={navigate} />;
+        return <GroupsBrowse navigate={handleNavigate} />;
       case 'group-create':
-        return <GroupCreate navigate={navigate} />;
+        return <GroupCreate navigate={handleNavigate} />;
       case 'group-detail':
-        return <GroupDetailNew navigate={navigate} groupId={selectedGroupId} />;
+        return <GroupDetailNew navigate={handleNavigate} groupId={selectedGroupId} />;
       case 'group-discover':
-        return <GroupDiscover navigate={navigate} />;
+        return <GroupDiscover navigate={handleNavigate} />;
       case 'products':
-        return <ProductCatalog navigate={navigate} groupId={selectedGroupId} />;
+        return <ProductCatalog navigate={handleNavigate} groupId={selectedGroupId} />;
       case 'cart':
-        return <GroupCart navigate={navigate} groupId={selectedGroupId} />;
+        return <GroupCart navigate={handleNavigate} groupId={selectedGroupId} />;
       case 'chat':
-        return <VendorChat navigate={navigate} groupId={selectedGroupId} />;
+        return <VendorChat navigate={handleNavigate} groupId={selectedGroupId} />;
       case 'chat-dashboard':
-        return <ChatDashboardReal navigate={navigate} />;
+        return <ChatDashboardReal navigate={handleNavigate} />;
       case 'checkout':
-        return <Checkout navigate={navigate} />;
+        return <Checkout navigate={handleNavigate} />;
       case 'tracking':
-        return <OrderTracking navigate={navigate} />;
+        return <OrderTracking navigate={handleNavigate} />;
       case 'review':
-        return <ReviewForm navigate={navigate} />;
+        return <ReviewForm navigate={handleNavigate} />;
       case 'profile':
-        return <Profile navigate={navigate} />;
+        return <Profile navigate={handleNavigate} />;
       case 'escrow-checkout':
-        return <EscrowCheckout navigate={navigate} />;
+        return <EscrowCheckout navigate={handleNavigate} />;
       case 'escrow-buyer-dashboard':
-        return <BuyerTransactionDashboard navigate={navigate} />;
+        return <BuyerTransactionDashboard navigate={handleNavigate} />;
       case 'escrow-inspection':
-        return <InspectionWindow navigate={navigate} />;
+        return <InspectionWindow navigate={handleNavigate} />;
       case 'escrow-seller-order':
-        return <SellerOrderReceived navigate={navigate} />;
+        return <SellerOrderReceived navigate={handleNavigate} />;
       case 'escrow-seller-upload':
-        return <SellerUploadProof navigate={navigate} />;
+        return <SellerUploadProof navigate={handleNavigate} />;
       case 'escrow-seller-awaiting':
-        return <SellerAwaitingInspection navigate={navigate} />;
+        return <SellerAwaitingInspection navigate={handleNavigate} />;
       case 'escrow-dispute':
-        return <DisputeOpen navigate={navigate} />;
+        return <DisputeOpen navigate={handleNavigate} />;
       case 'escrow-mediation':
-        return <DisputeMediation navigate={navigate} />;
+        return <DisputeMediation navigate={handleNavigate} />;
       case 'vendor-dashboard':
-        return <VendorDashboard navigate={navigate} />;
+        return <VendorDashboard navigate={handleNavigate} />;
       case 'vendor-add-product':
-        return <VendorAddProduct navigate={navigate} />;
+        return <VendorAddProduct navigate={handleNavigate} />;
       case 'vendor-products':
-        return <VendorProducts navigate={navigate} />;
+        return <VendorProducts navigate={handleNavigate} />;
       case 'vendor-orders':
-        return <VendorOrders navigate={navigate} />;
+        return <VendorOrders navigate={handleNavigate} />;
       case 'vendor-customers':
-        return <VendorCustomers navigate={navigate} />;
+        return <VendorCustomers navigate={handleNavigate} />;
       case 'admin-users':
-        return <UserManagement navigate={navigate} />;
+        return <UserManagement navigate={handleNavigate} />;
       case 'admin-create-user':
-        return <CreateUser navigate={navigate} />;
+        return <CreateUser navigate={handleNavigate} />;
       default:
-        return <Home navigate={navigate} />;
+        return <Home navigate={handleNavigate} />;
     }
   };
 
@@ -314,7 +297,7 @@ function AppContent() {
       <div className="max-w-md lg:max-w-6xl mx-auto bg-white min-h-screen relative pb-20 lg:pb-0">
         {renderScreen()}
         {showBottomNav && (
-          <BottomNav currentScreen={currentScreen} navigate={navigate} />
+          <BottomNav currentScreen={currentScreen} navigate={handleNavigate} />
         )}
       </div>
       <Toaster />
@@ -324,12 +307,4 @@ function AppContent() {
   );
 }
 
-export default function App() {
-  return (
-    <Provider store={store}>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </Provider>
-  );
-}
+export default AppContent;

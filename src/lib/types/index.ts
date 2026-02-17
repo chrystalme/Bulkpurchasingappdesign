@@ -25,3 +25,11 @@ export type { Vendor, VendorStats, VendorOrder, VendorCustomer } from './vendor.
 
 // Trust types
 export type { TrustScore } from './trust.types';
+
+// Chat types
+export type {
+  Conversation,
+  ChatMessage,
+  ConversationParticipant,
+  TypingUser,
+} from './chat.types';
