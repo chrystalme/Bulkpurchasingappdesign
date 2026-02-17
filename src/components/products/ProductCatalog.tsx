@@ -74,6 +74,10 @@ const filteredProducts = products.filter(product => {
   });
 
   const handleAddToCart = (productName: string) => {
+    if (!groupId) {
+      toast.error('Create or join a group before adding products to cart.');
+      return;
+    }
     toast.success(`${productName} added to group cart!`);
   };
 
@@ -100,7 +104,9 @@ const filteredProducts = products.filter(product => {
           <Button
             variant='ghost'
             size='icon'
-            onClick={() => navigate('group-detail', groupId)}
+            onClick={() =>
+              groupId ? navigate('group-detail', groupId) : navigate('home')
+            }
           >
             <ArrowLeft className='w-5 h-5' />
           </Button>
@@ -157,6 +163,16 @@ const filteredProducts = products.filter(product => {
           ))}
         </div>
       </div>
+
+      {!loading && !error && !groupId && (
+        <div className='px-4 lg:px-6 pt-4'>
+          <EmptyState
+            title='No group selected'
+            description='Browse products freely, then create or join a group to add items to cart.'
+            icon={Search}
+          />
+        </div>
+      )}
 
       {/* Loading State */}
       {loading && (
@@ -249,8 +265,14 @@ const filteredProducts = products.filter(product => {
       {!loading && !error && filteredProducts.length === 0 && (
         <div className='flex flex-col items-center justify-center p-12 text-center'>
           <Search className='w-16 h-16 text-gray-300 mb-4' />
-          <h4 className='text-gray-500 mb-2'>No products found</h4>
-          <p className='text-gray-400'>Try adjusting your search or filters</p>
+          <h4 className='text-gray-500 mb-2'>
+            {products.length === 0 ? 'No products available' : 'No products found'}
+          </h4>
+          <p className='text-gray-400'>
+            {products.length === 0
+              ? 'Please check back later for new listings.'
+              : 'Try adjusting your search or filters'}
+          </p>
         </div>
       )}
     </div>

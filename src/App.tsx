@@ -186,6 +186,7 @@ function AppContent() {
         setSelectedGroupId(groupId);
         localStorage.setItem('lastGroupId', groupId);
       } else {
+        setSelectedGroupId(null);
         localStorage.removeItem('lastGroupId');
       }
     } else if (!authenticatedScreens.has(screen)) {

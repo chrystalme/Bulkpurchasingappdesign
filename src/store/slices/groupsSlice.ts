@@ -311,6 +311,7 @@ const groupsSlice = createSlice({
       })
       .addCase(fetchGroupById.rejected, (state, action) => {
         state.loading = false;
+        state.currentGroup = null;
         state.error = action.payload as string;
       });
 

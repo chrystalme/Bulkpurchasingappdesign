@@ -79,6 +79,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "test": "echo \"No tests configured\"",
     "build": "vite build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
