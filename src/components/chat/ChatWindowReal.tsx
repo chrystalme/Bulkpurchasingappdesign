@@ -31,19 +31,19 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
     null,
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   const currentGroup = useAppSelector(state => state.groups.currentGroup);
-  const messages = useAppSelector(state => 
-    state.chat.messagesByConversation[conversation.id] || []
+  const messages = useAppSelector(
+    state => state.chat.messagesByConversation[conversation.id] || [],
   );
-  const participants = useAppSelector(state =>
-    state.chat.participantsByConversation[conversation.id] || []
+  const participants = useAppSelector(
+    state => state.chat.participantsByConversation[conversation.id] || [],
   );
-  const typingUsers = useAppSelector(state =>
-    state.chat.typingUsersByConversation[conversation.id] || []
+  const typingUsers = useAppSelector(
+    state => state.chat.typingUsersByConversation[conversation.id] || [],
   );
-  const loading = useAppSelector(state =>
-    state.chat.messagesLoading[conversation.id] || false
+  const loading = useAppSelector(
+    state => state.chat.messagesLoading[conversation.id] || false,
   );
 
   // Fetch messages and participants on mount
@@ -63,7 +63,8 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
   }, [dispatch, conversation.id, messages.length]);
 
   // For vendor chats, only group admin can send; for internal chats, all members can
-  const isGroupAdmin = currentGroup?.user_role === 'admin';
+  const isGroupAdmin =
+    currentGroup?.user_role === 'admin' || user?.role === 'vendor';
   const canSendMessages =
     conversation.type === 'group-vendor' ? isGroupAdmin : true;
 
@@ -103,7 +104,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
 
     const sanitizedMessage = sanitizeChatMessage(inputValue);
     const tempId = `temp-${Date.now()}`;
-    
+
     // Create optimistic message
     const optimisticMessage = {
       id: tempId,
@@ -119,14 +120,16 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
     };
 
     // Add optimistic message to Redux
-    dispatch(addOptimisticMessage({
-      conversationId: conversation.id,
-      message: optimisticMessage,
-    }));
+    dispatch(
+      addOptimisticMessage({
+        conversationId: conversation.id,
+        message: optimisticMessage,
+      }),
+    );
 
     // Send via socket (middleware will handle the actual sending)
     chatSocket.sendMessage(conversation.id, sanitizedMessage);
-    
+
     setInputValue('');
 
     // Clear typing indicator
