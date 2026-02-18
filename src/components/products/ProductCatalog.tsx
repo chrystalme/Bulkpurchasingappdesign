@@ -7,18 +7,19 @@ import { Input } from '../ui/input';
 import { ArrowLeft, Search, Filter, Star, Plus } from 'lucide-react';
 import type { Screen } from '../../App';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
-import { toast } from 'sonner@2.0.3';
 import { apiClient } from '../../lib/api';
 import type { Product } from '../../lib/types';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState, EmptyState } from '../ui/ErrorState';
 import { fetchProducts } from '../../store/slices';
+import { fetchGroups } from '../../store/slices/groupsSlice';
 import {
   selectProducts,
   selectProductsLoading,
   selectProductsError,
 } from '../../store/selectors';
 import { sanitizeSearchInput, validateSearchInput } from '../../lib/sanitizer';
+import { AddToGroupCartDialog } from './AddToGroupCartDialog';
 
 interface ProductCatalogProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -30,17 +31,20 @@ export function ProductCatalog({ navigate, groupId }: ProductCatalogProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>(['All']);
+  const [showAddToCartDialog, setShowAddToCartDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Redux selectors
   const products = useSelector(selectProducts);
   const loading = useSelector(selectProductsLoading);
   const error = useSelector(selectProductsError);
 
-  // Load products on mount (only if not already loaded)
+  // Load products and groups on mount (only if not already loaded)
   useEffect(() => {
     if (products.length === 0) {
       dispatch(fetchProducts() as any);
     }
+    dispatch(fetchGroups());
     loadCategories();
   }, [dispatch, products.length]);
 
@@ -73,12 +77,9 @@ const filteredProducts = products.filter(product => {
     return matchesSearch && matchesCategory;
   });
 
-  const handleAddToCart = (productName: string) => {
-    if (!groupId) {
-      toast.error('Create or join a group before adding products to cart.');
-      return;
-    }
-    toast.success(`${productName} added to group cart!`);
+  const handleAddToCart = (product: Product) => {
+    setSelectedProduct(product);
+    setShowAddToCartDialog(true);
   };
 
   const productImages = {
@@ -249,7 +250,7 @@ const filteredProducts = products.filter(product => {
                   <Button
                     className='w-full bg-[#6EE7B7] hover:bg-[#6EE7B7]/90 text-[#0047AB]'
                     size='sm'
-                    onClick={() => handleAddToCart(product.name)}
+                    onClick={() => handleAddToCart(product)}
                   >
                     <Plus className='w-4 h-4 mr-1' />
                     Add to Cart
@@ -260,6 +261,16 @@ const filteredProducts = products.filter(product => {
           ))}
         </div>
       )}
+
+      <AddToGroupCartDialog
+        open={showAddToCartDialog}
+        onClose={() => {
+          setShowAddToCartDialog(false);
+          setSelectedProduct(null);
+        }}
+        product={selectedProduct}
+        navigate={navigate}
+      />
 
       {/* Empty State */}
       {!loading && !error && filteredProducts.length === 0 && (
