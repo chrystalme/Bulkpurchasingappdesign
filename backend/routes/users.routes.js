@@ -16,11 +16,20 @@ router.use(authenticateToken);
 // GET /api/users - Get all users (admin only)
 router.get('/', canManageUsers, async (req, res) => {
   try {
-    const result = await pool.query(`
+    let query = `
       SELECT id, email, name, role, avatar, vendor_id, created_at, is_active, trust_score
       FROM users
-      ORDER BY created_at DESC
-    `);
+    `;
+    const params = [];
+
+    // Admin should never see superUser accounts
+    if (req.user.role === 'admin') {
+      query += " WHERE role != 'superUser'";
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const result = await pool.query(query, params);
 
     res.json({
       success: true,
@@ -35,16 +44,34 @@ router.get('/', canManageUsers, async (req, res) => {
 // GET /api/users/stats - Get user statistics (admin only)
 router.get('/stats', canManageUsers, async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE is_active = true) as active,
-        COUNT(*) FILTER (WHERE role = 'superUser') as super_users,
-        COUNT(*) FILTER (WHERE role = 'admin') as admins,
-        COUNT(*) FILTER (WHERE role = 'vendor') as vendors,
-        COUNT(*) FILTER (WHERE role = 'member') as members
-      FROM users
-    `);
+    let query;
+
+    // For admin, do not disclose super_users and exclude them from total/active counts
+    if (req.user.role === 'admin') {
+      query = `
+        SELECT 
+          COUNT(*) FILTER (WHERE role != 'superUser') as total,
+          COUNT(*) FILTER (WHERE is_active = true AND role != 'superUser') as active,
+          0 as super_users,
+          COUNT(*) FILTER (WHERE role = 'admin') as admins,
+          COUNT(*) FILTER (WHERE role = 'vendor') as vendors,
+          COUNT(*) FILTER (WHERE role = 'member') as members
+        FROM users
+      `;
+    } else {
+      query = `
+        SELECT 
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE is_active = true) as active,
+          COUNT(*) FILTER (WHERE role = 'superUser') as super_users,
+          COUNT(*) FILTER (WHERE role = 'admin') as admins,
+          COUNT(*) FILTER (WHERE role = 'vendor') as vendors,
+          COUNT(*) FILTER (WHERE role = 'member') as members
+        FROM users
+      `;
+    }
+
+    const result = await pool.query(query);
 
     res.json({
       success: true,
@@ -60,6 +87,11 @@ router.get('/stats', canManageUsers, async (req, res) => {
 router.get('/role/:role', canManageUsers, async (req, res) => {
   try {
     const { role } = req.params;
+
+    // Admin cannot query superUser accounts
+    if (role === 'superUser' && req.user.role === 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
     const result = await pool.query(
       `SELECT id, email, name, role, avatar, vendor_id, created_at, is_active, trust_score
@@ -104,9 +136,16 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const foundUser = result.rows[0];
+
+    // Admin cannot inspect a superUser account
+    if (foundUser.role === 'superUser' && req.user.role === 'admin' && req.user.id !== id) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     res.json({
       success: true,
-      data: result.rows[0],
+      data: foundUser,
     });
   } catch (error) {
     console.error('Get user error:', error);
@@ -201,6 +240,18 @@ router.put('/:id', canManageUsers, async (req, res) => {
     const { id } = req.params;
     const { name, role, vendorId, isActive, trustScore } = req.body;
 
+    // Check target user role
+    const targetResult = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
+    if (targetResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const targetUser = targetResult.rows[0];
+
+    // Admin cannot modify a super user
+    if (targetUser.role === 'superUser' && req.user.role !== 'superUser') {
+      return res.status(403).json({ error: 'Cannot modify a super user' });
+    }
+
     // Strict role check: ONLY superUser can activate or deactivate users
     if (isActive !== undefined && req.user.role !== 'superUser') {
       return res.status(403).json({ error: 'Only super users can activate or deactivate users' });
@@ -269,6 +320,11 @@ router.delete('/:id', canDeleteUsers, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Prevent deleting self
+    if (req.user.id === id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
     // Check if user exists
     const userResult = await pool.query(
       'SELECT role FROM users WHERE id = $1',
@@ -305,10 +361,24 @@ router.delete('/:id', canDeleteUsers, async (req, res) => {
   }
 });
 
-// POST /api/users/:id/deactivate - Deactivate user (admin only)
+// POST /api/users/:id/deactivate - Deactivate user (superUser only)
 router.post('/:id/deactivate', canManageUsers, async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (req.user.role !== 'superUser') {
+      return res.status(403).json({ error: 'Only super users can deactivate users' });
+    }
+
+    if (req.user.id === id) {
+      return res.status(400).json({ error: 'Cannot deactivate your own account' });
+    }
+
+    // Check target user
+    const targetResult = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
+    if (targetResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     const result = await pool.query(
       `UPDATE users 
@@ -332,10 +402,20 @@ router.post('/:id/deactivate', canManageUsers, async (req, res) => {
   }
 });
 
-// POST /api/users/:id/activate - Activate user (admin only)
+// POST /api/users/:id/activate - Activate user (superUser only)
 router.post('/:id/activate', canManageUsers, async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (req.user.role !== 'superUser') {
+      return res.status(403).json({ error: 'Only super users can activate users' });
+    }
+
+    // Check target user
+    const targetResult = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
+    if (targetResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     const result = await pool.query(
       `UPDATE users 
