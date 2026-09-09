@@ -72,54 +72,40 @@ export function Profile({ navigate }: ProfileProps) {
     }
   };
 
+  const isMember = user.role === 'member';
+  const isVendor = user.role === 'vendor';
+  const isAdmin = user.role === 'admin' || user.role === 'superUser';
+
+  const memberAccountItems = [
+    { icon: Settings, label: 'Account Settings', screen: 'profile-settings' as const },
+    { icon: CreditCard, label: 'Escrow Transactions', screen: 'transaction-history' as const },
+    { icon: Package, label: 'Order Tracking', screen: 'tracking' as const },
+    { icon: Users, label: 'My Groups', screen: 'groups' as const },
+  ];
+
+  const vendorAccountItems = [
+    { icon: Settings, label: 'Account Settings', screen: 'profile-settings' as const },
+    { icon: Package, label: 'Vendor Dashboard', screen: 'vendor-dashboard' as const },
+    { icon: Package, label: 'My Products', screen: 'vendor-products' as const },
+    { icon: CreditCard, label: 'Vendor Orders', screen: 'vendor-orders' as const },
+    { icon: TrendingDown, label: 'Sales Analytics', screen: 'vendor-analytics' as const },
+    { icon: CreditCard, label: 'Escrow Transactions', screen: 'transaction-history' as const },
+  ];
+
+  const adminAccountItems = [
+    { icon: Settings, label: 'Account Settings', screen: 'profile-settings' as const },
+    { icon: UserCog, label: 'User Management', screen: 'admin-users' as const },
+    { icon: Shield, label: 'Dispute Management', screen: 'dispute-management' as const },
+    { icon: CreditCard, label: 'Platform Transactions', screen: 'transaction-history' as const },
+  ];
+
+  const accountItems = isVendor ? vendorAccountItems : isAdmin ? adminAccountItems : memberAccountItems;
+
   const menuSections = [
     {
-      title: 'Account',
-      items: [
-        { icon: Settings, label: 'Account Settings', screen: 'profile-settings' as const },
-        { icon: CreditCard, label: 'Escrow Transactions', screen: 'transaction-history' as const },
-        { icon: Package, label: 'Order Tracking', screen: 'tracking' as const },
-        { icon: Users, label: 'My Groups', screen: 'groups' as const },
-      ],
+      title: isVendor ? 'Vendor Portal' : isAdmin ? 'Administration' : 'Account',
+      items: accountItems,
     },
-    ...(permissions.canManageUsers(user.role)
-      ? [
-          {
-            title: 'Administration',
-            items: [
-              {
-                icon: UserCog,
-                label: 'User Management',
-                screen: 'admin-users' as const,
-              },
-              {
-                icon: Shield,
-                label: 'Dispute Management',
-                screen: 'dispute-management' as const,
-              },
-            ],
-          },
-        ]
-      : []),
-    ...(permissions.canAccessVendorDashboard(user.role)
-      ? [
-          {
-            title: 'Vendor',
-            items: [
-              {
-                icon: Package,
-                label: 'Vendor Dashboard',
-                screen: 'vendor-dashboard' as const,
-              },
-              {
-                icon: TrendingDown,
-                label: 'Sales Analytics',
-                screen: 'vendor-analytics' as const,
-              },
-            ],
-          },
-        ]
-      : []),
     {
       title: 'Preferences',
       items: [
@@ -155,55 +141,111 @@ export function Profile({ navigate }: ProfileProps) {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Role-Specific Stats Header */}
         <div className='grid grid-cols-3 gap-3'>
-          <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
-            <CardContent className='p-3 text-center'>
-              <Users className='w-5 h-5 text-white mx-auto mb-1' />
-              <div className='text-white'>{userStats.groups}</div>
-              <div className='text-white/80 text-xs'>Groups</div>
-            </CardContent>
-          </Card>
-          <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
-            <CardContent className='p-3 text-center'>
-              <Package className='w-5 h-5 text-white mx-auto mb-1' />
-              <div className='text-white'>{userStats.orders}</div>
-              <div className='text-white/80 text-xs'>Orders</div>
-            </CardContent>
-          </Card>
-          <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
-            <CardContent className='p-3 text-center'>
-              <TrendingDown className='w-5 h-5 text-[#FACC15] mx-auto mb-1' />
-              <div className='text-white'>
-                ₦{(userStats.saved / 1000).toFixed(0)}K
-              </div>
-              <div className='text-white/80 text-xs'>Saved</div>
-            </CardContent>
-          </Card>
+          {isVendor ? (
+            <>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <Package className='w-5 h-5 text-white mx-auto mb-1' />
+                  <div className='text-white'>Catalog</div>
+                  <div className='text-white/80 text-xs'>Products</div>
+                </CardContent>
+              </Card>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <CreditCard className='w-5 h-5 text-white mx-auto mb-1' />
+                  <div className='text-white'>Orders</div>
+                  <div className='text-white/80 text-xs'>Active</div>
+                </CardContent>
+              </Card>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <Award className='w-5 h-5 text-[#FACC15] mx-auto mb-1' />
+                  <div className='text-white'>4.8 ★</div>
+                  <div className='text-white/80 text-xs'>Vendor Rating</div>
+                </CardContent>
+              </Card>
+            </>
+          ) : isAdmin ? (
+            <>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <Shield className='w-5 h-5 text-white mx-auto mb-1' />
+                  <div className='text-white'>{user.role}</div>
+                  <div className='text-white/80 text-xs'>Access Level</div>
+                </CardContent>
+              </Card>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <Users className='w-5 h-5 text-white mx-auto mb-1' />
+                  <div className='text-white'>Platform</div>
+                  <div className='text-white/80 text-xs'>Oversight</div>
+                </CardContent>
+              </Card>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <Award className='w-5 h-5 text-[#FACC15] mx-auto mb-1' />
+                  <div className='text-white'>Active</div>
+                  <div className='text-white/80 text-xs'>Status</div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <Users className='w-5 h-5 text-white mx-auto mb-1' />
+                  <div className='text-white'>{userStats.groups}</div>
+                  <div className='text-white/80 text-xs'>Groups</div>
+                </CardContent>
+              </Card>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <Package className='w-5 h-5 text-white mx-auto mb-1' />
+                  <div className='text-white'>{userStats.orders}</div>
+                  <div className='text-white/80 text-xs'>Orders</div>
+                </CardContent>
+              </Card>
+              <Card className='bg-white/10 border-white/20 backdrop-blur-sm'>
+                <CardContent className='p-3 text-center'>
+                  <TrendingDown className='w-5 h-5 text-[#FACC15] mx-auto mb-1' />
+                  <div className='text-white'>
+                    ₦{(userStats.saved / 1000).toFixed(0)}K
+                  </div>
+                  <div className='text-white/80 text-xs'>Saved</div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </div>
 
       <div className='p-4 lg:p-6 -mt-4'>
         <div className='max-w-3xl mx-auto space-y-4'>
-          {/* Trust Score Section */}
-          <TrustScore trustScore={userTrustScore} variant='full' />
+          {/* Trust Score Section for Members and Vendors */}
+          {(isMember || isVendor) && (
+            <TrustScore trustScore={userTrustScore} variant='full' />
+          )}
 
-          {/* Achievement Badge */}
-          <Card className='bg-gradient-to-br from-[#FACC15]/10 to-[#FB7185]/10 border-[#FACC15]/30'>
-            <CardContent className='p-4'>
-              <div className='flex items-center gap-3'>
-                <div className='w-12 h-12 bg-[#FACC15]/20 rounded-full flex items-center justify-center'>
-                  <Award className='w-6 h-6 text-[#FACC15]' />
+          {/* Achievement Badge (buyer-only) */}
+          {isMember && (
+            <Card className='bg-gradient-to-br from-[#FACC15]/10 to-[#FB7185]/10 border-[#FACC15]/30'>
+              <CardContent className='p-4'>
+                <div className='flex items-center gap-3'>
+                  <div className='w-12 h-12 bg-[#FACC15]/20 rounded-full flex items-center justify-center'>
+                    <Award className='w-6 h-6 text-[#FACC15]' />
+                  </div>
+                  <div className='flex-1'>
+                    <h5 className='mb-1'>Super Saver 🎉</h5>
+                    <p className='text-sm text-gray-600'>
+                      You've saved over ₦20,000 with group buying!
+                    </p>
+                  </div>
                 </div>
-                <div className='flex-1'>
-                  <h5 className='mb-1'>Super Saver 🎉</h5>
-                  <p className='text-sm text-gray-600'>
-                    You've saved over ₦20,000 with group buying!
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Menu Sections */}
           {menuSections.map((section, index) => (

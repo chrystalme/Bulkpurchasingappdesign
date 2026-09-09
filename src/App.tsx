@@ -127,6 +127,65 @@ function AppContent() {
     }
   }, [dispatch, isAuthenticated, isLoading, user, restorationComplete]);
 
+  // Helper to check if a screen is allowed for a user's role
+  const isScreenAllowedForRole = (screen: Screen, role?: string): boolean => {
+    // Universal authenticated screens
+    if (
+      screen === 'welcome' ||
+      screen === 'login' ||
+      screen === 'signup' ||
+      screen === 'home' ||
+      screen === 'profile' ||
+      screen === 'profile-settings' ||
+      screen === 'chat' ||
+      screen === 'chat-dashboard' ||
+      screen === 'transaction-history'
+    ) {
+      return true;
+    }
+
+    if (role === 'vendor') {
+      return (
+        screen.startsWith('vendor-') ||
+        screen.startsWith('escrow-seller') ||
+        screen === 'escrow-dispute' ||
+        screen === 'escrow-mediation'
+      );
+    }
+
+    if (role === 'admin' || role === 'superUser') {
+      return (
+        screen === 'admin-users' ||
+        screen === 'admin-create-user' ||
+        screen === 'dispute-management' ||
+        screen === 'escrow-dispute' ||
+        screen === 'escrow-mediation' ||
+        screen === 'products'
+      );
+    }
+
+    if (role === 'member') {
+      return (
+        screen === 'groups' ||
+        screen === 'group-create' ||
+        screen === 'group-detail' ||
+        screen === 'group-discover' ||
+        screen === 'products' ||
+        screen === 'cart' ||
+        screen === 'checkout' ||
+        screen === 'tracking' ||
+        screen === 'review' ||
+        screen === 'escrow-checkout' ||
+        screen === 'escrow-buyer-dashboard' ||
+        screen === 'escrow-inspection' ||
+        screen === 'escrow-dispute' ||
+        screen === 'escrow-mediation'
+      );
+    }
+
+    return false;
+  };
+
   // Authenticated screens that can be restored after refresh
   const authenticatedScreens = new Set<Screen>([
     'home',
@@ -141,6 +200,9 @@ function AppContent() {
     'tracking',
     'review',
     'profile',
+    'profile-settings',
+    'transaction-history',
+    'dispute-management',
     'escrow-checkout',
     'escrow-buyer-dashboard',
     'escrow-inspection',
@@ -154,6 +216,7 @@ function AppContent() {
     'vendor-products',
     'vendor-orders',
     'vendor-customers',
+    'vendor-analytics',
     'admin-users',
     'admin-create-user',
   ]);
@@ -162,12 +225,12 @@ function AppContent() {
   // Note: redux-persist handles persistence automatically, but we need to validate restored state
   useEffect(() => {
     if (isAuthenticated && !isLoading && !restorationComplete) {
-      // Validate that restored screen is valid for authenticated users
-      if (currentScreen && authenticatedScreens.has(currentScreen)) {
+      // Validate that restored screen is valid for authenticated users and their role
+      if (currentScreen && authenticatedScreens.has(currentScreen) && isScreenAllowedForRole(currentScreen, user?.role)) {
         // Screen is valid, restoration already handled by redux-persist
         dispatch(setRestorationComplete(true));
       } else {
-        // Invalid screen, navigate to home
+        // Invalid screen or unauthorized role, navigate to home
         dispatch(navigate({ screen: 'home' }));
         dispatch(setRestorationComplete(true));
       }
@@ -175,7 +238,7 @@ function AppContent() {
       // Not authenticated, allow normal auth flow
       dispatch(setRestorationComplete(true));
     }
-  }, [dispatch, isAuthenticated, isLoading, restorationComplete, currentScreen, authenticatedScreens]);
+  }, [dispatch, isAuthenticated, isLoading, restorationComplete, currentScreen, authenticatedScreens, user?.role]);
 
   // Handle ?join=CODE deep link
   useEffect(() => {
@@ -212,6 +275,13 @@ function AppContent() {
       dispatch(navigate({ screen: 'login' }));
       return;
     }
+
+    // Role protection: prevent navigating to unauthorized screens
+    if (isAuthenticated && !isScreenAllowedForRole(screen, user?.role)) {
+      dispatch(navigate({ screen: 'home' }));
+      return;
+    }
+
     // Redux-persist handles persistence automatically
     dispatch(navigate({ screen, groupId }));
   };
@@ -296,7 +366,11 @@ function AppContent() {
       );
     }
 
-    // Authenticated screens
+    // Authenticated screens: check role permission
+    if (!isScreenAllowedForRole(currentScreen, user?.role)) {
+      return <Home navigate={handleNavigate} />;
+    }
+
     switch (currentScreen) {
       case 'welcome':
       case 'login':

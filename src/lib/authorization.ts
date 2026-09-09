@@ -100,16 +100,16 @@ export const canEditUser = (currentUser: User | null, targetUserRole: UserRole):
 
 /**
  * Check if user can access vendor dashboard
- * Vendor can access own, superUser and admin can access any
+ * Strictly vendor only
  */
 export const canAccessVendorDashboard = (user: User | null): boolean => {
-  return user?.role === 'vendor' || user?.role === 'superUser' || user?.role === 'admin';
+  return user?.role === 'vendor';
 };
 
 /**
  * Check if user can manage a specific vendor
  * Vendor can manage own (checked via vendor_id)
- * SuperUser and admin can manage any
+ * SuperUser can manage any for platform administration
  */
 export const canManageVendor = (
   currentUser: User | null,
@@ -117,8 +117,7 @@ export const canManageVendor = (
 ): boolean => {
   if (!currentUser) return false;
   
-  // SuperUser and admin can manage any vendor
-  if (currentUser.role === 'superUser' || currentUser.role === 'admin') {
+  if (currentUser.role === 'superUser') {
     return true;
   }
   
@@ -135,7 +134,7 @@ export const canManageVendor = (
  * Only vendors can add products
  */
 export const canAddProduct = (user: User | null): boolean => {
-  return user?.role === 'vendor' || user?.role === 'superUser' || user?.role === 'admin';
+  return user?.role === 'vendor';
 };
 
 /**

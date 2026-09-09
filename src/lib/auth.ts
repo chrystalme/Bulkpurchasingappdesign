@@ -70,18 +70,23 @@ const users: User[] = [
 
 // Authentication functions
 export const authService = {
-  // Get all users
-  getAllUsers: (): User[] => {
-    return users.map(u => ({ ...u, password: '********' })); // Hide passwords
+  // Get all users (filtered by caller role: admins cannot see super users)
+  getAllUsers: (callerRole?: UserRole): User[] => {
+    let list = users;
+    if (callerRole === 'admin') {
+      list = users.filter(u => u.role !== 'superUser');
+    }
+    return list.map(u => ({ ...u, password: '********' })); // Hide passwords
   },
 
   // Get user by ID
-  getUserById: (id: string): User | undefined => {
+  getUserById: (id: string, callerRole?: UserRole): User | undefined => {
     const user = users.find(u => u.id === id);
-    if (user) {
-      return { ...user, password: '********' };
+    if (!user) return undefined;
+    if (callerRole === 'admin' && user.role === 'superUser') {
+      return undefined;
     }
-    return undefined;
+    return { ...user, password: '********' };
   },
 
   // Login
@@ -197,15 +202,33 @@ export const authService = {
   },
 
   // Delete user
-  deleteUser: (id: string): { success: boolean; error?: string } => {
+  deleteUser: (
+    id: string,
+    actorRole?: UserRole,
+    actorId?: string
+  ): { success: boolean; error?: string } => {
+    if (actorRole && actorRole !== 'superUser') {
+      return { success: false, error: 'Only Super Users have permission to delete accounts' };
+    }
+
+    if (actorId && actorId === id) {
+      return { success: false, error: 'You cannot delete your own account' };
+    }
+
     const userIndex = users.findIndex(u => u.id === id);
     
     if (userIndex === -1) {
       return { success: false, error: 'User not found' };
     }
 
-    // Prevent deleting the last superUser
     const user = users[userIndex];
+
+    // Protect superUser from non-superUser deletion
+    if (user.role === 'superUser' && actorRole && actorRole !== 'superUser') {
+      return { success: false, error: 'Only Super Users can delete super user accounts' };
+    }
+
+    // Prevent deleting the last superUser
     if (user.role === 'superUser') {
       const superUserCount = users.filter(u => u.role === 'superUser').length;
       if (superUserCount <= 1) {
@@ -218,13 +241,33 @@ export const authService = {
   },
 
   // Deactivate user (soft delete)
-  deactivateUser: (id: string): { success: boolean; error?: string } => {
+  deactivateUser: (
+    id: string,
+    actorRole?: UserRole,
+    actorId?: string
+  ): { success: boolean; error?: string } => {
+    if (actorRole && actorRole !== 'superUser') {
+      return { success: false, error: 'Only Super Users have permission to deactivate accounts' };
+    }
+    if (actorId && actorId === id) {
+      return { success: false, error: 'You cannot deactivate your own account' };
+    }
+    const target = users.find(u => u.id === id);
+    if (target?.role === 'superUser' && actorRole !== 'superUser') {
+      return { success: false, error: 'Cannot deactivate a super user' };
+    }
     const result = authService.updateUser(id, { isActive: false });
     return { success: result.success, error: result.error };
   },
 
   // Activate user
-  activateUser: (id: string): { success: boolean; error?: string } => {
+  activateUser: (
+    id: string,
+    actorRole?: UserRole
+  ): { success: boolean; error?: string } => {
+    if (actorRole && actorRole !== 'superUser') {
+      return { success: false, error: 'Only Super Users have permission to activate accounts' };
+    }
     const result = authService.updateUser(id, { isActive: true });
     return { success: result.success, error: result.error };
   },
@@ -237,12 +280,26 @@ export const authService = {
   },
 
   // Get active users count
-  getActiveUsersCount: (): number => {
+  getActiveUsersCount: (callerRole?: UserRole): number => {
+    if (callerRole === 'admin') {
+      return users.filter(u => u.isActive && u.role !== 'superUser').length;
+    }
     return users.filter(u => u.isActive).length;
   },
 
   // Get stats
-  getStats: () => {
+  getStats: (callerRole?: UserRole) => {
+    if (callerRole === 'admin') {
+      const visibleUsers = users.filter(u => u.role !== 'superUser');
+      return {
+        total: visibleUsers.length,
+        active: visibleUsers.filter(u => u.isActive).length,
+        superUsers: 0,
+        admins: visibleUsers.filter(u => u.role === 'admin').length,
+        vendors: visibleUsers.filter(u => u.role === 'vendor').length,
+        members: visibleUsers.filter(u => u.role === 'member').length,
+      };
+    }
     return {
       total: users.length,
       active: users.filter(u => u.isActive).length,
@@ -269,11 +326,11 @@ export const permissions = {
   },
 
   canAccessVendorDashboard: (role: UserRole): boolean => {
-    return role === 'vendor' || role === 'superUser' || role === 'admin';
+    return role === 'vendor';
   },
 
   canManageProducts: (role: UserRole): boolean => {
-    return role === 'vendor' || role === 'superUser';
+    return role === 'vendor';
   },
 
   canAccessAdminPanel: (role: UserRole): boolean => {

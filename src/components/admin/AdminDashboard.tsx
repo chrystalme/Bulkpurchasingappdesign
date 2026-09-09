@@ -95,7 +95,21 @@ export function AdminDashboard({ navigate }: AdminDashboardProps) {
     );
   }
 
-  const displayUsers = users.slice(0, 10);
+  const isSuperUser = authUser?.role === 'superUser';
+  const displayUsers = users.filter(u => isSuperUser || u.role !== 'superUser').slice(0, 10);
+
+  const roleDistribution = isSuperUser
+    ? [
+        { label: 'Super Users', value: stats?.superUsers || 0, color: 'text-red-600' },
+        { label: 'Admins', value: stats?.admins || 0, color: 'text-blue-600' },
+        { label: 'Vendors', value: stats?.vendors || 0, color: 'text-purple-600' },
+        { label: 'Members', value: stats?.members || 0, color: 'text-green-600' },
+      ]
+    : [
+        { label: 'Admins', value: stats?.admins || 0, color: 'text-blue-600' },
+        { label: 'Vendors', value: stats?.vendors || 0, color: 'text-purple-600' },
+        { label: 'Members', value: stats?.members || 0, color: 'text-green-600' },
+      ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -182,7 +196,7 @@ export function AdminDashboard({ navigate }: AdminDashboardProps) {
                 <div>
                   <p className="text-sm text-gray-600">Admins</p>
                   <p className="text-2xl font-bold text-[#F59E0B]">
-                    {(stats?.admins || 0) + (stats?.superUsers || 0)}
+                    {isSuperUser ? (stats?.admins || 0) + (stats?.superUsers || 0) : (stats?.admins || 0)}
                   </p>
                 </div>
                 <div className="p-3 bg-yellow-100 rounded-lg">
@@ -203,13 +217,8 @@ export function AdminDashboard({ navigate }: AdminDashboardProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: 'Super Users', value: stats?.superUsers || 0, color: 'text-red-600' },
-                { label: 'Admins', value: stats?.admins || 0, color: 'text-blue-600' },
-                { label: 'Vendors', value: stats?.vendors || 0, color: 'text-purple-600' },
-                { label: 'Members', value: stats?.members || 0, color: 'text-green-600' },
-              ].map((role) => (
+            <div className={`grid grid-cols-2 ${isSuperUser ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4`}>
+              {roleDistribution.map((role) => (
                 <div key={role.label} className="text-center">
                   <p className={`text-2xl font-bold ${role.color}`}>{role.value}</p>
                   <p className="text-sm text-gray-600">{role.label}</p>

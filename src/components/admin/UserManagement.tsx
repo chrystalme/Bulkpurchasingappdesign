@@ -16,11 +16,12 @@ interface UserManagementProps {
 
 export function UserManagement({ navigate }: UserManagementProps) {
   const { user: currentUser } = useAuth();
+  const isSuperUser = currentUser?.role === 'superUser';
   const [searchQuery, setSearchQuery] = useState('');
-  const [users, setUsers] = useState<User[]>(authService.getAllUsers());
+  const [users, setUsers] = useState<User[]>(authService.getAllUsers(currentUser?.role));
   const [selectedRole, setSelectedRole] = useState<UserRole | 'all'>('all');
 
-  const stats = authService.getStats();
+  const stats = authService.getStats(currentUser?.role);
 
   const getRoleBadgeColor = (role: UserRole) => {
     switch (role) {
@@ -36,7 +37,7 @@ export function UserManagement({ navigate }: UserManagementProps) {
   };
 
   const handleDeleteUser = (userId: string) => {
-    if (currentUser?.role !== 'superUser') {
+    if (!isSuperUser) {
       toast.error('Only Super Users have permission to delete accounts');
       return;
     }
@@ -46,13 +47,22 @@ export function UserManagement({ navigate }: UserManagementProps) {
       return;
     }
 
+    const targetUser = users.find(u => u.id === userId);
+    if (targetUser?.role === 'superUser') {
+      const superUserCount = users.filter(u => u.role === 'superUser').length;
+      if (superUserCount <= 1) {
+        toast.error('Cannot delete the last super user');
+        return;
+      }
+    }
+
     if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       return;
     }
 
-    const result = authService.deleteUser(userId);
+    const result = authService.deleteUser(userId, currentUser?.role, currentUser?.id);
     if (result.success) {
-      setUsers(authService.getAllUsers());
+      setUsers(authService.getAllUsers(currentUser?.role));
       toast.success('User deleted successfully');
     } else {
       toast.error(result.error || 'Failed to delete user');
@@ -60,7 +70,7 @@ export function UserManagement({ navigate }: UserManagementProps) {
   };
 
   const handleToggleStatus = (userId: string, isActive: boolean) => {
-    if (currentUser?.role !== 'superUser') {
+    if (!isSuperUser) {
       toast.error('Only Super Users have permission to activate or deactivate accounts');
       return;
     }
@@ -71,18 +81,24 @@ export function UserManagement({ navigate }: UserManagementProps) {
     }
 
     const result = isActive 
-      ? authService.deactivateUser(userId)
-      : authService.activateUser(userId);
+      ? authService.deactivateUser(userId, currentUser?.role, currentUser?.id)
+      : authService.activateUser(userId, currentUser?.role);
 
     if (result.success) {
-      setUsers(authService.getAllUsers());
+      setUsers(authService.getAllUsers(currentUser?.role));
       toast.success(isActive ? 'User deactivated' : 'User activated');
     } else {
       toast.error(result.error || 'Failed to update user status');
     }
   };
 
-  const filteredUsers = users.filter(user => {
+  // Strictly filter out superUser if currentUser is admin
+  const visibleUsers = users.filter(user => {
+    if (!isSuperUser && user.role === 'superUser') return false;
+    return true;
+  });
+
+  const filteredUsers = visibleUsers.filter(user => {
     const matchesSearch = 
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -100,7 +116,7 @@ export function UserManagement({ navigate }: UserManagementProps) {
           </button>
           <div className="flex-1">
             <h1 className="font-semibold text-gray-900">User Management</h1>
-            <p className="text-xs text-gray-500">{users.length} total users</p>
+            <p className="text-xs text-gray-500">{visibleUsers.length} total users</p>
           </div>
           <Button
             onClick={() => navigate('admin-create-user')}
@@ -126,7 +142,7 @@ export function UserManagement({ navigate }: UserManagementProps) {
 
       {/* Stats */}
       <div className="p-4">
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-4">
+        <div className={`grid grid-cols-2 ${isSuperUser ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-3 mb-4`}>
           <Card 
             className={`cursor-pointer transition-all ${selectedRole === 'all' ? 'ring-2 ring-[#0047AB]' : ''}`}
             onClick={() => setSelectedRole('all')}
@@ -136,15 +152,17 @@ export function UserManagement({ navigate }: UserManagementProps) {
               <p className="text-xl font-semibold text-gray-900">{stats.total}</p>
             </CardContent>
           </Card>
-          <Card 
-            className={`cursor-pointer transition-all ${selectedRole === 'superUser' ? 'ring-2 ring-[#FB7185]' : ''}`}
-            onClick={() => setSelectedRole('superUser')}
-          >
-            <CardContent className="p-3">
-              <p className="text-xs text-gray-600 mb-1">Super Users</p>
-              <p className="text-xl font-semibold text-[#FB7185]">{stats.superUsers}</p>
-            </CardContent>
-          </Card>
+          {isSuperUser && (
+            <Card 
+              className={`cursor-pointer transition-all ${selectedRole === 'superUser' ? 'ring-2 ring-[#FB7185]' : ''}`}
+              onClick={() => setSelectedRole('superUser')}
+            >
+              <CardContent className="p-3">
+                <p className="text-xs text-gray-600 mb-1">Super Users</p>
+                <p className="text-xl font-semibold text-[#FB7185]">{stats.superUsers}</p>
+              </CardContent>
+            </Card>
+          )}
           <Card 
             className={`cursor-pointer transition-all ${selectedRole === 'admin' ? 'ring-2 ring-[#0047AB]' : ''}`}
             onClick={() => setSelectedRole('admin')}

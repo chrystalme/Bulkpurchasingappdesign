@@ -36,6 +36,11 @@ export function CreateUser({ navigate }: CreateUserProps) {
       return;
     }
 
+    if ((role === 'superUser' || role === 'admin') && currentUser?.role !== 'superUser') {
+      toast.error('Only super users can create admin or super user accounts');
+      return;
+    }
+
     setIsProcessing(true);
 
     const result = authService.createUser(

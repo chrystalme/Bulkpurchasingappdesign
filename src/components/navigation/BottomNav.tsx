@@ -1,4 +1,4 @@
-import { Home, Users, ShoppingCart, MessageCircle, User, Shield, Package } from 'lucide-react';
+import { Home, Users, ShoppingCart, MessageCircle, User, Shield, Package, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Screen } from '../../App';
 
@@ -18,23 +18,28 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
     { id: 'products' as Screen, icon: ShoppingCart, label: 'Products' },
   ];
 
-  // Base items available to all users
-  const baseItems = [
+  // SuperUser items (root platform management)
+  const superUserItems = [
     { id: 'home' as Screen, icon: Home, label: 'Home' },
+    { id: 'admin-users' as Screen, icon: Shield, label: 'Users' },
+    { id: 'dispute-management' as Screen, icon: AlertTriangle, label: 'Disputes' },
     { id: 'profile' as Screen, icon: User, label: 'Profile' },
   ];
 
-  // Admin-only items (replace all other items)
+  // Admin-only items
   const adminItems = [
     { id: 'home' as Screen, icon: Home, label: 'Home' },
     { id: 'admin-users' as Screen, icon: Shield, label: 'Users' },
+    { id: 'dispute-management' as Screen, icon: AlertTriangle, label: 'Disputes' },
     { id: 'profile' as Screen, icon: User, label: 'Profile' },
   ];
 
-  // Vendor-only items (manage their products)
+  // Vendor-only items (manage products, orders, chat, profile)
   const vendorItems = [
     { id: 'home' as Screen, icon: Home, label: 'Home' },
     { id: 'vendor-products' as Screen, icon: Package, label: 'Products' },
+    { id: 'vendor-orders' as Screen, icon: ShoppingCart, label: 'Orders' },
+    { id: 'chat-dashboard' as Screen, icon: MessageCircle, label: 'Chat' },
     { id: 'profile' as Screen, icon: User, label: 'Profile' },
   ];
 
@@ -47,12 +52,23 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
     { id: 'profile' as Screen, icon: User, label: 'Profile' },
   ];
 
-  // Select nav items based on auth + role. Guests get a browse-only nav.
+  // Select nav items based on auth + role
   const navItems = !user
     ? guestItems
+    : user?.role === 'superUser' ? superUserItems
     : user?.role === 'admin' ? adminItems
     : user?.role === 'vendor' ? vendorItems
     : memberItems;
+
+  const isItemActive = (itemId: Screen) => {
+    if (currentScreen === itemId) return true;
+    if (itemId === 'chat-dashboard' && currentScreen === 'chat') return true;
+    if (itemId === 'dispute-management' && (currentScreen === 'escrow-dispute' || currentScreen === 'escrow-mediation')) return true;
+    if (itemId === 'admin-users' && currentScreen === 'admin-create-user') return true;
+    if (itemId === 'vendor-products' && currentScreen === 'vendor-add-product') return true;
+    if (itemId === 'groups' && (currentScreen === 'group-detail' || currentScreen === 'group-create' || currentScreen === 'group-discover')) return true;
+    return false;
+  };
 
   return (
     <>
@@ -61,8 +77,7 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
         <div className="flex items-center justify-around h-16 px-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentScreen === item.id || 
-              (item.id === 'chat-dashboard' && currentScreen === 'chat');
+            const isActive = isItemActive(item.id);
             
             return (
               <button
@@ -93,8 +108,7 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
           <div className="space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = currentScreen === item.id || 
-                (item.id === 'chat-dashboard' && currentScreen === 'chat');
+              const isActive = isItemActive(item.id);
               
               return (
                 <button

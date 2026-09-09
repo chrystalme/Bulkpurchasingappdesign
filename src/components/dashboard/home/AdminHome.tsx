@@ -41,12 +41,14 @@ export function AdminHome({ navigate }: AdminHomeProps) {
     dispatch(fetchTransactions('all'));
   }, [dispatch]);
 
-  const recentUsers = users.slice(0, 3);
+  const isSuperUser = user?.role === 'superUser';
+  const visibleUsers = users.filter((u) => isSuperUser || u.role !== 'superUser');
+  const recentUsers = visibleUsers.slice(0, 3);
   const openDisputes = transactions.filter((t) => t.status === 'disputed').length;
   const totalVolume = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
   const adminStats = {
-    totalUsers: users.length,
+    totalUsers: visibleUsers.length,
     totalTransactions: transactions.length,
     platformVolume: totalVolume,
     openDisputes,
@@ -128,7 +130,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
             <span className="text-xs">Manage Users</span>
           </Button>
           <Button
-            onClick={() => navigate('escrow-dispute')}
+            onClick={() => navigate('dispute-management')}
             variant="outline"
             className="h-20 flex flex-col items-center justify-center gap-2"
           >
@@ -136,7 +138,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
             <span className="text-xs">Disputes</span>
           </Button>
           <Button
-            onClick={() => navigate('admin-users')}
+            onClick={() => navigate('profile-settings')}
             variant="outline"
             className="h-20 flex flex-col items-center justify-center gap-2"
           >
