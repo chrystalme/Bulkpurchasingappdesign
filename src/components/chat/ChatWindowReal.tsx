@@ -157,9 +157,9 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
   };
 
   return (
-    <div className='flex flex-col h-[100dvh] bg-white'>
+    <div className='fixed inset-0 z-50 flex flex-col h-[100dvh] bg-white max-w-md lg:max-w-6xl mx-auto shadow-2xl'>
       {/* Header */}
-      <div className='bg-gradient-to-r from-[#0047AB] to-[#6EE7B7] p-4 flex items-center gap-3'>
+      <div className='bg-gradient-to-r from-[#0047AB] to-[#6EE7B7] p-4 pt-[max(1rem,env(safe-area-inset-top))] flex items-center gap-3 shrink-0'>
         <Button
           variant='ghost'
           size='icon'
@@ -306,7 +306,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
       </ScrollArea>
 
       {/* Input */}
-      <div className='border-t p-4 bg-white shrink-0'>
+      <div className='border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white shrink-0'>
         {!canSendMessages && conversation.type === 'group-vendor' && (
           <div className='flex items-center justify-center gap-2 text-sm text-gray-500 mb-2'>
             <ShieldAlert className='w-4 h-4' />

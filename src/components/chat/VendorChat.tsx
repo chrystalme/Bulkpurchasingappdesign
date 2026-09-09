@@ -233,7 +233,7 @@ export function VendorChat({ navigate, groupId }: VendorChatProps) {
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t border-gray-200 p-4 lg:p-6 flex-shrink-0">
+      <div className="bg-white border-t border-gray-200 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:p-6 flex-shrink-0">
         <div className="max-w-4xl lg:mx-auto">
         <div className="flex gap-2">
           <Input

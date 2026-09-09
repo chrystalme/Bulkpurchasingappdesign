@@ -433,12 +433,47 @@ class ApiClient {
     },
     confirmDelivery: async (id: string): Promise<EscrowTransactionResponse> => {
       const response = await this.request<EscrowTransaction>(
-        `escrow/transactions/${id}/release `,
+        `escrow/transactions/${id}/confirm-delivery`,
         {
           method: 'POST',
         },
       );
       return response as unknown as EscrowTransactionResponse;
+    },
+    releaseFunds: async (id: string): Promise<EscrowTransactionResponse> => {
+      const response = await this.request<EscrowTransaction>(
+        `escrow/transactions/${id}/release`,
+        {
+          method: 'POST',
+        },
+      );
+      return response as unknown as EscrowTransactionResponse;
+    },
+    getDisputes: async (): Promise<ApiResponse<any[]>> => {
+      const response = await this.request<any[]>('escrow/disputes');
+      return response;
+    },
+    createDispute: async (payload: {
+      transactionId: string;
+      reason: string;
+      description?: string;
+    }): Promise<ApiResponse<any>> => {
+      const response = await this.request<any>('escrow/disputes', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return response;
+    },
+    resolveDispute: async (
+      id: string,
+      resolution: string,
+      adminNotes?: string,
+    ): Promise<ApiResponse<any>> => {
+      const response = await this.request<any>(`escrow/disputes/${id}/resolve`, {
+        method: 'POST',
+        body: JSON.stringify({ resolution, adminNotes }),
+      });
+      return response;
     },
   };
 

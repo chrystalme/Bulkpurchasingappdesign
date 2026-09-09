@@ -13,7 +13,10 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'save_together',
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  // Generous connection timeout: tight values make queries fail during
+  // transient post-sleep / post-restart reconnects (laptop sleep, PG
+  // restart) instead of automatically retrying on a fresh connection.
+  connectionTimeoutMillis: 10000,
 });
 
 // Test connection
@@ -22,8 +25,10 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Unexpected error on idle client', err);
-  process.exit(-1);
+  // Log and recover — never take down the whole API on a transient idle
+  // connection drop (laptop sleep, PG restart). node-pg reconnects on the
+  // next query from the pool automatically.
+  console.error('❌ PostgreSQL idle client error (reconnecting on next query):', err.message || err);
 });
 
 export default pool;

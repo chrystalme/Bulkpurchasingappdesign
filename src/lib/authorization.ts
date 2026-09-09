@@ -64,27 +64,20 @@ export const canDeleteUsers = (user: User | null): boolean => {
 
 /**
  * Check if user can deactivate another user
- * SuperUser can deactivate anyone
- * Admin can deactivate anyone EXCEPT superUser
+ * ONLY superUser can deactivate users
  */
-export const canDeactivateUser = (currentUser: User | null, targetUserRole: UserRole): boolean => {
+export const canDeactivateUser = (currentUser: User | null, _targetUserRole?: UserRole): boolean => {
   if (!currentUser) return false;
-  
-  // SuperUser can deactivate anyone
-  if (currentUser.role === 'superUser') return true;
-  
-  // Admin can deactivate anyone EXCEPT superUser
-  if (currentUser.role === 'admin' && targetUserRole !== 'superUser') return true;
-  
-  return false;
+  return currentUser.role === 'superUser';
 };
 
 /**
  * Check if user can activate a deactivated user
- * Same rules as deactivate
+ * ONLY superUser can activate users
  */
-export const canActivateUser = (currentUser: User | null, targetUserRole: UserRole): boolean => {
-  return canDeactivateUser(currentUser, targetUserRole);
+export const canActivateUser = (currentUser: User | null, _targetUserRole?: UserRole): boolean => {
+  if (!currentUser) return false;
+  return currentUser.role === 'superUser';
 };
 
 /**

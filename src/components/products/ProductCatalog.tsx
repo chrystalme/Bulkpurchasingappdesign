@@ -20,6 +20,7 @@ import {
 } from '../../store/selectors';
 import { sanitizeSearchInput, validateSearchInput } from '../../lib/sanitizer';
 import { AddToGroupCartDialog } from './AddToGroupCartDialog';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ProductCatalogProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -28,6 +29,7 @@ interface ProductCatalogProps {
 
 export function ProductCatalog({ navigate, groupId }: ProductCatalogProps) {
   const dispatch = useDispatch();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>(['All']);
@@ -78,6 +80,11 @@ const filteredProducts = products.filter(product => {
   });
 
   const handleAddToCart = (product: Product) => {
+    // Buying requires an account — guests are sent to login first.
+    if (!isAuthenticated) {
+      navigate('login');
+      return;
+    }
     setSelectedProduct(product);
     setShowAddToCartDialog(true);
   };

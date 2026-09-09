@@ -105,9 +105,10 @@ router.post('/', authenticateToken, validateCreateGroup, handleValidationErrors,
 // GET /api/groups
 router.get('/', authenticateToken, getGroups);
 
-// Discover groups (must be before /:id routes)
+// Discover groups (public: guests may browse; members see groups they
+// can join with a pending-request flag. Must be before /:id routes)
 // GET /api/groups/discover
-router.get('/discover', authenticateToken, discoverGroups);
+router.get('/discover', discoverGroups);
 
 // Get specific group details with members
 // GET /api/groups/:id

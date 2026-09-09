@@ -23,6 +23,18 @@ const initialState: OrdersState = {
   pagination: { page: 1, total: 0 },
 };
 
+// Backend returns raw snake_case columns (o.*). Map them to the
+// camelCase Order contract the UI is typed against.
+const normalizeOrder = (row: any): Order => ({
+  id: row.id,
+  groupId: row.group_id ? String(row.group_id) : '',
+  status: row.status,
+  items: row.items || [],
+  total: parseFloat(row.total_amount) || 0,
+  createdAt: row.created_at,
+  estimatedDelivery: row.estimated_delivery,
+});
+
 // Thunks
 export const fetchOrders = createAsyncThunk(
   'orders/fetchOrders',
@@ -109,7 +121,7 @@ const ordersSlice = createSlice({
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders = action.payload;
+        state.orders = (action.payload as any[]).map(normalizeOrder);
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;
@@ -124,12 +136,13 @@ const ordersSlice = createSlice({
       })
       .addCase(fetchOrderById.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentOrder = action.payload;
-        const index = state.orders.findIndex((o) => o.id === action.payload.id);
+        const order = normalizeOrder(action.payload);
+        state.currentOrder = order;
+        const index = state.orders.findIndex((o) => o.id === order.id);
         if (index !== -1) {
-          state.orders[index] = action.payload;
+          state.orders[index] = order;
         } else {
-          state.orders.push(action.payload);
+          state.orders.push(order);
         }
       })
       .addCase(fetchOrderById.rejected, (state, action) => {
@@ -145,8 +158,9 @@ const ordersSlice = createSlice({
       })
       .addCase(createOrder.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders.push(action.payload);
-        state.currentOrder = action.payload;
+        const order = normalizeOrder(action.payload);
+        state.orders = [order, ...state.orders];
+        state.currentOrder = order;
       })
       .addCase(createOrder.rejected, (state, action) => {
         state.loading = false;
@@ -161,12 +175,13 @@ const ordersSlice = createSlice({
       })
       .addCase(updateOrderStatus.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.orders.findIndex((o) => o.id === action.payload.id);
+        const order = normalizeOrder(action.payload);
+        const index = state.orders.findIndex((o) => o.id === order.id);
         if (index !== -1) {
-          state.orders[index] = action.payload;
+          state.orders[index] = order;
         }
-        if (state.currentOrder?.id === action.payload.id) {
-          state.currentOrder = action.payload;
+        if (state.currentOrder?.id === order.id) {
+          state.currentOrder = order;
         }
       })
       .addCase(updateOrderStatus.rejected, (state, action) => {

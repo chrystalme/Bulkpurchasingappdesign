@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 /**
  * HTTP Caching Middleware
  * Sets appropriate Cache-Control headers based on content type
@@ -40,7 +42,7 @@ export const etagMiddleware = (req, res, next) => {
 
   res.json = function (data) {
     const stringData = JSON.stringify(data);
-    const hash = require('crypto')
+    const hash = crypto
       .createHash('md5')
       .update(stringData)
       .digest('hex');

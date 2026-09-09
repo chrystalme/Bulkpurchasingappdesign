@@ -264,6 +264,10 @@ export const permissions = {
     return role === 'superUser';
   },
 
+  canDeactivateUsers: (role: UserRole): boolean => {
+    return role === 'superUser';
+  },
+
   canAccessVendorDashboard: (role: UserRole): boolean => {
     return role === 'vendor' || role === 'superUser' || role === 'admin';
   },

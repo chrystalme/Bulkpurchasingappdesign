@@ -36,6 +36,11 @@ export function UserManagement({ navigate }: UserManagementProps) {
   };
 
   const handleDeleteUser = (userId: string) => {
+    if (currentUser?.role !== 'superUser') {
+      toast.error('Only Super Users have permission to delete accounts');
+      return;
+    }
+
     if (userId === currentUser?.id) {
       toast.error('You cannot delete your own account');
       return;
@@ -55,6 +60,11 @@ export function UserManagement({ navigate }: UserManagementProps) {
   };
 
   const handleToggleStatus = (userId: string, isActive: boolean) => {
+    if (currentUser?.role !== 'superUser') {
+      toast.error('Only Super Users have permission to activate or deactivate accounts');
+      return;
+    }
+
     if (userId === currentUser?.id) {
       toast.error('You cannot deactivate your own account');
       return;
@@ -245,25 +255,28 @@ export function UserManagement({ navigate }: UserManagementProps) {
                           <Edit className="w-4 h-4 mr-1" />
                           Edit
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleToggleStatus(user.id, user.isActive)}
-                          disabled={user.id === currentUser?.id}
-                          className={user.isActive ? 'text-[#FB7185] border-[#FB7185]/20' : 'text-[#10B981] border-[#10B981]/20'}
-                        >
-                          {user.isActive ? (
-                            <>
-                              <UserX className="w-4 h-4 mr-1" />
-                              Deactivate
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="w-4 h-4 mr-1" />
-                              Activate
-                            </>
-                          )}
-                        </Button>
+                        {currentUser?.role === 'superUser' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleStatus(user.id, user.isActive)}
+                            disabled={user.id === currentUser?.id}
+                            className={user.isActive ? 'text-[#FB7185] border-[#FB7185]/20' : 'text-[#10B981] border-[#10B981]/20'}
+                            title="Only super users can activate or deactivate accounts"
+                          >
+                            {user.isActive ? (
+                              <>
+                                <UserX className="w-4 h-4 mr-1" />
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="w-4 h-4 mr-1" />
+                                Activate
+                              </>
+                            )}
+                          </Button>
+                        )}
                         {currentUser?.role === 'superUser' && (
                           <Button
                             variant="outline"

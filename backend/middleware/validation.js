@@ -159,7 +159,7 @@ export const productValidationRules = () => {
 export const chatMessageValidationRules = () => {
   return [
     body('conversationId')
-      .isInt({ min: 1 })
+      .isUUID()
       .withMessage('Valid conversation ID is required'),
     body('content')
       .trim()
@@ -175,7 +175,7 @@ export const orderValidationRules = () => {
       .isArray({ min: 1 })
       .withMessage('At least one item is required'),
     body('items.*.productId')
-      .isInt({ min: 1 })
+      .isUUID()
       .withMessage('Valid product ID is required for each item'),
     body('items.*.quantity')
       .isInt({ min: 1, max: 1000000 })

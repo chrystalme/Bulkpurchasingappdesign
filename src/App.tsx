@@ -10,6 +10,8 @@ import { joinGroup } from './store/slices/groupsSlice';
 import {
   navigate,
   setRestorationComplete,
+  setPendingNavigation,
+  clearPendingNavigation,
 } from './store/slices/navigationSlice';
 import { Welcome } from './components/onboarding/Welcome';
 import { Login } from './components/auth/Login';
@@ -44,7 +46,10 @@ import { VendorOrders } from './components/vendor/VendorOrders';
 import { VendorCustomers } from './components/vendor/VendorCustomers';
 import { UserManagement } from './components/admin/UserManagement';
 import { CreateUser } from './components/admin/CreateUser';
-import { AuthorizationTestPanel } from './components/debug/AuthorizationTestPanel';
+import { ProfileSettings } from './components/profile/ProfileSettings';
+import { VendorAnalytics } from './components/vendor/VendorAnalytics';
+import { TransactionHistory } from './components/orders/TransactionHistory';
+import { DisputeManagement } from './components/escrow/DisputeManagement';
 
 export type Screen =
   | 'welcome'
@@ -76,8 +81,12 @@ export type Screen =
   | 'vendor-products'
   | 'vendor-orders'
   | 'vendor-customers'
+  | 'vendor-analytics'
   | 'admin-users'
-  | 'admin-create-user';
+  | 'admin-create-user'
+  | 'profile-settings'
+  | 'transaction-history'
+  | 'dispute-management';
 
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -85,20 +94,32 @@ function AppContent() {
   const currentScreen = useAppSelector(state => state.navigation.currentScreen);
   const selectedGroupId = useAppSelector(state => state.navigation.selectedGroupId);
   const restorationComplete = useAppSelector(state => state.navigation.restorationComplete);
+  const pendingScreen = useAppSelector(state => state.navigation.pendingScreen);
+  const pendingGroupId = useAppSelector(state => state.navigation.pendingGroupId);
+
+  // Screens a guest may browse without an account. Everything else routes
+  // to login (see handleNavigate) — buying and joining stay gated.
+  const guestScreens = new Set<Screen>([
+    'welcome',
+    'login',
+    'signup',
+    'products',
+    'group-discover',
+  ]);
 
   // Initialize Redux data on app boot
   useEffect(() => {
-    if (isAuthenticated && !isLoading && restorationComplete) {
-      // Always load these
+    if (!isLoading && restorationComplete) {
+      // Always load products and vendors so public landing page & catalog are populated
       dispatch(fetchProducts() as any);
       dispatch(fetchVendors() as any);
 
       // Load if user is authenticated
-      if (user) {
+      if (isAuthenticated && user) {
         dispatch(fetchOrders() as any);
         dispatch(fetchTransactions() as any);
 
-        // Only load users if admin
+        // Only load users if admin or superUser
         if (user.role === 'admin' || user.role === 'superUser') {
           dispatch(fetchUsers() as any);
         }
@@ -178,8 +199,26 @@ function AppContent() {
   }, [isAuthenticated, restorationComplete, dispatch]);
 
   const handleNavigate = (screen: Screen, groupId?: string) => {
+    // Guests: browse-only. Gated actions are remembered and routed to
+    // login, then continued after auth. Neutral taps (home) fall back to
+    // the landing page instead of forcing auth.
+    if (!isAuthenticated && !guestScreens.has(screen)) {
+      if (screen === 'home') {
+        dispatch(clearPendingNavigation());
+        dispatch(navigate({ screen: 'welcome' }));
+        return;
+      }
+      dispatch(setPendingNavigation({ screen, groupId }));
+      dispatch(navigate({ screen: 'login' }));
+      return;
+    }
     // Redux-persist handles persistence automatically
     dispatch(navigate({ screen, groupId }));
+  };
+
+  const handleNavigateToWelcome = () => {
+    dispatch(clearPendingNavigation());
+    dispatch(navigate({ screen: 'welcome' }));
   };
 
   const handleGetStarted = () => {
@@ -194,6 +233,23 @@ function AppContent() {
     dispatch(navigate({ screen: 'login' }));
   };
 
+  const handleBrowseProducts = () => {
+    handleNavigate('products');
+  };
+
+  const handleBrowseGroups = () => {
+    handleNavigate('group-discover');
+  };
+
+  // Restore pending navigation after a guest logs in / signs up so the
+  // flow continues where they left off (e.g. they hit "Add to cart").
+  useEffect(() => {
+    if (isAuthenticated && pendingScreen && restorationComplete) {
+      dispatch(navigate({ screen: pendingScreen, groupId: pendingGroupId || undefined }));
+      dispatch(clearPendingNavigation());
+    }
+  }, [isAuthenticated, pendingScreen, pendingGroupId, restorationComplete, dispatch]);
+
   // Show loading state
   if (isLoading) {
     return (
@@ -204,15 +260,40 @@ function AppContent() {
   }
 
   const renderScreen = () => {
-    // If not authenticated, only show welcome, login, or signup
+    // Guest / unauthenticated: welcome, login, signup, plus public browsing
+    // of products and discoverable groups. Buying and joining stay gated.
     if (!isAuthenticated) {
       if (currentScreen === 'signup') {
-        return <Signup onNavigateToLogin={handleNavigateToLogin} />;
+        return (
+          <Signup
+            onNavigateToLogin={handleNavigateToLogin}
+            onNavigateHome={handleNavigateToWelcome}
+          />
+        );
       }
       if (currentScreen === 'login') {
-        return <Login onNavigateToSignup={handleNavigateToSignup} />;
+        return (
+          <Login
+            onNavigateToSignup={handleNavigateToSignup}
+            onNavigateHome={handleNavigateToWelcome}
+          />
+        );
       }
-      return <Welcome onGetStarted={handleGetStarted} />;
+      if (currentScreen === 'products') {
+        return <ProductCatalog navigate={handleNavigate} groupId={selectedGroupId} />;
+      }
+      if (currentScreen === 'group-discover') {
+        return <GroupDiscover navigate={handleNavigate} />;
+      }
+      return (
+        <Welcome
+          onGetStarted={handleGetStarted}
+          onNavigateToLogin={handleNavigateToLogin}
+          onNavigateToSignup={handleNavigateToSignup}
+          onBrowseProducts={handleBrowseProducts}
+          onBrowseGroups={handleBrowseGroups}
+        />
+      );
     }
 
     // Authenticated screens
@@ -277,32 +358,54 @@ function AppContent() {
         return <VendorOrders navigate={handleNavigate} />;
       case 'vendor-customers':
         return <VendorCustomers navigate={handleNavigate} />;
+      case 'vendor-analytics':
+        return <VendorAnalytics vendorId={user?.vendor_id || undefined} />;
       case 'admin-users':
         return <UserManagement navigate={handleNavigate} />;
       case 'admin-create-user':
         return <CreateUser navigate={handleNavigate} />;
+      case 'profile-settings':
+        return <ProfileSettings navigate={handleNavigate} />;
+      case 'transaction-history':
+        return <TransactionHistory />;
+      case 'dispute-management':
+        return <DisputeManagement />;
       default:
         return <Home navigate={handleNavigate} />;
     }
   };
 
   const showBottomNav =
-    isAuthenticated &&
+    (isAuthenticated ||
+      currentScreen === 'products' ||
+      currentScreen === 'group-discover') &&
     currentScreen !== 'welcome' &&
     currentScreen !== 'login' &&
     currentScreen !== 'signup';
 
+  const isLandingPage =
+    !isAuthenticated &&
+    (currentScreen === 'welcome' || !currentScreen);
+
   return (
-    <div className="min-h-screen bg-[#F4F4F5]">
-      <div className="max-w-md lg:max-w-6xl mx-auto bg-white min-h-screen relative pb-20 lg:pb-0">
+    <div className={`min-h-screen ${isLandingPage ? 'bg-slate-50' : 'bg-[#F4F4F5]'}`}>
+      <div
+        className={`${
+          isLandingPage
+            ? 'w-full min-h-screen'
+            : `max-w-md lg:max-w-6xl mx-auto bg-white min-h-screen relative ${
+                showBottomNav
+                  ? 'pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:ml-64'
+                  : 'pb-6'
+              }`
+        }`}
+      >
         {renderScreen()}
         {showBottomNav && (
           <BottomNav currentScreen={currentScreen} navigate={handleNavigate} />
         )}
       </div>
       <Toaster />
-      {/* TODO: Remove this after testing authorization */}
-      <AuthorizationTestPanel />
     </div>
   );
 }

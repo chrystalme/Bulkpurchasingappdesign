@@ -1,3 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
+/* Tailwind v4 source. Regenerate compiled src/index.css with:
+ *   node node_modules/@tailwindcss/cli/dist/index.mjs \
+ *     -i src/styles/globals.css -o src/index.css
+ * (or bunx tailwindcss -i src/styles/globals.css -o src/index.css)
+ * @source paths below are relative to this file. */
+@import "tailwindcss";
+@source "../components/**/*.tsx";
+@source "../components/**/*.ts";
+@source "../lib/**/*.tsx";
+@source "../lib/**/*.ts";
+@source "../../index.html";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -121,11 +135,12 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--color-border);
   }
 
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
   }
 }
 
@@ -186,4 +201,49 @@
 
 html {
   font-size: var(--font-size);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Hide scrollbars on horizontal scroll containers (Figma uses this on the
+ * category rail and the featured-products carousel on the landing page). */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Device-Aware Safe Area Inset Utilities */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mt-safe {
+  margin-top: env(safe-area-inset-top, 0px);
 }

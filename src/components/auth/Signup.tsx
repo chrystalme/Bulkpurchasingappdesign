@@ -4,12 +4,14 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Eye, EyeOff, ShoppingBag, Lock, Mail, User, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye, EyeOff, ShoppingBag, Lock, Mail, User, AlertCircle, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { isValidEmail, isValidPassword, sanitizeNameField, validateNameField } from '../../lib/sanitizer';
 
 interface SignupProps {
   onNavigateToLogin: () => void;
+  /** Optional — lets the user leave the auth screen and keep browsing. */
+  onNavigateHome?: () => void;
 }
 
 const validateEmail = (email: string): boolean => {
@@ -47,7 +49,7 @@ interface ValidationErrors {
   confirmPassword?: string;
 }
 
-export function Signup({ onNavigateToLogin }: SignupProps) {
+export function Signup({ onNavigateToLogin, onNavigateHome }: SignupProps) {
   const { signup } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -161,8 +163,52 @@ export function Signup({ onNavigateToLogin }: SignupProps) {
     password === confirmPassword;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0047AB] via-[#0047AB] to-[#6EE7B7] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-[#0047AB] via-[#0047AB] to-[#6EE7B7] flex flex-col">
+      {/* ── APP HEADER ── matches the landing page nav so guests always know
+          where they are and can step back to browsing. */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#0047AB]/10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onNavigateHome}
+            className="flex items-center gap-2 cursor-pointer"
+            title="Back to home"
+          >
+            <div className="w-8 h-8 rounded-lg bg-[#0047AB] flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4 text-white" />
+            </div>
+            <span
+              className="font-bold text-[#0047AB] text-base tracking-tight"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              SaveTogether
+            </span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onNavigateToLogin}
+              className="text-sm font-medium text-[#0047AB] px-3 py-1.5 rounded-lg hover:bg-[#EBF1FB] transition-colors"
+            >
+              Sign in
+            </button>
+            {onNavigateHome && (
+              <button
+                type="button"
+                onClick={onNavigateHome}
+                className="flex items-center gap-1.5 text-[#0047AB] text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-[#EBF1FB] transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to home
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
         {/* Logo and Welcome */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -449,7 +495,8 @@ export function Signup({ onNavigateToLogin }: SignupProps) {
         <p className="text-center text-white/60 text-xs mt-6">
           By creating an account, you agree to our Terms & Privacy Policy
         </p>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
