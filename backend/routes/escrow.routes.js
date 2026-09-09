@@ -327,4 +327,172 @@ router.post('/transactions/:id/release', async (req, res) => {
   }
 });
 
+// GET /api/escrow/disputes - Get all disputes (admin) or user's disputes
+router.get('/disputes', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const isAdmin = req.user.role === 'superUser' || req.user.role === 'admin';
+
+    let query = `
+      SELECT 
+        d.*,
+        et.transaction_number,
+        et.amount,
+        et.buyer_id,
+        et.seller_id,
+        bp.name as buyer_name,
+        sp.name as seller_name,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', de.id,
+              'uploaded_by', de.uploaded_by,
+              'type', de.type,
+              'url', de.url,
+              'description', de.description,
+              'created_at', de.created_at
+            )
+          ) FILTER (WHERE de.id IS NOT NULL),
+          '[]'
+        ) as evidence
+      FROM disputes d
+      JOIN escrow_transactions et ON d.transaction_id = et.id
+      JOIN users bp ON et.buyer_id = bp.id
+      JOIN users sp ON et.seller_id = sp.id
+      LEFT JOIN dispute_evidence de ON d.id = de.dispute_id
+    `;
+
+    const params = [];
+    if (!isAdmin) {
+      query += ` WHERE (et.buyer_id = $1 OR et.seller_id = $1)`;
+      params.push(userId);
+    }
+
+    query += ` GROUP BY d.id, et.transaction_number, et.amount, et.buyer_id, et.seller_id, bp.name, sp.name ORDER BY d.created_at DESC`;
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      success: true,
+      data: result.rows,
+    });
+  } catch (error) {
+    console.error('Get disputes error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/escrow/disputes - Open a dispute for an escrow transaction
+router.post('/disputes', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { transactionId, reason, description } = req.body;
+    const userId = req.user.id;
+
+    if (!transactionId || !reason) {
+      return res.status(400).json({ error: 'Transaction ID and reason are required' });
+    }
+
+    // Verify transaction exists and user is participant
+    const txCheck = await client.query(
+      'SELECT * FROM escrow_transactions WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2)',
+      [transactionId, userId]
+    );
+
+    if (txCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Transaction not found or unauthorized' });
+    }
+
+    await client.query('BEGIN');
+
+    // Update escrow transaction status
+    await client.query(
+      "UPDATE escrow_transactions SET status = 'disputed' WHERE id = $1",
+      [transactionId]
+    );
+
+    const disputeNumber = `DIS-${Date.now().toString().slice(-6)}`;
+
+    // Create dispute
+    const disputeResult = await client.query(
+      `INSERT INTO disputes (dispute_number, transaction_id, reason, status, admin_notes)
+       VALUES ($1, $2, $3, 'open', $4)
+       RETURNING *`,
+      [disputeNumber, transactionId, reason, description || null]
+    );
+
+    await client.query('COMMIT');
+
+    res.status(201).json({
+      success: true,
+      data: disputeResult.rows[0],
+      message: 'Dispute filed successfully',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Create dispute error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/escrow/disputes/:id/resolve - Admin resolves a dispute
+router.post('/disputes/:id/resolve', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { resolution, adminNotes } = req.body;
+
+    if (req.user.role !== 'superUser' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can resolve disputes' });
+    }
+
+    if (!resolution || !['refund_buyer', 'release_seller', 'partial_split'].includes(resolution)) {
+      return res.status(400).json({ error: 'Valid resolution required: refund_buyer, release_seller, or partial_split' });
+    }
+
+    await client.query('BEGIN');
+
+    // Update dispute
+    const disputeResult = await client.query(
+      `UPDATE disputes 
+       SET status = 'resolved', resolution = $1, admin_notes = COALESCE($2, admin_notes), resolved_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [resolution, adminNotes, id]
+    );
+
+    if (disputeResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Dispute not found' });
+    }
+
+    const dispute = disputeResult.rows[0];
+
+    // Update escrow transaction status based on resolution
+    const finalStatus = resolution === 'refund_buyer' ? 'refunded' : 'released';
+    await client.query(
+      `UPDATE escrow_transactions 
+       SET status = $1, released_at = NOW()
+       WHERE id = $2`,
+      [finalStatus, dispute.transaction_id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      data: dispute,
+      message: `Dispute resolved with ${resolution}`,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Resolve dispute error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;

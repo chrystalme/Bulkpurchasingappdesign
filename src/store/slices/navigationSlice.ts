@@ -5,12 +5,18 @@ interface NavigationState {
   currentScreen: Screen;
   selectedGroupId: string | null;
   restorationComplete: boolean;
+  /** Where a guest was headed when they hit an auth-gated screen —
+   *  restored after login so the flow continues where they left off. */
+  pendingScreen: Screen | null;
+  pendingGroupId: string | null;
 }
 
 const initialState: NavigationState = {
   currentScreen: 'welcome',
   selectedGroupId: null,
   restorationComplete: false,
+  pendingScreen: null,
+  pendingGroupId: null,
 };
 
 const navigationSlice = createSlice({
@@ -31,6 +37,17 @@ const navigationSlice = createSlice({
     },
     setRestorationComplete: (state, action: PayloadAction<boolean>) => {
       state.restorationComplete = action.payload;
+    },
+    setPendingNavigation: (
+      state,
+      action: PayloadAction<{ screen: Screen; groupId?: string | null }>
+    ) => {
+      state.pendingScreen = action.payload.screen;
+      state.pendingGroupId = action.payload.groupId ?? null;
+    },
+    clearPendingNavigation: (state) => {
+      state.pendingScreen = null;
+      state.pendingGroupId = null;
     },
     restoreFromPersistedState: (
       state,
@@ -54,6 +71,8 @@ export const {
   navigate,
   setSelectedGroupId,
   setRestorationComplete,
+  setPendingNavigation,
+  clearPendingNavigation,
   restoreFromPersistedState,
 } = navigationSlice.actions;
 

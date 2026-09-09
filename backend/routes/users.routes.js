@@ -86,7 +86,7 @@ router.get('/:id', async (req, res) => {
 
     // Check permissions: user can view their own profile or admins can view any
     if (
-      req.user.id !== parseInt(id) &&
+      req.user.id !== id &&
       req.user.role !== 'superUser' &&
       req.user.role !== 'admin'
     ) {
@@ -136,6 +136,11 @@ router.post(
       }
 
       const { email, password, name, role, vendorId } = req.body;
+
+      // Only superUser can create superUser or admin accounts
+      if ((role === 'superUser' || role === 'admin') && req.user.role !== 'superUser') {
+        return res.status(403).json({ error: 'Only super users can create admin or super user accounts' });
+      }
 
       // Check if email already exists
       const existingUser = await pool.query(
@@ -195,6 +200,16 @@ router.put('/:id', canManageUsers, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, role, vendorId, isActive, trustScore } = req.body;
+
+    // Strict role check: ONLY superUser can activate or deactivate users
+    if (isActive !== undefined && req.user.role !== 'superUser') {
+      return res.status(403).json({ error: 'Only super users can activate or deactivate users' });
+    }
+
+    // Strict role check: ONLY superUser can change user roles
+    if (role !== undefined && req.user.role !== 'superUser') {
+      return res.status(403).json({ error: 'Only super users can modify user roles' });
+    }
 
     const updates = [];
     const values = [];

@@ -59,6 +59,26 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
 
+  const handleShare = async () => {
+    if (!currentGroup) return;
+    const url = `${window.location.origin}?join=${currentGroup.join_code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Join ${currentGroup.name}`,
+          text: `Join ${currentGroup.name} on BulkBuy to purchase in bulk and save together! Use code ${currentGroup.join_code}`,
+          url,
+        });
+        return;
+      } catch (err) {
+        // User cancelled share or unsupported, fallback to copy
+      }
+    }
+    navigator.clipboard.writeText(url);
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 2000);
+  };
+
   const conversations = useAppSelector(state => state.chat.conversations);
   const chatsLoading = useAppSelector(state => state.chat.conversationsLoading);
 
@@ -234,7 +254,9 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
           <Button
             variant='ghost'
             size='icon'
-            className='text-white hover:bg-white/10'
+            onClick={handleShare}
+            className='text-white hover:bg-white/10 active:scale-95 transition-transform'
+            title='Share group'
           >
             <Share2 className='w-5 h-5' />
           </Button>
@@ -389,11 +411,21 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                   </div>
                   <div className='flex items-center justify-between text-sm'>
                     <span className='text-gray-600'>Created</span>
-                    <span>2 weeks ago</span>
+                    <span>
+                      {currentGroup.created_at
+                        ? new Date(currentGroup.created_at).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+                        : 'Recently'}
+                    </span>
                   </div>
                   <div className='flex items-center justify-between text-sm'>
                     <span className='text-gray-600'>Your Role</span>
-                    <Badge variant='outline'>Member</Badge>
+                    <Badge variant='outline'>
+                      {currentGroup.user_role === 'admin' ? 'Admin' : 'Member'}
+                    </Badge>
                   </div>
                 </div>
               </CardContent>

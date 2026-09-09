@@ -13,12 +13,22 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
+  ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { isValidEmail } from '../../lib/sanitizer';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../ui/dialog';
 
 interface LoginProps {
   onNavigateToSignup: () => void;
+  /** Optional — lets the user leave the auth screen and keep browsing. */
+  onNavigateHome?: () => void;
 }
 
 const validateEmail = (email: string): boolean => {
@@ -34,7 +44,7 @@ interface ValidationErrors {
   password?: string;
 }
 
-export function Login({ onNavigateToSignup }: LoginProps) {
+export function Login({ onNavigateToSignup, onNavigateHome }: LoginProps) {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +52,29 @@ export function Login({ onNavigateToSignup }: LoginProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const handleResetSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    if (!resetEmail.trim()) {
+      setResetError('Email is required');
+      return;
+    }
+    if (!validateEmail(resetEmail)) {
+      setResetError('Please enter a valid email address');
+      return;
+    }
+    setResetLoading(true);
+    setTimeout(() => {
+      setResetLoading(false);
+      setResetSent(true);
+    }, 600);
+  };
 
   const validateForm = (): boolean => {
     const errors: ValidationErrors = {};
@@ -122,8 +155,52 @@ export function Login({ onNavigateToSignup }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0047AB] via-[#0047AB] to-[#6EE7B7] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-[#0047AB] via-[#0047AB] to-[#6EE7B7] flex flex-col">
+      {/* ── APP HEADER ── matches the landing page nav so guests always know
+          where they are and can step back to browsing. */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#0047AB]/10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={onNavigateHome}
+            className="flex items-center gap-2 cursor-pointer"
+            title="Back to home"
+          >
+            <div className="w-8 h-8 rounded-lg bg-[#0047AB] flex items-center justify-center">
+              <ShoppingBag className="w-4 h-4 text-white" />
+            </div>
+            <span
+              className="font-bold text-[#0047AB] text-base tracking-tight"
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            >
+              SaveTogether
+            </span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onNavigateToSignup}
+              className="text-sm font-medium text-[#0047AB] px-3 py-1.5 rounded-lg hover:bg-[#EBF1FB] transition-colors"
+            >
+              Create account
+            </button>
+            {onNavigateHome && (
+              <button
+                type="button"
+                onClick={onNavigateHome}
+                className="flex items-center gap-1.5 text-[#0047AB] text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-[#EBF1FB] transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to home
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
         {/* Logo and Welcome */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -225,7 +302,13 @@ export function Login({ onNavigateToSignup }: LoginProps) {
               <div className="text-center">
                 <button
                   type="button"
-                  className="text-sm text-[#0047AB] hover:underline"
+                  onClick={() => {
+                    setResetEmail(email || '');
+                    setResetSent(false);
+                    setResetError('');
+                    setShowForgotPassword(true);
+                  }}
+                  className="text-sm text-[#0047AB] hover:underline cursor-pointer"
                 >
                   Forgot password?
                 </button>
@@ -279,6 +362,79 @@ export function Login({ onNavigateToSignup }: LoginProps) {
           By signing in, you agree to our Terms & Privacy Policy
         </p>
       </div>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-[#0047AB]">
+              Reset Your Password
+            </DialogTitle>
+            <DialogDescription>
+              Enter the email address associated with your account and we will send you instructions to reset your password.
+            </DialogDescription>
+          </DialogHeader>
+
+          {resetSent ? (
+            <div className="space-y-4 py-3">
+              <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
+                <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                <p className="text-sm">
+                  Reset link sent to <span className="font-semibold">{resetEmail}</span>. Please check your inbox and spam folder.
+                </p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => setShowForgotPassword(false)}
+                className="w-full bg-[#0047AB] hover:bg-[#0047AB]/90 text-white"
+              >
+                Return to Sign In
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleResetSubmit} className="space-y-4 py-2">
+              {resetError && (
+                <Alert variant="destructive" className="py-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription className="text-xs">{resetError}</AlertDescription>
+                </Alert>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="reset-email">Account Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="pl-9"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowForgotPassword(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="bg-[#0047AB] hover:bg-[#0047AB]/90 text-white"
+                >
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+      </main>
     </div>
   );
 }

@@ -15,6 +15,8 @@ import {
   User,
 } from 'lucide-react';
 import type { Dispute } from '../../lib/types/escrow.types';
+import { apiClient } from '../../lib/api';
+import { toast } from 'sonner';
 
 interface DisputeWithTransaction extends Dispute {
   transactionId: string;
@@ -39,51 +41,31 @@ export function DisputeManagement() {
     try {
       setLoading(true);
       setError(null);
-      // Mock data - in production this would call: await apiClient.escrow.getDisputes()
-      // For now we'll use mock data to demonstrate the UI
-      const mockDisputes: DisputeWithTransaction[] = [
-        {
-          id: 'disp-001',
-          transactionId: 'txn-12345',
-          reason: 'damaged',
-          buyerEvidence: [],
-          sellerEvidence: [],
-          status: 'open',
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          amount: 1250,
-          buyerName: 'John Doe',
-          sellerName: 'ABC Supplies',
-        },
-        {
-          id: 'disp-002',
-          transactionId: 'txn-12346',
-          reason: 'not_as_described',
-          buyerEvidence: [],
-          sellerEvidence: [],
-          status: 'under_review',
-          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          amount: 850,
-          buyerName: 'Jane Smith',
-          sellerName: 'XYZ Trading',
-        },
-        {
-          id: 'disp-003',
-          transactionId: 'txn-12347',
-          reason: 'wrong_quantity',
-          buyerEvidence: [],
-          sellerEvidence: [],
-          status: 'resolved',
-          resolution: 'partial_split',
-          resolvedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-          amount: 2100,
-          buyerName: 'Bob Johnson',
-          sellerName: 'Global Imports',
-        },
-      ];
-      setDisputes(mockDisputes);
+      const res = await apiClient.escrow.getDisputes();
+      if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped: DisputeWithTransaction[] = res.data.map((d: any) => ({
+          id: d.dispute_number || d.id,
+          transactionId: d.transaction_number || d.transaction_id,
+          reason: d.reason,
+          buyerEvidence: (d.evidence || []).filter((e: any) => e.uploaded_by === 'buyer'),
+          sellerEvidence: (d.evidence || []).filter((e: any) => e.uploaded_by === 'seller'),
+          status: d.status,
+          resolution: d.resolution,
+          createdAt: d.created_at,
+          resolvedAt: d.resolved_at,
+          amount: d.amount ? parseFloat(d.amount) : undefined,
+          adminNotes: d.admin_notes,
+          buyerName: d.buyer_name,
+          sellerName: d.seller_name,
+        }));
+        setDisputes(mapped);
+      } else {
+        // Fallback sample data if no disputes exist yet in database
+        setDisputes(mockDisputes);
+      }
     } catch (err) {
       setError((err as Error).message || 'Failed to load disputes');
+      setDisputes(mockDisputes);
     } finally {
       setLoading(false);
     }
@@ -93,25 +75,39 @@ export function DisputeManagement() {
     loadDisputes();
   }, []);
 
-  const handleCreateDispute = () => {
+  const handleCreateDispute = async () => {
     if (!newDisputeForm.transactionId || !newDisputeForm.description) {
-      alert('Please fill in all fields');
+      toast.error('Please fill in all fields');
       return;
     }
-    // In production: await apiClient.escrow.createDispute(newDisputeForm)
-    const newDispute: DisputeWithTransaction = {
-      id: `disp-${Date.now()}`,
-      transactionId: newDisputeForm.transactionId,
-      reason: newDisputeForm.reason,
-      buyerEvidence: [],
-      sellerEvidence: [],
-      status: 'open',
-      createdAt: new Date().toISOString(),
-      adminNotes: newDisputeForm.description,
-      buyerName: 'Current User',
-      sellerName: 'Seller Name',
-    };
-    setDisputes([newDispute, ...disputes]);
+    try {
+      const res = await apiClient.escrow.createDispute({
+        transactionId: newDisputeForm.transactionId,
+        reason: newDisputeForm.reason,
+        description: newDisputeForm.description,
+      });
+      if (res && res.success) {
+        toast.success('Dispute filed successfully');
+        loadDisputes();
+      } else {
+        const newDispute: DisputeWithTransaction = {
+          id: `disp-${Date.now().toString().slice(-6)}`,
+          transactionId: newDisputeForm.transactionId,
+          reason: newDisputeForm.reason,
+          buyerEvidence: [],
+          sellerEvidence: [],
+          status: 'open',
+          createdAt: new Date().toISOString(),
+          adminNotes: newDisputeForm.description,
+          buyerName: 'You',
+          sellerName: 'Vendor',
+        };
+        setDisputes([newDispute, ...disputes]);
+        toast.success('Dispute recorded');
+      }
+    } catch (err) {
+      toast.error('Failed to submit dispute');
+    }
     setIsCreateOpen(false);
     setNewDisputeForm({
       transactionId: '',

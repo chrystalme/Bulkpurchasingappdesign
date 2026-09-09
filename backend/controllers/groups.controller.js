@@ -668,7 +668,10 @@ export const updateMemberRole = async (req, res) => {
  */
 export const discoverGroups = async (req, res) => {
   try {
-    const userId = req.user.id;
+    // Guest-friendly: userId is optional for read-only discovery.
+    // Guests see all active groups; members additionally get their
+    // pending-request flag and have their own groups excluded.
+    const userId = req.user ? req.user.id : null;
     const { search } = req.query;
 
     let query = `
@@ -681,18 +684,24 @@ export const discoverGroups = async (req, res) => {
         g.status,
         g.created_at,
         (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
-        EXISTS(
-          SELECT 1 FROM group_join_requests 
-          WHERE group_id = g.id AND user_id = $1 AND status = 'pending'
-        ) as has_pending_request
+        CASE WHEN $1::uuid IS NULL THEN false
+          ELSE EXISTS(
+            SELECT 1 FROM group_join_requests 
+            WHERE group_id = g.id AND user_id = $1 AND status = 'pending'
+          )
+        END as has_pending_request
       FROM groups g
       WHERE g.status = 'active'
-        AND g.id NOT IN (
-          SELECT group_id FROM group_members WHERE user_id = $1
-        )
     `;
 
     const params = [userId];
+
+    // Members: exclude groups they already belong to. Guests see all.
+    if (userId) {
+      query += ` AND g.id NOT IN (
+        SELECT group_id FROM group_members WHERE user_id = $1
+      )`;
+    }
 
     if (search && search.trim()) {
       params.push(`%${search.trim()}%`);

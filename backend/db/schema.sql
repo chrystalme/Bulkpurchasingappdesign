@@ -23,6 +23,7 @@ CREATE TABLE users (
   name VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL CHECK (role IN ('superUser', 'admin', 'vendor', 'member')),
   avatar TEXT,
+  phone VARCHAR(50),
   vendor_id UUID,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_active BOOLEAN DEFAULT true,

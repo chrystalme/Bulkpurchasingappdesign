@@ -10,6 +10,14 @@ interface BottomNavProps {
 export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
   const { user } = useAuth();
 
+  // Guest navigation — browse the marketplace without an account. Gated
+  // actions (buy/join) redirect to login from the App-level handler.
+  const guestItems = [
+    { id: 'welcome' as Screen, icon: Home, label: 'Home' },
+    { id: 'group-discover' as Screen, icon: Users, label: 'Groups' },
+    { id: 'products' as Screen, icon: ShoppingCart, label: 'Products' },
+  ];
+
   // Base items available to all users
   const baseItems = [
     { id: 'home' as Screen, icon: Home, label: 'Home' },
@@ -39,17 +47,18 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
     { id: 'profile' as Screen, icon: User, label: 'Profile' },
   ];
 
-  // Select nav items based on user role
-  const navItems = 
-    user?.role === 'admin' ? adminItems :
-    user?.role === 'vendor' ? vendorItems :
-    memberItems;
+  // Select nav items based on auth + role. Guests get a browse-only nav.
+  const navItems = !user
+    ? guestItems
+    : user?.role === 'admin' ? adminItems
+    : user?.role === 'vendor' ? vendorItems
+    : memberItems;
 
   return (
     <>
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 max-w-md mx-auto z-50">
-        <div className="flex items-center justify-around h-16">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 max-w-md mx-auto z-50 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-center justify-around h-16 px-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentScreen === item.id || 
@@ -59,14 +68,14 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
               <button
                 key={item.id}
                 onClick={() => navigate(item.id)}
-                className="flex flex-col items-center justify-center flex-1 h-full transition-colors"
+                className="flex flex-col items-center justify-center flex-1 h-full min-h-[48px] transition-all active:scale-95 touch-manipulation select-none"
               >
                 <Icon 
-                  className={`w-6 h-6 ${
+                  className={`w-6 h-6 transition-colors ${
                     isActive ? 'text-[#0047AB]' : 'text-gray-400'
                   }`}
                 />
-                <span className={`text-xs mt-1 ${
+                <span className={`text-[11px] font-medium mt-1 transition-colors ${
                   isActive ? 'text-[#0047AB]' : 'text-gray-400'
                 }`}>
                   {item.label}

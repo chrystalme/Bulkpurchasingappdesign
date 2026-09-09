@@ -102,7 +102,7 @@ export const ownsResourceOrAdmin = (userIdField = 'user_id') => {
     if (req.user.role === 'superUser' || req.user.role === 'admin') {
       // Admins can access any resource
       next();
-    } else if (req.user.id === parseInt(resourceUserId)) {
+    } else if (req.user.id === resourceUserId) {
       // User owns the resource
       next();
     } else {

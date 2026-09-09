@@ -413,14 +413,26 @@ const initializeChatSocket = (io) => {
   // PERIODIC CLEANUP
   // ============================================
 
-  // Clean up expired typing indicators every 10 seconds
-  setInterval(async () => {
+  // Clean up expired typing indicators every 10 seconds.
+  // Uses a self-scheduling setTimeout instead of setInterval so a slow
+  // query (e.g. during a PG restart / reconnect) never stacks overlapping
+  // calls, which would exhaust the pool and cascade connection timeouts.
+  let cleanupRunning = false;
+  const cleanupTypingIndicators = async () => {
+    if (cleanupRunning) return;
+    cleanupRunning = true;
     try {
       await pool.query('DELETE FROM typing_indicators WHERE expires_at < CURRENT_TIMESTAMP');
     } catch (error) {
+      // Transient reconnection failures are expected after sleep/restart —
+      // the pool reconnects on the next run. Log and move on.
       console.error('Error cleaning typing indicators:', error);
+    } finally {
+      cleanupRunning = false;
+      setTimeout(cleanupTypingIndicators, 10000);
     }
-  }, 10000);
+  };
+  cleanupTypingIndicators();
 
   console.log('Chat Socket.IO initialized');
 };

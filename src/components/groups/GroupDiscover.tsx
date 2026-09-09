@@ -8,6 +8,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { discoverGroups, requestToJoin } from '../../store/slices/groupsSlice';
 import type { AppDispatch, RootState } from '../../store';
 import type { Screen } from '../../App';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface GroupDiscoverProps {
   navigate: (screen: Screen) => void;
@@ -15,6 +16,7 @@ interface GroupDiscoverProps {
 
 export function GroupDiscover({ navigate }: GroupDiscoverProps) {
   const dispatch = useDispatch<AppDispatch>();
+  const { isAuthenticated } = useAuth();
   const { discoverableGroups, loading, error } = useSelector((state: RootState) => state.groups);
   const [searchQuery, setSearchQuery] = useState('');
   const [requestMessage, setRequestMessage] = useState('');
@@ -30,6 +32,11 @@ export function GroupDiscover({ navigate }: GroupDiscoverProps) {
   };
 
   const handleRequestToJoin = async (groupId: string) => {
+    // Joining a group requires an account — send guests to login.
+    if (!isAuthenticated) {
+      navigate('login');
+      return;
+    }
     const result = await dispatch(requestToJoin({ groupId, message: requestMessage }));
     if (requestToJoin.fulfilled.match(result)) {
       setRequestingGroupId(null);
@@ -39,6 +46,8 @@ export function GroupDiscover({ navigate }: GroupDiscoverProps) {
     }
   };
 
+  const handleBack = () => navigate(isAuthenticated ? 'groups' : 'home');
+
   return (
     <div className="min-h-screen bg-[#F4F4F5] pb-20">
       {/* Header */}
@@ -47,7 +56,7 @@ export function GroupDiscover({ navigate }: GroupDiscoverProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('groups')}
+            onClick={handleBack}
             className="text-white hover:bg-white/10"
           >
             <ArrowLeft className="w-5 h-5" />

@@ -109,7 +109,7 @@ router.post(
       .isArray({ min: 1 })
       .withMessage('Order must have at least one item'),
     body('items.*.product_id')
-      .isInt()
+      .isUUID()
       .withMessage('Valid product ID is required'),
     body('items.*.quantity')
       .isInt({ min: 1 })
@@ -184,6 +184,21 @@ router.post(
         await client.query(
           'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ($1, $2, $3, $4)',
           [order.id, item.product_id, item.quantity, item.price],
+        );
+      }
+
+      // Update group current_quantity and status if part of a group
+      if (group_id) {
+        const orderTotalQuantity = orderItems.reduce((acc, item) => acc + item.quantity, 0);
+        await client.query(
+          `UPDATE groups 
+           SET current_quantity = current_quantity + $1,
+               status = CASE 
+                 WHEN current_quantity + $1 >= moq_target THEN 'completed' 
+                 ELSE status 
+               END
+           WHERE id = $2`,
+          [orderTotalQuantity, group_id]
         );
       }
 

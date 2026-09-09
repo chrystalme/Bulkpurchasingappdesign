@@ -76,10 +76,10 @@ export function Profile({ navigate }: ProfileProps) {
     {
       title: 'Account',
       items: [
-        { icon: Settings, label: 'Account Settings', screen: null },
-        { icon: CreditCard, label: 'Payment Methods', screen: null },
-        { icon: Package, label: 'Order History', screen: 'tracking' as const },
-        { icon: Users, label: 'My Groups', screen: 'group-detail' as const },
+        { icon: Settings, label: 'Account Settings', screen: 'profile-settings' as const },
+        { icon: CreditCard, label: 'Escrow Transactions', screen: 'transaction-history' as const },
+        { icon: Package, label: 'Order Tracking', screen: 'tracking' as const },
+        { icon: Users, label: 'My Groups', screen: 'groups' as const },
       ],
     },
     ...(permissions.canManageUsers(user.role)
@@ -91,6 +91,11 @@ export function Profile({ navigate }: ProfileProps) {
                 icon: UserCog,
                 label: 'User Management',
                 screen: 'admin-users' as const,
+              },
+              {
+                icon: Shield,
+                label: 'Dispute Management',
+                screen: 'dispute-management' as const,
               },
             ],
           },
@@ -106,6 +111,11 @@ export function Profile({ navigate }: ProfileProps) {
                 label: 'Vendor Dashboard',
                 screen: 'vendor-dashboard' as const,
               },
+              {
+                icon: TrendingDown,
+                label: 'Sales Analytics',
+                screen: 'vendor-analytics' as const,
+              },
             ],
           },
         ]
@@ -113,8 +123,8 @@ export function Profile({ navigate }: ProfileProps) {
     {
       title: 'Preferences',
       items: [
-        { icon: Bell, label: 'Notifications', screen: null },
-        { icon: Shield, label: 'Privacy & Security', screen: null },
+        { icon: Bell, label: 'Notification Settings', screen: 'profile-settings' as const },
+        { icon: Shield, label: 'Privacy & Security', screen: 'profile-settings' as const },
       ],
     },
     {

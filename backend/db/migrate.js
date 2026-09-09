@@ -45,12 +45,19 @@ async function runMigrations() {
     );
     const joinRequestsSchema = fs.readFileSync(joinRequestsSchemaPath, 'utf8');
 
+    const phoneToUsersSchemaPath = path.join(
+      __dirname,
+      '../migrations/010_add_phone_to_users.sql',
+    );
+    const phoneToUsersSchema = fs.readFileSync(phoneToUsersSchemaPath, 'utf8');
+
     // Execute the schema
     await pool.query(schema);
     await pool.query(chatSchema);
     await pool.query(refreshTokensSchema);
     await pool.query(lastSeenToUsersSchema);
     await pool.query(joinRequestsSchema);
+    await pool.query(phoneToUsersSchema);
 
     console.log('✅ Database migration completed successfully!');
     console.log('📊 All tables created.');
