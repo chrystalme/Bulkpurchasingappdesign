@@ -92,28 +92,28 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
       label: 'Ordered',
       icon: Package,
       completed: order.status !== 'pending',
-      date: order.created_at,
+      date: order.createdAt,
     },
     {
       id: 'confirmed',
       label: 'Payment Confirmed',
       icon: CreditCard,
       completed: ['confirmed', 'shipped', 'delivered'].includes(order.status),
-      date: order.created_at,
+      date: order.createdAt,
     },
     {
       id: 'shipped',
       label: 'Shipped',
       icon: Truck,
       completed: ['shipped', 'delivered'].includes(order.status),
-      date: order.created_at,
+      date: order.createdAt,
     },
     {
       id: 'delivered',
       label: 'Delivered',
       icon: CheckCircle,
       completed: order.status === 'delivered',
-      date: order.created_at,
+      date: order.createdAt,
     },
   ];
 
