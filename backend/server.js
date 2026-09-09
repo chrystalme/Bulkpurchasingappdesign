@@ -9,6 +9,7 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './swagger.js';
 
 // Import security middleware
+import { getAllowedOrigins, corsOptions } from './config/cors.js';
 import { generalApiLimiter } from './middleware/rateLimit.js';
 import { csrfErrorHandler } from './middleware/csrf.js';
 import { apiTimeout, responseTimeout, timeoutErrorHandler } from './middleware/timeout.js';
@@ -33,10 +34,7 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app); // Create HTTP server for Express and Socket.IO
 const PORT = process.env.PORT || 3001;
-const allowedOrigins = (process.env.CORS_ORIGIN || process.env.CLIENT_URL || 'http://localhost:3000')
-  .split(',')
-  .map(origin => origin.trim())
-  .filter(Boolean);
+const allowedOrigins = getAllowedOrigins();
 
 // Initialize Socket.IO
 const io = new Server(server, {
@@ -76,12 +74,7 @@ app.use(helmet({
 }));
 
 // Middleware
-app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-  }),
-);
+app.use(cors(corsOptions));
 
 // Gzip compression middleware (apply after CORS)
 app.use(compression({
