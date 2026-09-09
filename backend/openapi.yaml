@@ -1,0 +1,1944 @@
+openapi: 3.0.0
+info:
+  title: Bulk Purchasing Platform API
+  description: |
+    Complete API documentation for the Save Together bulk purchasing application.
+    
+    ## Features
+    - User authentication with JWT tokens
+    - Product catalog management
+    - Vendor management and dashboards
+    - Bulk purchasing groups
+    - Order management with MOQ validation
+    - Escrow-protected transactions
+    - Dispute resolution
+    - Real-time chat with WebSocket (Socket.IO)
+    
+    ## Authentication
+    Most endpoints require a JWT token obtained from `/auth/login`. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer {token}
+    ```
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@savetogether.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3001/api
+    description: Development Server
+  - url: https://api.savetogether.com
+    description: Production Server
+
+tags:
+  - name: Authentication
+    description: User login, signup, and token management
+  - name: Users
+    description: User management endpoints (Admin/SuperUser only)
+  - name: Products
+    description: Product catalog and inventory management
+  - name: Vendors
+    description: Vendor information and vendor-specific dashboards
+  - name: Groups
+    description: Bulk purchasing group management
+  - name: Orders
+    description: Order creation and tracking
+  - name: Escrow
+    description: Escrow transactions for secure payments
+  - name: Disputes
+    description: Dispute resolution between buyers and sellers
+  - name: Chat
+    description: Real-time chat system (WebSocket)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from login endpoint. Format is "Bearer {token}"
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [superUser, admin, vendor, member]
+          description: User's global role in the system
+        avatar:
+          type: string
+          format: uri
+          nullable: true
+        vendor_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID of vendor if role is 'vendor'
+        trust_score:
+          type: integer
+          nullable: true
+        is_active:
+          type: boolean
+        is_online:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required: [id, email, name, role, created_at]
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        image:
+          type: string
+          nullable: true
+        bulk_price:
+          type: number
+          format: decimal
+          description: Price per unit for bulk orders
+        retail_price:
+          type: number
+          format: decimal
+          description: Regular retail price
+        moq:
+          type: integer
+          description: Minimum Order Quantity
+          minimum: 1
+        vendor_id:
+          type: string
+          format: uuid
+        category:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required: [id, name, bulk_price, retail_price, moq, vendor_id]
+
+    Vendor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        rating:
+          type: number
+          format: decimal
+          minimum: 0
+          maximum: 5
+        location:
+          type: string
+          nullable: true
+        image:
+          type: string
+          format: uri
+          nullable: true
+        verified:
+          type: boolean
+        product_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+      required: [id, name, verified]
+
+    Group:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        join_code:
+          type: string
+          description: Unique code for members to join the group
+        moq_target:
+          type: integer
+          description: Target minimum order quantity for the group
+        current_quantity:
+          type: integer
+          description: Current accumulated quantity from members
+        status:
+          type: string
+          enum: [active, pending, completed]
+        created_by:
+          type: string
+          format: uuid
+          description: User ID of group creator (automatically has admin role)
+        created_at:
+          type: string
+          format: date-time
+      required: [id, name, join_code, moq_target, status, created_by]
+
+    GroupMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/User'
+        role:
+          type: string
+          enum: [admin, member]
+          description: Role within the group (not the global user role)
+        joined_at:
+          type: string
+          format: date-time
+      required: [id, group_id, user_id, role]
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        order_number:
+          type: string
+          description: Unique order identifier
+        group_id:
+          type: string
+          format: uuid
+          nullable: true
+        buyer_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, paid, confirmed, shipped, delivered, cancelled]
+        total_amount:
+          type: number
+          format: decimal
+        estimated_delivery:
+          type: string
+          format: date-time
+          nullable: true
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              product_id:
+                type: string
+                format: uuid
+              product:
+                $ref: '#/components/schemas/Product'
+              quantity:
+                type: integer
+              price:
+                type: number
+                format: decimal
+        created_at:
+          type: string
+          format: date-time
+      required: [id, order_number, status, total_amount]
+
+    EscrowTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transaction_number:
+          type: string
+        order_id:
+          type: string
+          format: uuid
+        buyer_id:
+          type: string
+          format: uuid
+        seller_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: decimal
+        escrow_fee:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [locked, pending_inspection, released, disputed, refunded]
+          description: Escrow status in the payment lifecycle
+        tracking_id:
+          type: string
+          nullable: true
+        courier:
+          type: string
+          nullable: true
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        shipped_at:
+          type: string
+          format: date-time
+          nullable: true
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+        released_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required: [id, transaction_number, amount, status]
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        sender_id:
+          type: string
+          format: uuid
+        sender_name:
+          type: string
+        sender_avatar:
+          type: string
+          format: uri
+          nullable: true
+        content:
+          type: string
+          maxLength: 5000
+        is_deleted:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+        is_own:
+          type: boolean
+        read:
+          type: boolean
+      required: [id, conversation_id, sender_id, content, timestamp]
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [group, group-vendor]
+          description: Group internal chat or vendor-group chat
+        title:
+          type: string
+        avatar:
+          type: string
+          nullable: true
+        group_id:
+          type: string
+          format: uuid
+        vendor_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Only set for group-vendor conversations
+        product_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional product being discussed
+        last_message:
+          $ref: '#/components/schemas/Message'
+          nullable: true
+        unread_count:
+          type: integer
+        typing_users:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+                format: uuid
+              user_name:
+                type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, type, title, group_id]
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+      required: [success, error]
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+paths:
+  # ============ AUTHENTICATION ============
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: User login
+      description: Authenticate user and receive JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                  example: password123
+              required: [email, password]
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                    description: JWT token for API authentication
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error or invalid email format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Invalid credentials or account deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/signup:
+    post:
+      tags: [Authentication]
+      summary: User registration
+      description: Create new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                name:
+                  type: string
+                  minLength: 2
+                role:
+                  type: string
+                  enum: [member, vendor]
+                  default: member
+                  description: Only 'member' or 'vendor' allowed on signup
+              required: [email, password, name]
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Email exists or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh JWT token
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: New token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+
+  # ============ USERS ============
+  /users:
+    get:
+      tags: [Users]
+      summary: List all users
+      security:
+        - bearerAuth: []
+      description: Admin only. Get all users in the system
+      responses:
+        '200':
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+
+    post:
+      tags: [Users]
+      summary: Create user
+      security:
+        - bearerAuth: []
+      description: Admin only. Create new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+                name:
+                  type: string
+                role:
+                  type: string
+                  enum: [superUser, admin, vendor, member]
+                vendor_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+              required: [email, password, name, role]
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Users]
+      summary: Update user
+      security:
+        - bearerAuth: []
+      description: Admin only. Update user details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                role:
+                  type: string
+                  enum: [superUser, admin, vendor, member]
+                vendor_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                is_active:
+                  type: boolean
+                trust_score:
+                  type: integer
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+
+    delete:
+      tags: [Users]
+      summary: Delete user
+      security:
+        - bearerAuth: []
+      description: SuperUser only. Permanently delete user account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /users/{id}/activate:
+    post:
+      tags: [Users]
+      summary: Activate user
+      security:
+        - bearerAuth: []
+      description: Admin only. Re-activate deactivated user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /users/{id}/deactivate:
+    post:
+      tags: [Users]
+      summary: Deactivate user
+      security:
+        - bearerAuth: []
+      description: Admin only. Disable user account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User deactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /users/stats:
+    get:
+      tags: [Users]
+      summary: User statistics
+      security:
+        - bearerAuth: []
+      description: Admin only. Get user system statistics
+      responses:
+        '200':
+          description: User statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      active:
+                        type: integer
+                      superUsers:
+                        type: integer
+                      admins:
+                        type: integer
+                      vendors:
+                        type: integer
+                      members:
+                        type: integer
+
+  # ============ PRODUCTS ============
+  /products:
+    get:
+      tags: [Products]
+      summary: List products
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter by product category
+        - name: vendor_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by vendor
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        '200':
+          description: Products list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+
+    post:
+      tags: [Products]
+      summary: Create product
+      security:
+        - bearerAuth: []
+      description: Vendor only. Create new product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                bulk_price:
+                  type: number
+                  format: decimal
+                retail_price:
+                  type: number
+                  format: decimal
+                moq:
+                  type: integer
+                  minimum: 1
+                vendor_id:
+                  type: string
+                  format: uuid
+                category:
+                  type: string
+                image:
+                  type: string
+              required: [name, bulk_price, retail_price, moq, vendor_id, category]
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Product'
+
+  /products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Product details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Products]
+      summary: Update product
+      security:
+        - bearerAuth: []
+      description: Vendor only. Update own product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                image:
+                  type: string
+                bulk_price:
+                  type: number
+                retail_price:
+                  type: number
+                moq:
+                  type: integer
+                category:
+                  type: string
+                is_active:
+                  type: boolean
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Product'
+
+    delete:
+      tags: [Products]
+      summary: Delete product
+      security:
+        - bearerAuth: []
+      description: Vendor only. Delete own product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Product deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /products/categories:
+    get:
+      tags: [Products]
+      summary: List categories
+      responses:
+        '200':
+          description: Available categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: string
+
+  # ============ VENDORS ============
+  /vendors:
+    get:
+      tags: [Vendors]
+      summary: List vendors
+      responses:
+        '200':
+          description: Vendors list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vendor'
+
+  /vendors/{id}:
+    get:
+      tags: [Vendors]
+      summary: Get vendor details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Vendor details with products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      vendor:
+                        $ref: '#/components/schemas/Vendor'
+                      products:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Product'
+
+  /vendors/{id}/dashboard:
+    get:
+      tags: [Vendors]
+      summary: Vendor dashboard stats
+      security:
+        - bearerAuth: []
+      description: Vendor only. Get vendor's business statistics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Vendor dashboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      total_revenue:
+                        type: number
+                      monthly_revenue:
+                        type: number
+                      total_orders:
+                        type: integer
+                      pending_orders:
+                        type: integer
+                      total_products:
+                        type: integer
+                      total_customers:
+                        type: integer
+                      average_rating:
+                        type: number
+                      total_reviews:
+                        type: integer
+
+  /vendors/{id}/orders:
+    get:
+      tags: [Vendors]
+      summary: Vendor's orders
+      security:
+        - bearerAuth: []
+      description: Vendor only. Get orders for vendor's products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Vendor orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+
+  /vendors/{id}/customers:
+    get:
+      tags: [Vendors]
+      summary: Vendor's customers
+      security:
+        - bearerAuth: []
+      description: Vendor only. Get list of vendor's customers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Customers list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user:
+                          $ref: '#/components/schemas/User'
+                        total_orders:
+                          type: integer
+                        total_spent:
+                          type: number
+                        last_order_date:
+                          type: string
+                          format: date-time
+                        trust_score:
+                          type: integer
+
+  # ============ ORDERS ============
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List orders
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+
+    post:
+      tags: [Orders]
+      summary: Create order
+      security:
+        - bearerAuth: []
+      description: Create new order with items. Validates MOQ per product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    properties:
+                      product_id:
+                        type: string
+                        format: uuid
+                      quantity:
+                        type: integer
+                        minimum: 1
+                group_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+              required: [items]
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Order'
+        '400':
+          description: Validation error or MOQ violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Order'
+
+  /orders/{id}/status:
+    put:
+      tags: [Orders]
+      summary: Update order status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, paid, confirmed, shipped, delivered, cancelled]
+              required: [status]
+      responses:
+        '200':
+          description: Order status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Order'
+
+  # ============ ESCROW ============
+  /escrow/transactions:
+    get:
+      tags: [Escrow]
+      summary: List escrow transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [buyer, seller, all]
+          description: Filter by user's role in transaction
+      responses:
+        '200':
+          description: Transactions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EscrowTransaction'
+
+    post:
+      tags: [Escrow]
+      summary: Create escrow transaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order_id:
+                  type: string
+                  format: uuid
+                seller_id:
+                  type: string
+                  format: uuid
+                amount:
+                  type: number
+                  format: decimal
+                escrow_fee:
+                  type: number
+                  format: decimal
+              required: [order_id, seller_id, amount]
+      responses:
+        '201':
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/EscrowTransaction'
+
+  /escrow/transactions/{id}:
+    get:
+      tags: [Escrow]
+      summary: Get transaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/EscrowTransaction'
+
+  /escrow/transactions/{id}/status:
+    put:
+      tags: [Escrow]
+      summary: Update transaction status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [locked, pending_inspection, released, disputed, refunded]
+                tracking_id:
+                  type: string
+                courier:
+                  type: string
+              required: [status]
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/EscrowTransaction'
+
+  /escrow/transactions/{id}/confirm-delivery:
+    post:
+      tags: [Escrow]
+      summary: Confirm delivery
+      security:
+        - bearerAuth: []
+      description: Buyer confirms item received
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Delivery confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/EscrowTransaction'
+
+  /escrow/transactions/{id}/release:
+    post:
+      tags: [Escrow]
+      summary: Release escrow
+      security:
+        - bearerAuth: []
+      description: Release payment to seller after inspection period
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Escrow released
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/EscrowTransaction'
+                  message:
+                    type: string
+
+  # ============ CHAT ============
+  /chat/conversations:
+    get:
+      tags: [Chat]
+      summary: List conversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [group, group-vendor]
+          description: Filter by conversation type
+        - name: groupId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by group
+      responses:
+        '200':
+          description: Conversations list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+
+    post:
+      tags: [Chat]
+      summary: Create group-vendor conversation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                groupId:
+                  type: string
+                  format: uuid
+                vendorId:
+                  type: string
+                  format: uuid
+                productId:
+                  type: string
+                  format: uuid
+                  nullable: true
+              required: [groupId, vendorId]
+      responses:
+        '201':
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Conversation'
+
+  /chat/conversations/{conversationId}:
+    get:
+      tags: [Chat]
+      summary: Get conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Conversation details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Conversation'
+
+  /chat/conversations/{conversationId}/messages:
+    get:
+      tags: [Chat]
+      summary: Get messages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: before
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Pagination cursor
+      responses:
+        '200':
+          description: Messages list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+
+    post:
+      tags: [Chat]
+      summary: Send message
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  maxLength: 5000
+              required: [content]
+      responses:
+        '201':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Message'
+
+  /chat/conversations/{conversationId}/read:
+    put:
+      tags: [Chat]
+      summary: Mark as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /chat/conversations/{conversationId}/typing:
+    get:
+      tags: [Chat]
+      summary: Get typing users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Users typing in conversation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        user_id:
+                          type: string
+                        user_name:
+                          type: string
+
+    post:
+      tags: [Chat]
+      summary: Set typing indicator
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isTyping:
+                  type: boolean
+              required: [isTyping]
+      responses:
+        '200':
+          description: Typing indicator set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /chat/messages/{messageId}:
+    delete:
+      tags: [Chat]
+      summary: Delete message
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Message deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /chat/unread-count:
+    get:
+      tags: [Chat]
+      summary: Get unread count
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Total unread message count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      unread_count:
+                        type: integer
+
+  # ============ SOCKET.IO EVENTS ============
+  /socket:
+    description: |
+      ## WebSocket Events (Socket.IO)
+      
+      Real-time chat is handled through Socket.IO WebSocket connections. Connect to the socket server with your JWT token.
+      
+      ### Connection
+      ```
+      const socket = io('http://localhost:3001', {
+        auth: { token: 'your-jwt-token' }
+      });
+      ```
+      
+      ### Emitted Events (Client → Server)
+      - **join-conversation**: Join a conversation room
+        ```json
+        { "conversationId": "uuid" }
+        ```
+      
+      - **send-message**: Send real-time message
+        ```json
+        { "conversationId": "uuid", "content": "message text" }
+        ```
+      
+      - **typing**: Send typing indicator (expires in 5 seconds)
+        ```json
+        { "conversationId": "uuid", "isTyping": true }
+        ```
+      
+      - **mark-read**: Mark messages as read
+        ```json
+        { "conversationId": "uuid" }
+        ```
+      
+      - **delete-message**: Delete message
+        ```json
+        { "messageId": "uuid" }
+        ```
+      
+      - **leave-conversation**: Leave conversation room
+        ```json
+        { "conversationId": "uuid" }
+        ```
+      
+      ### Received Events (Server → Client)
+      - **new-message**: Broadcast new message to all participants
+        ```json
+        {
+          "id": "uuid",
+          "conversationId": "uuid",
+          "senderId": "uuid",
+          "senderName": "User Name",
+          "content": "message",
+          "timestamp": "2024-01-29T10:00:00Z"
+        }
+        ```
+      
+      - **user-typing**: User is typing
+        ```json
+        {
+          "conversationId": "uuid",
+          "userId": "uuid",
+          "userName": "User Name"
+        }
+        ```
+      
+      - **user-joined**: User joined conversation
+        ```json
+        {
+          "conversationId": "uuid",
+          "userId": "uuid",
+          "userName": "User Name"
+        }
+        ```
+      
+      - **messages-read**: Messages marked as read
+        ```json
+        {
+          "conversationId": "uuid",
+          "userId": "uuid"
+        }
+        ```
+
+x-custom-notes: |
+  ## Rate Limiting
+  - No rate limiting currently implemented
+  - Consider implementing for production deployments
+  
+  ## Error Handling
+  All error responses follow the standard format:
+  ```json
+  {
+    "success": false,
+    "error": "Error message description"
+  }
+  ```
+  
+  ## Pagination
+  - Chat messages support cursor-based pagination via `before` query parameter
+  - Other list endpoints return all results (consider implementing for scale)
+  
+  ## MOQ Validation
+  - Order creation automatically validates that requested quantities meet product MOQ requirements
+  - Returns 400 error if MOQ not met
+  
+  ## Group Member Roles
+  - **admin**: Can manage members, modify group settings
+  - **member**: Can view group, participate in chat, create orders
+  - **creator**: Automatically becomes admin when creating group
+  
+  ## Escrow Workflow
+  1. Create transaction (status: locked)
+  2. Payment made (status: locked)
+  3. Item shipped (status: pending_inspection)
+  4. Buyer confirms delivery (status: released)
+  5. Seller receives payment
