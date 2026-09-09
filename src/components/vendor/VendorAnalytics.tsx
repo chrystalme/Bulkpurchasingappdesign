@@ -48,8 +48,7 @@ export function VendorAnalytics({ vendorId = '5' }: { vendorId?: string }) {
     try {
       setLoading(true);
       setError(null);
-      const vid = Number(vendorId);
-      const response = await apiClient.vendors.getDashboard(vid);
+      const response = await apiClient.vendors.getDashboard(String(vendorId));
       if (response.success && response.data) {
         setStats(response.data);
         // Generate mock chart data based on date range

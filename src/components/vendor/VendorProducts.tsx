@@ -32,6 +32,8 @@ import {
 } from '../../store/selectors/vendorsSelectors';
 import type { Product } from '../../lib/types';
 import { useState } from 'react';
+import { apiClient } from '../../lib/api';
+import { toast } from 'sonner';
 
 interface VendorProductsProps {
   navigate: (screen: Screen) => void;
@@ -52,9 +54,23 @@ export function VendorProducts({ navigate, vendorId }: VendorProductsProps) {
 
   useEffect(() => {
     if (actualVendorId) {
-      dispatch(fetchVendorProducts(actualVendorId));
+      dispatch(fetchVendorProducts(actualVendorId) as any);
     }
   }, [actualVendorId, dispatch]);
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!window.confirm('Are you sure you want to delete this product listing?')) return;
+    try {
+      await apiClient.products.delete(productId);
+      toast.success('Product deleted successfully');
+      if (actualVendorId) {
+        dispatch(fetchVendorProducts(actualVendorId) as any);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete product');
+    }
+  };
+
   const filteredProducts = vendorProducts.filter(product => {
     const matchesSearch = product.name
       .toLowerCase()
@@ -220,13 +236,13 @@ export function VendorProducts({ navigate, vendorId }: VendorProductsProps) {
                     <div>
                       <p className='text-xs text-gray-600'>Bulk Price</p>
                       <p className='text-sm font-semibold text-[#10B981]'>
-                        ${product.bulkPrice}
+                        ₦{product.bulkPrice}
                       </p>
                     </div>
                     <div>
                       <p className='text-xs text-gray-600'>Retail Price</p>
                       <p className='text-sm text-gray-900 line-through'>
-                        ${product.retailPrice}
+                        ₦{product.retailPrice}
                       </p>
                     </div>
                     <div>
@@ -249,6 +265,7 @@ export function VendorProducts({ navigate, vendorId }: VendorProductsProps) {
                       variant='outline'
                       size='sm'
                       className='text-[#FB7185] border-[#FB7185]/20 hover:bg-[#FB7185]/10'
+                      onClick={() => handleDeleteProduct(product.id)}
                     >
                       <Trash2 className='w-4 h-4' />
                     </Button>

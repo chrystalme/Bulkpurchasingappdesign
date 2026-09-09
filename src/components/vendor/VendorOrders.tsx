@@ -17,6 +17,8 @@ import {
   selectVendorsError,
 } from '../../store/selectors/vendorsSelectors';
 import type { VendorOrder } from '../../lib/types';
+import { apiClient } from '../../lib/api';
+import { toast } from 'sonner';
 
 interface VendorOrdersProps {
   navigate: (screen: Screen) => void;
@@ -38,6 +40,19 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
       dispatch(fetchVendorOrders(vendorId) as any);
     }
   }, [user?.vendor_id, dispatch]);
+
+  const handleUpdateStatus = async (orderId: string, status: string) => {
+    try {
+      await apiClient.orders.updateStatus(orderId, status);
+      toast.success(`Order ${status === 'confirmed' ? 'confirmed' : 'rejected'}`);
+      const vendorId = user?.vendor_id;
+      if (vendorId) {
+        dispatch(fetchVendorOrders(vendorId) as any);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update order status');
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -246,7 +261,7 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
                     <div className="text-right">
                       <p className="text-xs text-gray-600">Total Amount</p>
                       <p className="text-lg font-semibold text-[#10B981]">
-                        ${(parseFloat(order.total_amount) || 0).toFixed(2)}
+                        ₦{(parseFloat(order.total_amount) || 0).toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -255,14 +270,16 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
                     <div className="flex gap-2 mt-3">
                       <Button
                         size="sm"
-                        className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90"
+                        className="flex-1 bg-[#10B981] hover:bg-[#10B981]/90 text-white"
+                        onClick={() => handleUpdateStatus(order.id, 'confirmed')}
                       >
                         Confirm Order
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 text-[#FB7185] border-[#FB7185]/20"
+                        className="flex-1 text-[#FB7185] border-[#FB7185]/20 hover:bg-[#FB7185]/10"
+                        onClick={() => handleUpdateStatus(order.id, 'cancelled')}
                       >
                         Reject
                       </Button>

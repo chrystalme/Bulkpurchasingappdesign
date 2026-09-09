@@ -84,7 +84,7 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
     return (
       <ChatWindowReal
         conversation={selectedConversation}
-        onBack={() => setSelectedConversationId(null)}
+        onBack={() => dispatch(selectConversation(null))}
       />
     );
   }

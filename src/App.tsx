@@ -321,7 +321,6 @@ function AppContent() {
       case 'cart':
         return <GroupCart navigate={handleNavigate} groupId={selectedGroupId} />;
       case 'chat':
-        return <VendorChat navigate={handleNavigate} groupId={selectedGroupId} />;
       case 'chat-dashboard':
         return <ChatDashboardReal navigate={handleNavigate} />;
       case 'checkout':
