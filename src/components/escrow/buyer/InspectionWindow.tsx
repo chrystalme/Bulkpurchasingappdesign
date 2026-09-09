@@ -16,6 +16,8 @@ import { EvidenceUploader } from '../EvidenceUploader';
 import { InfoCard } from '../InfoCard';
 import { Screen } from '../../../App';
 import { mockEscrowTransactions } from '../../../lib/mockData';
+import { useAppSelector } from '../../../store/hooks';
+import { apiClient } from '../../../lib/api';
 import { toast } from 'sonner';
 
 interface InspectionWindowProps {
@@ -27,7 +29,10 @@ export function InspectionWindow({
   navigate,
   transactionId = 'ESC-001',
 }: InspectionWindowProps) {
-  const transaction =
+  const reduxTransactions = useAppSelector(state => state.escrow.transactions);
+  const transaction: any =
+    reduxTransactions.find((t: any) => t.id === transactionId) ||
+    reduxTransactions[0] ||
     mockEscrowTransactions.find(t => t.id === transactionId) ||
     mockEscrowTransactions[0];
 
@@ -38,17 +43,24 @@ export function InspectionWindow({
   const [uploadedEvidence, setUploadedEvidence] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleConfirmRelease = () => {
+  const handleConfirmRelease = async () => {
     if (quantityCorrect === null || qualityAcceptable === null) {
       toast.error('Please complete the verification checklist');
       return;
     }
 
-    setIsProcessing(true);
-    setTimeout(() => {
+    try {
+      setIsProcessing(true);
+      if (transaction?.id) {
+        await apiClient.escrow.releaseFunds(transaction.id);
+      }
       toast.success('Funds released to seller successfully!');
       navigate('escrow-buyer-dashboard');
-    }, 2000);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to release funds to seller');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleOpenDispute = () => {
@@ -118,7 +130,7 @@ export function InspectionWindow({
             <div>
               <p className='text-sm text-gray-600'>Amount Held in Escrow</p>
               <p className='font-semibold text-[#0047AB]'>
-                ${transaction.amount.toFixed(2)}
+                ₦{transaction.amount.toFixed(2)}
               </p>
             </div>
           </div>

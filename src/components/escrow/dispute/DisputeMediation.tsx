@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ArrowLeft,
   Scale,
@@ -6,13 +7,17 @@ import {
   FileText,
   Clock,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Badge } from '../../ui/badge';
+import { Label } from '../../ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import { Screen } from '../../../App';
 import { mockDisputes, Evidence } from '../../../lib/mockData';
+import { apiClient } from '../../../lib/api';
+import { toast } from 'sonner';
 
 interface DisputeMediationProps {
   navigate: (screen: Screen) => void;
@@ -26,6 +31,26 @@ export function DisputeMediation({
   userRole = 'admin',
 }: DisputeMediationProps) {
   const dispute = mockDisputes.find(d => d.id === disputeId) || mockDisputes[0];
+  const [selectedResolution, setSelectedResolution] = useState<string>('refund_buyer');
+  const [adminNotes, setAdminNotes] = useState('');
+  const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
+
+  const handleSubmitDecision = async () => {
+    try {
+      setIsSubmittingDecision(true);
+      await apiClient.escrow.resolveDispute(
+        dispute.id,
+        selectedResolution,
+        adminNotes
+      );
+      toast.success(`Dispute resolved: ${selectedResolution.replace('_', ' ')}`);
+      navigate('dispute-management');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to resolve dispute');
+    } finally {
+      setIsSubmittingDecision(false);
+    }
+  };
 
   const buyerEvidence: Evidence[] = [
     {
@@ -351,16 +376,31 @@ export function DisputeMediation({
             </h3>
             <div className='space-y-4'>
               <div className='grid grid-cols-3 gap-3'>
-                <Button variant='outline' className='h-20 flex-col gap-2'>
-                  <span className='text-[#10B981]'>✓</span>
+                <Button
+                  type='button'
+                  variant='outline'
+                  className={`h-20 flex-col gap-2 border-2 ${selectedResolution === 'refund_buyer' ? 'border-[#10B981] bg-[#10B981]/10 text-emerald-900 font-semibold' : 'border-gray-200'}`}
+                  onClick={() => setSelectedResolution('refund_buyer')}
+                >
+                  <span className='text-[#10B981] font-bold text-lg'>✓</span>
                   <span className='text-sm'>Refund Buyer</span>
                 </Button>
-                <Button variant='outline' className='h-20 flex-col gap-2'>
-                  <span className='text-[#0047AB]'>⚖</span>
+                <Button
+                  type='button'
+                  variant='outline'
+                  className={`h-20 flex-col gap-2 border-2 ${selectedResolution === 'partial_split' ? 'border-[#0047AB] bg-[#0047AB]/10 text-[#0047AB] font-semibold' : 'border-gray-200'}`}
+                  onClick={() => setSelectedResolution('partial_split')}
+                >
+                  <span className='text-[#0047AB] font-bold text-lg'>⚖</span>
                   <span className='text-sm'>Partial Split</span>
                 </Button>
-                <Button variant='outline' className='h-20 flex-col gap-2'>
-                  <span className='text-[#10B981]'>✓</span>
+                <Button
+                  type='button'
+                  variant='outline'
+                  className={`h-20 flex-col gap-2 border-2 ${selectedResolution === 'release_seller' ? 'border-amber-500 bg-amber-50 text-amber-900 font-semibold' : 'border-gray-200'}`}
+                  onClick={() => setSelectedResolution('release_seller')}
+                >
+                  <span className='text-amber-600 font-bold text-lg'>✓</span>
                   <span className='text-sm'>Release to Seller</span>
                 </Button>
               </div>
@@ -375,11 +415,25 @@ export function DisputeMediation({
                   id='admin-notes'
                   className='w-full border border-gray-200 rounded-lg p-3 text-sm'
                   rows={4}
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
                   placeholder='Enter decision rationale and notes...'
                 />
               </div>
-              <Button className='w-full bg-[#0047AB] hover:bg-[#0047AB]/90 text-white'>
-                Submit Decision
+              <Button
+                type='button'
+                className='w-full bg-[#0047AB] hover:bg-[#0047AB]/90 text-white font-medium'
+                disabled={isSubmittingDecision}
+                onClick={handleSubmitDecision}
+              >
+                {isSubmittingDecision ? (
+                  <div className='flex items-center gap-2'>
+                    <Loader2 className='w-4 h-4 animate-spin' />
+                    Submitting Decision...
+                  </div>
+                ) : (
+                  'Submit Decision'
+                )}
               </Button>
             </div>
           </Card>

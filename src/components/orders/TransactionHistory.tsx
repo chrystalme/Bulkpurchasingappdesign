@@ -45,12 +45,12 @@ export function TransactionHistory() {
     dispatch(fetchTransactions() as any);
   }, [dispatch]);
 
-  const filteredTransactions = transactions.filter((tx) => {
-    const matchesSearch =
-      tx.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      tx.sellerName.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+  const filteredTransactions = transactions.filter((tx: any) => {
+    const id = (tx.id?.toString() || '').toLowerCase();
+    const product = (tx.productName || tx.product_name || '').toLowerCase();
+    const seller = (tx.sellerName || tx.seller_name || '').toLowerCase();
+    const query = searchTerm.toLowerCase();
+    return id.includes(query) || product.includes(query) || seller.includes(query);
   });
 
   const sortedTransactions = [...filteredTransactions].sort((a, b) => {
@@ -202,9 +202,9 @@ export function TransactionHistory() {
                       <tr key={tx.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-4 py-3 text-gray-900 font-mono text-xs">{tx.id.slice(0, 8)}</td>
                         <td className="px-4 py-3 text-gray-700">Escrow</td>
-                        <td className="px-4 py-3 text-gray-700">{tx.productName}</td>
+                        <td className="px-4 py-3 text-gray-700">{(tx as any).productName || (tx as any).product_name || 'Group Order'}</td>
                         <td className="px-4 py-3 text-gray-900 font-semibold">
-                          ${tx.amount.toFixed(2)}
+                          ₦{Number(tx.amount || 0).toFixed(2)}
                         </td>
                         <td className="px-4 py-3">{getStatusBadge(tx.status)}</td>
                         <td className="px-4 py-3 text-gray-600 text-xs">

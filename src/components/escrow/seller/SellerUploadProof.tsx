@@ -23,6 +23,8 @@ import { EvidenceUploader } from '../EvidenceUploader';
 import { InfoCard } from '../InfoCard';
 import { Screen } from '../../../App';
 import { mockEscrowTransactions } from '../../../lib/mockData';
+import { useAppSelector } from '../../../store/hooks';
+import { apiClient } from '../../../lib/api';
 import { toast } from 'sonner';
 
 interface SellerUploadProofProps {
@@ -34,7 +36,10 @@ export function SellerUploadProof({
   navigate,
   transactionId = 'ESC-002',
 }: SellerUploadProofProps) {
-  const transaction =
+  const reduxTransactions = useAppSelector(state => state.escrow.transactions);
+  const transaction: any =
+    reduxTransactions.find((t: any) => t.id === transactionId) ||
+    reduxTransactions[1] ||
     mockEscrowTransactions.find(t => t.id === transactionId) ||
     mockEscrowTransactions[1];
 
@@ -45,17 +50,29 @@ export function SellerUploadProof({
   const [uploadedEvidence, setUploadedEvidence] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!courier || !trackingNumber || uploadedEvidence.length === 0) {
       toast.error('Please complete all required fields');
       return;
     }
 
-    setIsProcessing(true);
-    setTimeout(() => {
+    try {
+      setIsProcessing(true);
+      if (transaction?.id) {
+        await apiClient.escrow.updateStatus(
+          transaction.id,
+          'shipped',
+          trackingNumber,
+          courier
+        );
+      }
       toast.success('Shipping proof submitted successfully!');
       navigate('escrow-seller-awaiting');
-    }, 2000);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit shipping proof');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -107,7 +124,7 @@ export function SellerUploadProof({
             <div>
               <p className='text-sm text-gray-600'>Amount to Receive</p>
               <p className='font-semibold text-[#10B981]'>
-                ${(transaction.amount * 0.95).toFixed(2)}
+                ₦{(transaction.amount * 0.95).toFixed(2)}
               </p>
             </div>
           </div>
