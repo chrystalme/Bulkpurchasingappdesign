@@ -11,7 +11,9 @@ import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
 import { fetchProducts } from '../../store/slices/productsSlice';
+import { fetchGroupById } from '../../store/slices/groupsSlice';
 import { selectProducts, selectProductsLoading, selectProductsError } from '../../store/selectors/productsSelectors';
+import { getProductImage } from '../../lib/productImages';
 import {
   setCartGroup,
   addItem,
@@ -28,20 +30,25 @@ interface GroupCartProps {
 
 export function GroupCart({ navigate, groupId }: GroupCartProps) {
   const dispatch = useAppDispatch();
-  const [members, setMembers] = useState<GroupMember[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const products = useAppSelector(selectProducts);
   const loading = useAppSelector(selectProductsLoading);
   const cartItems = useAppSelector(state => state.cart.items);
   const cartGroupId = useAppSelector(state => state.cart.groupId);
+  const currentGroup = useAppSelector(state => state.groups.currentGroup);
+
+  const members: GroupMember[] = currentGroup?.members || [];
 
   // Set cart group when component mounts or groupId changes
   useEffect(() => {
     if (groupId && cartGroupId !== groupId) {
       dispatch(setCartGroup(groupId));
     }
-  }, [dispatch, groupId, cartGroupId]);
+    if (groupId && (!currentGroup || currentGroup.id !== groupId)) {
+      dispatch(fetchGroupById(groupId) as any);
+    }
+  }, [dispatch, groupId, cartGroupId, currentGroup]);
 
   useEffect(() => {
     if (products.length === 0) {
@@ -68,10 +75,12 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
     }, 0);
   };
 
-  const calculateMemberShare = (memberId: string) => {
+  const calculateMemberShare = (member: GroupMember) => {
     return cartItems.reduce((total, item) => {
       const product = cartProducts.find(p => p.id?.toString() === item.productId);
-      const allocation = item.allocations.find(a => a.memberId === memberId);
+      const allocation = item.allocations.find(
+        a => a.memberId === member.user_id || a.memberId === member.id
+      );
       return total + (product && allocation ? product.bulkPrice * allocation.quantity : 0);
     }, 0);
   };
@@ -79,11 +88,6 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
   const subtotal = calculateSubtotal();
   const shipping = 5.00;
   const total = subtotal + shipping;
-
-  const productImages: Record<string, string> = {
-    '1': 'https://images.unsplash.com/photo-1633536706496-873ce0d46277?w=400&h=300&fit=crop',
-    '4': 'https://images.unsplash.com/photo-1621244320421-cc9782f5ce28?w=400&h=300&fit=crop',
-  };
 
   if (loading) {
     return (
@@ -171,7 +175,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                   <div className="flex gap-3 mb-3">
                     <div className="w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
                       <ImageWithFallback
-                        src={productImages[product.id?.toString() as keyof typeof productImages] || 'https://via.placeholder.com/80'}
+                        src={getProductImage(product.image)}
                         alt={product.name}
                         className="w-full h-full object-cover"
                       />
@@ -227,18 +231,19 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {cartItem.allocations.map((allocation) => {
-                        const member = members.find(m => m.id === allocation.memberId);
-                        if (!member) return null;
+                        const member = members.find(m => m.user_id === allocation.memberId || m.id === allocation.memberId);
+                        const memberName = member?.name || 'Member';
+                        const initial = memberName ? memberName[0].toUpperCase() : 'M';
                         return (
                           <div
                             key={allocation.memberId}
                             className="flex items-center gap-2 bg-gray-50 rounded-full pl-1 pr-3 py-1"
                           >
                             <Avatar className="h-5 w-5">
-                              <AvatarImage src={member.avatar} />
-                              <AvatarFallback>{member.name[0]}</AvatarFallback>
+                              <AvatarImage src={member?.avatar} />
+                              <AvatarFallback>{initial}</AvatarFallback>
                             </Avatar>
-                            <span className="text-sm">{member.name}: {allocation.quantity}</span>
+                            <span className="text-sm">{memberName}: {allocation.quantity}</span>
                           </div>
                         );
                       })}
@@ -257,15 +262,16 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
           <CardContent className="p-4">
             <h4 className="mb-3">Cost Split by Member</h4>
             <div className="space-y-2">
-              {members.slice(0, 3).map((member) => {
-                const share = calculateMemberShare(member.id);
+              {members.slice(0, 5).map((member) => {
+                const share = calculateMemberShare(member);
                 if (share === 0) return null;
+                const initial = member.name ? member.name[0].toUpperCase() : 'M';
                 return (
                   <div key={member.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-6 w-6">
                         <AvatarImage src={member.avatar} />
-                        <AvatarFallback>{member.name[0]}</AvatarFallback>
+                        <AvatarFallback>{initial}</AvatarFallback>
                       </Avatar>
                       <span className="text-sm">{member.name}</span>
                     </div>
@@ -312,6 +318,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
           <Button
             className="w-full bg-[#0047AB] hover:bg-[#0047AB]/90"
             size="lg"
+            disabled={cartItems.length === 0}
             onClick={() => navigate('checkout')}
           >
             Proceed to Checkout

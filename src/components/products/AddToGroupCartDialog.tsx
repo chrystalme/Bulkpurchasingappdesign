@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Users, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, Users, AlertTriangle, Minus, Plus } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { useAuth } from '../../contexts/AuthContext';
 import { fetchGroups } from '../../store/slices/groupsSlice';
 import {
   setCartGroup,
@@ -50,7 +51,9 @@ export function AddToGroupCartDialog({
   const cartGroupId = useAppSelector(state => state.cart.groupId);
   const cartItems = useAppSelector(state => state.cart.items);
 
+  const { user } = useAuth();
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [quantity, setQuantity] = useState(1);
   const [showSwitchWarning, setShowSwitchWarning] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(false);
 
@@ -65,6 +68,7 @@ export function AddToGroupCartDialog({
   useEffect(() => {
     if (!open) {
       setSelectedGroupId('');
+      setQuantity(1);
       setShowSwitchWarning(false);
       setPendingConfirm(false);
     }
@@ -94,14 +98,21 @@ export function AddToGroupCartDialog({
     }
 
     dispatch(setCartGroup(selectedGroupId));
+    const currentUserId = user?.id || 'current-user';
+    const existingItem = cartItems.find(item => item.productId === product.id.toString());
+    const newTotalQty = existingItem ? existingItem.quantity + quantity : quantity;
+    const existingAlloc = existingItem?.allocations?.find(a => a.memberId === currentUserId);
+    const otherAllocs = existingItem?.allocations?.filter(a => a.memberId !== currentUserId) || [];
+    const newAllocQty = existingAlloc ? existingAlloc.quantity + quantity : quantity;
+
     const cartItem: CartItemData = {
       productId: product.id.toString(),
-      quantity: 1,
-      allocations: [],
+      quantity: newTotalQty,
+      allocations: [...otherAllocs, { memberId: currentUserId, quantity: newAllocQty }],
     };
     dispatch(addItem(cartItem));
 
-    toast.success(`${product.name} added to group cart!`);
+    toast.success(`${product.name} (x${quantity}) added to group cart!`);
     onClose();
     setShowSwitchWarning(false);
     setPendingConfirm(false);
@@ -185,6 +196,36 @@ export function AddToGroupCartDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Quantity Stepper */}
+            <div className="space-y-2">
+              <Label>Quantity to Contribute</Label>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-lg"
+                  onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                  disabled={quantity <= 1}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <span className="w-12 text-center font-semibold text-lg">{quantity}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-lg"
+                  onClick={() => setQuantity(prev => prev + 1)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-gray-500 ml-2">
+                  (MOQ: {product.moq || 1} units)
+                </span>
+              </div>
             </div>
 
             {showSwitchWarning && hasCartForOtherGroup && (

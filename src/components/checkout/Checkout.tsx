@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
@@ -14,29 +15,103 @@ import {
   Users,
   CheckCircle2,
   Shield,
+  Loader2,
 } from 'lucide-react';
 import type { Screen } from '../../App';
-import { mockMembers } from '../../lib/mockData';
+import { selectProducts } from '../../store/selectors/productsSelectors';
+import { createOrder } from '../../store/slices/ordersSlice';
+import { createEscrowTransaction } from '../../store/slices/escrowSlice';
+import { clearCart } from '../../store/slices/cartSlice';
+import { toast } from 'sonner';
 
 interface CheckoutProps {
   navigate: (screen: Screen) => void;
 }
 
 export function Checkout({ navigate }: CheckoutProps) {
-  const [paymentMethod, setPaymentMethod] = useState('full');
+  const dispatch = useAppDispatch();
+  const [paymentMethod, setPaymentMethod] = useState<'full' | 'split'>('full');
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const subtotal = 189.96;
-  const shipping = 5.0;
+  const cartItems = useAppSelector(state => state.cart.items);
+  const cartGroupId = useAppSelector(state => state.cart.groupId);
+  const currentGroup = useAppSelector(state => state.groups.currentGroup);
+  const products = useAppSelector(selectProducts);
+
+  const itemsWithDetails = cartItems.map(item => {
+    const product = products.find(p => p.id?.toString() === item.productId);
+    const price = product ? (product.bulkPrice ?? (product as any).bulk_price ?? 0) : 0;
+    return {
+      ...item,
+      product,
+      price,
+      total: price * item.quantity,
+    };
+  });
+
+  const subtotal = itemsWithDetails.reduce((sum, item) => sum + item.total, 0);
+  const shipping = cartItems.length > 0 ? 5.0 : 0;
   const total = subtotal + shipping;
-  const perMemberCost = total / 3;
+  const members = currentGroup?.members || [];
+  const memberCount = members.length > 0 ? members.length : 3;
+  const perMemberCost = total / memberCount;
 
-  const handlePlaceOrder = () => {
-    setShowConfirmation(true);
-    setTimeout(() => {
-      setShowConfirmation(false);
-      navigate('tracking');
-    }, 2000);
+  const handlePlaceOrder = async () => {
+    if (cartItems.length === 0) {
+      toast.error('Cart is empty. Please add products first.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const orderPayload = itemsWithDetails.map(item => ({
+        product_id: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      const orderResultAction: any = await dispatch(
+        createOrder({ items: orderPayload, groupId: cartGroupId || undefined } as any)
+      );
+
+      if (createOrder.rejected.match(orderResultAction)) {
+        throw new Error(orderResultAction.payload || 'Order creation failed');
+      }
+
+      const createdOrder = orderResultAction.payload;
+      const orderId = createdOrder?.id || createdOrder?.data?.id;
+
+      const firstProduct = itemsWithDetails[0]?.product;
+      const sellerId =
+        firstProduct?.vendorId ||
+        (firstProduct as any)?.vendor_id ||
+        '00000000-0000-0000-0000-000000000001';
+      const escrowFee = Number((total * 0.03).toFixed(2));
+
+      if (orderId) {
+        await dispatch(
+          createEscrowTransaction({
+            orderId,
+            sellerId,
+            amount: total,
+            escrowFee,
+          } as any)
+        );
+      }
+
+      dispatch(clearCart());
+      setShowConfirmation(true);
+      setTimeout(() => {
+        setShowConfirmation(false);
+        navigate('tracking');
+      }, 2000);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to place order. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -82,18 +157,22 @@ export function Checkout({ navigate }: CheckoutProps) {
           {/* Order Summary */}
           <Card>
             <CardContent className='p-4'>
-              <h4 className='mb-3'>Order Summary</h4>
+              <h4 className='mb-3 font-semibold'>Order Summary</h4>
               <div className='space-y-2'>
-                <div className='flex items-center justify-between text-sm'>
-                  <span className='text-gray-600'>2 Products</span>
-                  <span>₦{subtotal.toFixed(2)}</span>
-                </div>
+                {itemsWithDetails.map(item => (
+                  <div key={item.productId} className='flex items-center justify-between text-sm'>
+                    <span className='text-gray-600 truncate max-w-[200px]'>
+                      {item.product?.name || 'Product'} × {item.quantity}
+                    </span>
+                    <span>₦{item.total.toFixed(2)}</span>
+                  </div>
+                ))}
                 <div className='flex items-center justify-between text-sm'>
                   <span className='text-gray-600'>Shipping</span>
                   <span>₦{shipping.toFixed(2)}</span>
                 </div>
                 <Separator />
-                <div className='flex items-center justify-between'>
+                <div className='flex items-center justify-between font-semibold'>
                   <span>Total</span>
                   <span className='text-[#0047AB]'>₦{total.toFixed(2)}</span>
                 </div>
@@ -157,12 +236,12 @@ export function Checkout({ navigate }: CheckoutProps) {
           </Card>
 
           {/* Split Details */}
-          {paymentMethod === 'split' && (
+          {paymentMethod === 'split' && members.length > 0 && (
             <Card className='bg-gradient-to-br from-[#0047AB]/5 to-[#6EE7B7]/5'>
               <CardContent className='p-4'>
-                <h4 className='mb-3'>Payment Split</h4>
+                <h4 className='mb-3 font-semibold'>Payment Split</h4>
                 <div className='space-y-3'>
-                  {mockMembers.slice(0, 3).map((member, index) => (
+                  {members.map((member, index) => (
                     <div
                       key={member.id}
                       className='flex items-center justify-between'
@@ -170,16 +249,16 @@ export function Checkout({ navigate }: CheckoutProps) {
                       <div className='flex items-center gap-3'>
                         <Avatar className='h-8 w-8'>
                           <AvatarImage src={member.avatar} />
-                          <AvatarFallback>{member.name[0]}</AvatarFallback>
+                          <AvatarFallback>{member.name ? member.name[0].toUpperCase() : 'U'}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className='text-sm'>{member.name}</div>
+                          <div className='text-sm font-medium'>{member.name}</div>
                           <div className='text-xs text-gray-500'>
-                            {index === 0 ? 'Admin - Will collect' : 'Pending'}
+                            {index === 0 ? 'Admin - Collector' : 'Member'}
                           </div>
                         </div>
                       </div>
-                      <span className='text-[#0047AB]'>
+                      <span className='text-[#0047AB] font-semibold'>
                         ₦{perMemberCost.toFixed(2)}
                       </span>
                     </div>
@@ -249,15 +328,22 @@ export function Checkout({ navigate }: CheckoutProps) {
 
           {/* Place Order Button */}
           <Button
-            className='w-full bg-[#0047AB] hover:bg-[#0047AB]/90'
+            className='w-full bg-[#0047AB] hover:bg-[#0047AB]/90 text-white font-medium'
             size='lg'
+            disabled={isSubmitting || cartItems.length === 0}
             onClick={handlePlaceOrder}
           >
-            <Wallet className='w-4 h-4 mr-2' />
-            Place Order - ₦
-            {paymentMethod === 'full'
-              ? total.toFixed(2)
-              : perMemberCost.toFixed(2)}
+            {isSubmitting ? (
+              <div className='flex items-center gap-2'>
+                <Loader2 className='w-4 h-4 animate-spin' />
+                Processing Order...
+              </div>
+            ) : (
+              <>
+                <Wallet className='w-4 h-4 mr-2' />
+                Place Order - ₦{paymentMethod === 'full' ? total.toFixed(2) : perMemberCost.toFixed(2)}
+              </>
+            )}
           </Button>
         </div>
       </div>
