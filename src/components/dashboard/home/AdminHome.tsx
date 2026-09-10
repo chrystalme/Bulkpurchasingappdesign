@@ -171,7 +171,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => navigate('escrow-dispute')}
+                    onClick={() => navigate('dispute-management')}
                     className="text-red-600 border-red-200 hover:bg-red-50"
                   >
                     Review Disputes
@@ -261,7 +261,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('escrow-dispute')}
+            onClick={() => navigate('dispute-management')}
             className="text-[#7C3AED]"
           >
             All Disputes
@@ -284,7 +284,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => navigate('escrow-dispute')}
+                    onClick={() => navigate('dispute-management')}
                     className="text-[#7C3AED] border-[#7C3AED]/20"
                   >
                     Open Disputes

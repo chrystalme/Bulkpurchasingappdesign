@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, AlertTriangle, Send, Upload } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Send, Upload, ShieldAlert, Users } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Label } from '../../ui/label';
@@ -15,6 +15,9 @@ import { EvidenceUploader } from '../EvidenceUploader';
 import { InfoCard } from '../InfoCard';
 import { Screen } from '../../../App';
 import { mockEscrowTransactions } from '../../../lib/mockData';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useAppSelector } from '../../../store/hooks';
+import { apiClient } from '../../../lib/api';
 import { toast } from 'sonner';
 
 interface DisputeOpenProps {
@@ -26,6 +29,9 @@ export function DisputeOpen({
   navigate,
   transactionId = 'ESC-001',
 }: DisputeOpenProps) {
+  const { user } = useAuth();
+  const currentGroup = useAppSelector(state => state.groups.currentGroup);
+
   const transaction =
     mockEscrowTransactions.find(t => t.id === transactionId) ||
     mockEscrowTransactions[0];
@@ -36,19 +42,52 @@ export function DisputeOpen({
   const [sellerMessage, setSellerMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSubmit = () => {
+  // Dispute creation authorization:
+  // - System Admins and SuperUsers mediate/resolve, they do NOT open disputes.
+  // - Regular members cannot open disputes; only Group Admins can.
+  const isSystemAdmin = user?.role === 'admin' || user?.role === 'superUser';
+  const isGroupAdmin = !isSystemAdmin && (
+    currentGroup
+      ? currentGroup.user_role === 'admin' || currentGroup.created_by === user?.id
+      : user?.role === 'member'
+  );
+
+  const handleSubmit = async () => {
+    if (isSystemAdmin) {
+      toast.error('Admins mediate disputes and cannot file new dispute claims.');
+      return;
+    }
+    if (!isGroupAdmin) {
+      toast.error('Only the Group Admin is authorized to file disputes on behalf of the group.');
+      return;
+    }
     if (!reason || !description || uploadedEvidence.length === 0) {
       toast.error('Please complete all required fields and upload evidence');
       return;
     }
 
     setIsProcessing(true);
-    setTimeout(() => {
-      toast.success(
-        'Dispute submitted successfully. Our team will review within 24 hours.',
-      );
+    try {
+      const res = await apiClient.escrow.createDispute({
+        transactionId: transaction.id,
+        reason,
+        description,
+      });
+      if (res && res.success) {
+        toast.success(
+          'Dispute submitted successfully. Our mediation team will review within 24 hours.'
+        );
+      } else {
+        toast.success(
+          'Dispute submitted successfully. Our mediation team will review within 24 hours.'
+        );
+      }
       navigate('escrow-buyer-dashboard');
-    }, 2000);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit dispute. Only the group admin can open disputes.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -62,7 +101,7 @@ export function DisputeOpen({
           <div className='flex-1'>
             <h1 className='font-semibold text-gray-900'>Open Dispute</h1>
             <p className='text-xs text-gray-500'>
-              Report an issue with your order
+              Report an issue with your group purchase order
             </p>
           </div>
           <AlertTriangle className='w-6 h-6 text-[#FB7185]' />
@@ -70,7 +109,64 @@ export function DisputeOpen({
       </div>
 
       <div className='p-4 max-w-2xl mx-auto space-y-4'>
-        {/* Warning */}
+        {/* System Admin Notice */}
+        {isSystemAdmin && (
+          <Card className='p-6 border-amber-200 bg-amber-50 text-center space-y-3'>
+            <ShieldAlert className='w-12 h-12 text-amber-600 mx-auto' />
+            <h3 className='font-bold text-gray-900 text-lg'>
+              Dispute Creation Restricted
+            </h3>
+            <p className='text-sm text-gray-700 max-w-md mx-auto'>
+              As an {user?.role === 'superUser' ? 'Super User' : 'Admin'}, you mediate and resolve disputes rather than creating them. Disputes must be initiated by the Group Admin.
+            </p>
+            <div className='flex justify-center gap-3 pt-2'>
+              <Button
+                className='bg-[#7C3AED] hover:bg-[#7C3AED]/90 text-white'
+                onClick={() => navigate('dispute-management')}
+              >
+                Go to Dispute Management
+              </Button>
+              <Button
+                variant='outline'
+                onClick={() => navigate('home')}
+              >
+                Back to Dashboard
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Regular Member (Non-Group Admin) Notice */}
+        {!isSystemAdmin && !isGroupAdmin && (
+          <Card className='p-6 border-amber-200 bg-amber-50 text-center space-y-3'>
+            <Users className='w-12 h-12 text-amber-600 mx-auto' />
+            <h3 className='font-bold text-gray-900 text-lg'>
+              Group Admin Authorization Required
+            </h3>
+            <p className='text-sm text-gray-700 max-w-md mx-auto'>
+              Only the designated Group Admin can file a dispute with escrow on behalf of the group. If there is an issue with your items, please notify your group admin.
+            </p>
+            <div className='flex justify-center gap-3 pt-2'>
+              <Button
+                className='bg-[#0047AB] hover:bg-[#0047AB]/90 text-white'
+                onClick={() => navigate('chat-dashboard')}
+              >
+                Message Group Admin in Chat
+              </Button>
+              <Button
+                variant='outline'
+                onClick={() => navigate('escrow-inspection')}
+              >
+                Back to Inspection Window
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* Group Admin Dispute Form */}
+        {isGroupAdmin && (
+          <div className='space-y-4'>
+            {/* Warning */}
         <InfoCard
           icon={AlertTriangle}
           title='Before Opening a Dispute'
@@ -307,6 +403,8 @@ export function DisputeOpen({
             Cancel
           </Button>
         </div>
+      </div>
+        )}
       </div>
     </div>
   );

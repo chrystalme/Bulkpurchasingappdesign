@@ -158,7 +158,6 @@ function AppContent() {
         screen === 'admin-users' ||
         screen === 'admin-create-user' ||
         screen === 'dispute-management' ||
-        screen === 'escrow-dispute' ||
         screen === 'escrow-mediation' ||
         screen === 'products'
       );

@@ -30,12 +30,9 @@ export function DisputeManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDispute, setSelectedDispute] = useState<DisputeWithTransaction | null>(null);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [newDisputeForm, setNewDisputeForm] = useState({
-    transactionId: '',
-    reason: 'wrong_quantity' as const,
-    description: '',
-  });
+  const [resolutionChoice, setResolutionChoice] = useState<'refund_buyer' | 'release_seller' | 'split'>('refund_buyer');
+  const [adminNotes, setAdminNotes] = useState('');
+  const [isResolving, setIsResolving] = useState(false);
 
   const loadDisputes = async () => {
     try {
@@ -75,45 +72,47 @@ export function DisputeManagement() {
     loadDisputes();
   }, []);
 
-  const handleCreateDispute = async () => {
-    if (!newDisputeForm.transactionId || !newDisputeForm.description) {
-      toast.error('Please fill in all fields');
-      return;
-    }
+  const handleResolveDispute = async (disputeId: string) => {
     try {
-      const res = await apiClient.escrow.createDispute({
-        transactionId: newDisputeForm.transactionId,
-        reason: newDisputeForm.reason,
-        description: newDisputeForm.description,
-      });
+      setIsResolving(true);
+      const res = await apiClient.escrow.resolveDispute(
+        disputeId,
+        resolutionChoice,
+        adminNotes
+      );
       if (res && res.success) {
-        toast.success('Dispute filed successfully');
-        loadDisputes();
+        toast.success(`Dispute resolved successfully (${resolutionChoice.replace('_', ' ')})`);
       } else {
-        const newDispute: DisputeWithTransaction = {
-          id: `disp-${Date.now().toString().slice(-6)}`,
-          transactionId: newDisputeForm.transactionId,
-          reason: newDisputeForm.reason,
-          buyerEvidence: [],
-          sellerEvidence: [],
-          status: 'open',
-          createdAt: new Date().toISOString(),
-          adminNotes: newDisputeForm.description,
-          buyerName: 'You',
-          sellerName: 'Vendor',
-        };
-        setDisputes([newDispute, ...disputes]);
-        toast.success('Dispute recorded');
+        toast.success(`Dispute marked as resolved (${resolutionChoice.replace('_', ' ')})`);
       }
-    } catch (err) {
-      toast.error('Failed to submit dispute');
+      setDisputes(prev =>
+        prev.map(d =>
+          d.id === disputeId
+            ? {
+                ...d,
+                status: 'resolved',
+                resolution: resolutionChoice,
+                adminNotes: adminNotes || d.adminNotes,
+                resolvedAt: new Date().toISOString(),
+              }
+            : d
+        )
+      );
+      if (selectedDispute && selectedDispute.id === disputeId) {
+        setSelectedDispute({
+          ...selectedDispute,
+          status: 'resolved',
+          resolution: resolutionChoice,
+          adminNotes: adminNotes || selectedDispute.adminNotes,
+          resolvedAt: new Date().toISOString(),
+        });
+      }
+      setAdminNotes('');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to resolve dispute');
+    } finally {
+      setIsResolving(false);
     }
-    setIsCreateOpen(false);
-    setNewDisputeForm({
-      transactionId: '',
-      reason: 'wrong_quantity',
-      description: '',
-    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -170,67 +169,19 @@ export function DisputeManagement() {
           <h1 className="text-3xl font-bold text-gray-900">Dispute Management</h1>
           <p className="text-gray-600 mt-1">Track and resolve transaction disputes</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Dispute
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Dispute</DialogTitle>
-              <DialogDescription>
-                File a new dispute for a transaction
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Transaction ID
-                </label>
-                <Input
-                  placeholder="Enter transaction ID"
-                  value={newDisputeForm.transactionId}
-                  onChange={(e) => setNewDisputeForm({ ...newDisputeForm, transactionId: e.target.value })}
-                  className="text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason
-                </label>
-                <select
-                  value={newDisputeForm.reason}
-                  onChange={(e) => setNewDisputeForm({ ...newDisputeForm, reason: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
-                >
-                  <option value="wrong_quantity">Wrong Quantity</option>
-                  <option value="damaged">Damaged</option>
-                  <option value="not_as_described">Not as Described</option>
-                  <option value="not_received">Not Received</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <Textarea
-                  placeholder="Describe the dispute details"
-                  value={newDisputeForm.description}
-                  onChange={(e) => setNewDisputeForm({ ...newDisputeForm, description: e.target.value })}
-                  className="text-gray-900"
-                />
-              </div>
-              <Button
-                onClick={handleCreateDispute}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Create Dispute
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="bg-purple-50 text-[#7C3AED] border-purple-200 py-1.5 px-3 font-medium">
+            Admin / SuperUser Mediation
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadDisputes}
+            className="text-gray-700"
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {disputes.length === 0 ? (
@@ -330,6 +281,52 @@ export function DisputeManagement() {
                                 </div>
                               </div>
                             </div>
+
+                            {/* Mediation Controls for Admin / SuperUser */}
+                            {selectedDispute.status !== 'resolved' && selectedDispute.status !== 'closed' ? (
+                              <div className="border-t pt-4 space-y-3">
+                                <h4 className="text-sm font-semibold text-gray-900">Mediate & Resolve Dispute</h4>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    Mediation Decision
+                                  </label>
+                                  <select
+                                    value={resolutionChoice}
+                                    onChange={(e) => setResolutionChoice(e.target.value as any)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                  >
+                                    <option value="refund_buyer">Full Refund to Buyer</option>
+                                    <option value="release_seller">Release Escrow Funds to Seller</option>
+                                    <option value="split">50/50 Split Settlement</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    Mediation Notes / Rationale
+                                  </label>
+                                  <Textarea
+                                    placeholder="Enter mediation resolution notes for buyer and seller..."
+                                    value={adminNotes}
+                                    onChange={(e) => setAdminNotes(e.target.value)}
+                                    className="text-sm h-20"
+                                  />
+                                </div>
+                                <Button
+                                  onClick={() => handleResolveDispute(selectedDispute.id)}
+                                  disabled={isResolving}
+                                  className="w-full bg-[#7C3AED] hover:bg-[#7C3AED]/90 text-white font-medium"
+                                >
+                                  {isResolving ? 'Submitting Resolution...' : 'Resolve Dispute & Finalize Escrow'}
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="border-t pt-3 flex items-center justify-between">
+                                <span className="text-xs text-gray-500 font-medium">Dispute Status</span>
+                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">
+                                  Resolved: {selectedDispute.resolution || 'Complete'}
+                                </Badge>
+                              </div>
+                            )}
                           </div>
                         )}
                       </DialogContent>

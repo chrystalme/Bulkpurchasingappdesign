@@ -389,18 +389,53 @@ router.post('/disputes', async (req, res) => {
     const { transactionId, reason, description } = req.body;
     const userId = req.user.id;
 
+    // Admin and superUser cannot create a dispute (they mediate and resolve disputes)
+    if (req.user.role === 'admin' || req.user.role === 'superUser') {
+      return res.status(403).json({
+        error: 'Only group admins can open disputes. System administrators mediate and resolve disputes.',
+      });
+    }
+
     if (!transactionId || !reason) {
       return res.status(400).json({ error: 'Transaction ID and reason are required' });
     }
 
-    // Verify transaction exists and user is participant
+    // Verify transaction exists
     const txCheck = await client.query(
-      'SELECT * FROM escrow_transactions WHERE id = $1 AND (buyer_id = $2 OR seller_id = $2)',
-      [transactionId, userId]
+      'SELECT * FROM escrow_transactions WHERE id = $1',
+      [transactionId]
     );
 
     if (txCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Transaction not found or unauthorized' });
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    const tx = txCheck.rows[0];
+
+    // Check if current user is the group admin for the group that placed this order
+    const groupAdminCheck = await client.query(
+      `SELECT gm.role 
+       FROM group_members gm 
+       JOIN orders o ON o.group_id = gm.group_id 
+       WHERE o.id = $1 AND gm.user_id = $2 AND gm.role = 'admin'`,
+      [tx.order_id, userId]
+    );
+
+    if (groupAdminCheck.rows.length === 0) {
+      // Also check if user is the direct group creator
+      const groupCreatorCheck = await client.query(
+        `SELECT g.id 
+         FROM groups g 
+         JOIN orders o ON o.group_id = g.id 
+         WHERE o.id = $1 AND g.created_by = $2`,
+        [tx.order_id, userId]
+      );
+
+      if (groupCreatorCheck.rows.length === 0) {
+        return res.status(403).json({
+          error: 'Only the group admin has permission to open a dispute on behalf of the group',
+        });
+      }
     }
 
     await client.query('BEGIN');
@@ -445,7 +480,7 @@ router.post('/disputes/:id/resolve', async (req, res) => {
     const { resolution, adminNotes } = req.body;
 
     if (req.user.role !== 'superUser' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Only admins can resolve disputes' });
+      return res.status(403).json({ error: 'Only admins and super users can resolve disputes' });
     }
 
     if (!resolution || !['refund_buyer', 'release_seller', 'partial_split'].includes(resolution)) {
