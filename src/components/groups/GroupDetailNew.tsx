@@ -41,6 +41,7 @@ import { ChatWindowReal } from '../chat/ChatWindowReal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { APP_NAME } from '../../lib/brand';
 
 interface GroupDetailProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -66,7 +67,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
       try {
         await navigator.share({
           title: `Join ${currentGroup.name}`,
-          text: `Join ${currentGroup.name} on BulkBuy to purchase in bulk and save together! Use code ${currentGroup.join_code}`,
+          text: `Join ${currentGroup.name} on ${APP_NAME} to purchase in bulk and save together! Use code ${currentGroup.join_code}`,
           url,
         });
         return;

@@ -1,6 +1,7 @@
 import { Home, Users, ShoppingCart, MessageCircle, User, Shield, Package, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Brand } from '../brand/Brand';
 import type { Screen } from '../../App';
 
 interface BottomNavProps {
@@ -127,7 +128,7 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
       <nav className="hidden lg:block fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-50">
         <div className="p-6 h-full flex flex-col justify-between">
           <div>
-            <h2 className="text-[#0047AB] mb-8 font-semibold text-xl">BulkBuy</h2>
+            <Brand size="lg" tagline className="mb-8" />
             <div className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon;

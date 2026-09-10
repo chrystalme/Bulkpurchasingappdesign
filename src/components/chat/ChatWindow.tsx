@@ -328,7 +328,7 @@ export function ChatWindow({ conversation, onBack }: ChatWindowProps) {
           <Button
             onClick={handleSend}
             disabled={!inputValue.trim() || !canSendMessages}
-            className='bg-[#0047AB] hover:bg-[#003380] text-white rounded-full h-10 w-10 p-0'
+            className='bg-[#0047AB] hover:bg-[#003D96] text-white rounded-full h-10 w-10 p-0'
           >
             <Send className='w-4 h-4' />
           </Button>

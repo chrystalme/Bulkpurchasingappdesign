@@ -159,7 +159,7 @@ export function MemberHome({ navigate }: MemberHomeProps) {
         <div className="grid grid-cols-2 gap-3">
           <Button
             onClick={() => navigate('group-create')}
-            className="h-20 flex flex-col items-center justify-center gap-2 bg-[#0047AB] hover:bg-[#003580]"
+            className="h-20 flex flex-col items-center justify-center gap-2 bg-[#0047AB] hover:bg-[#003D96]"
           >
             <Plus className="w-6 h-6" />
             <span className="text-xs">Create Group</span>

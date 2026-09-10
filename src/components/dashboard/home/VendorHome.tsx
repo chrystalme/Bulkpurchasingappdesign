@@ -78,7 +78,7 @@ export function VendorHome({ navigate }: VendorHomeProps) {
   return (
     <div className="pb-4 text-black">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#101eb9] to-[#6EE7B7] p-6 lg:p-8 rounded-b-3xl">
+      <div className="bg-gradient-to-r from-[#0047AB] to-[#6EE7B7] p-6 lg:p-8 rounded-b-3xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-gray-500">
@@ -131,7 +131,7 @@ export function VendorHome({ navigate }: VendorHomeProps) {
         <div className="grid grid-cols-2 gap-3">
           <Button
             onClick={() => navigate('vendor-add-product')}
-            className="h-20 flex flex-col items-center justify-center gap-2 bg-[#10B981] hover:bg-[#059669]"
+            className="h-20 flex flex-col items-center justify-center gap-2 bg-[#0047AB] hover:bg-[#003D96]"
           >
             <Plus className="w-6 h-6" />
             <span className="text-xs">Add Product</span>

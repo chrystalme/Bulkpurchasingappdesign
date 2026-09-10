@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '../ui/label';
 import { ArrowLeft, Send, Calculator, Star } from 'lucide-react';
 import type { Screen } from '../../App';
+import { mockMembers } from '../../lib/mockData';
 
 interface VendorChatProps {
   navigate: (screen: Screen, groupId?: string) => void;

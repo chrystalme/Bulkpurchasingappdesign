@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { Dispute } from '../../lib/types/escrow.types';
 import { apiClient } from '../../lib/api';
+import { mockDisputes } from '../../lib/mockData';
 import { toast } from 'sonner';
 
 interface DisputeWithTransaction extends Dispute {
@@ -170,7 +171,7 @@ export function DisputeManagement() {
           <p className="text-gray-600 mt-1">Track and resolve transaction disputes</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-purple-50 text-[#7C3AED] border-purple-200 py-1.5 px-3 font-medium">
+          <Badge variant="outline" className="bg-[#EBF1FB] text-[#0047AB] border-[#0047AB]/20 py-1.5 px-3 font-medium">
             Admin / SuperUser Mediation
           </Badge>
           <Button
@@ -314,7 +315,7 @@ export function DisputeManagement() {
                                 <Button
                                   onClick={() => handleResolveDispute(selectedDispute.id)}
                                   disabled={isResolving}
-                                  className="w-full bg-[#7C3AED] hover:bg-[#7C3AED]/90 text-white font-medium"
+                                  className="w-full bg-[#0047AB] hover:bg-[#003D96] text-white font-medium"
                                 >
                                   {isResolving ? 'Submitting Resolution...' : 'Resolve Dispute & Finalize Escrow'}
                                 </Button>

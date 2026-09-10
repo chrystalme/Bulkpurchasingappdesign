@@ -69,7 +69,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
   return (
     <div className="pb-4">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#7C3AED] to-[#6EE7B7] p-6 lg:p-8 rounded-b-3xl">
+      <div className="bg-gradient-to-r from-[#0047AB] to-[#6EE7B7] p-6 lg:p-8 rounded-b-3xl">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-white">Admin Dashboard, {user?.name || 'Admin'} 👋</h2>
@@ -116,7 +116,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
         <div className="grid grid-cols-2 gap-3">
           <Button
             onClick={() => navigate('admin-create-user')}
-            className="h-20 flex flex-col items-center justify-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9]"
+            className="h-20 flex flex-col items-center justify-center gap-2 bg-[#0047AB] hover:bg-[#003D96]"
           >
             <Plus className="w-6 h-6" />
             <span className="text-xs">Create User</span>
@@ -188,14 +188,14 @@ export function AdminHome({ navigate }: AdminHomeProps) {
       <div className="px-4 lg:px-8 mt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-[#7C3AED]" />
+            <Users className="w-5 h-5 text-[#0047AB]" />
             Recent Users
           </h3>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate('admin-users')}
-            className="text-[#7C3AED]"
+            className="text-[#0047AB]"
           >
             View All
             <ChevronRight className="w-4 h-4 ml-1" />
@@ -255,24 +255,24 @@ export function AdminHome({ navigate }: AdminHomeProps) {
       <div className="px-4 lg:px-8 mt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-[#7C3AED]" />
+            <AlertTriangle className="w-5 h-5 text-[#0047AB]" />
             Dispute Management
           </h3>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate('dispute-management')}
-            className="text-[#7C3AED]"
+            className="text-[#0047AB]"
           >
             All Disputes
             <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
 
-        <Card className="bg-gradient-to-br from-[#7C3AED]/5 to-[#6EE7B7]/5 border-[#7C3AED]/20">
+        <Card className="bg-gradient-to-br from-[#0047AB]/5 to-[#6EE7B7]/5 border-[#0047AB]/20">
           <CardContent className="p-6">
             <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#7C3AED] flex items-center justify-center">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#0047AB] flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1">
@@ -285,7 +285,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => navigate('dispute-management')}
-                    className="text-[#7C3AED] border-[#7C3AED]/20"
+                    className="text-[#0047AB] border-[#0047AB]/20"
                   >
                     Open Disputes
                   </Button>
@@ -293,7 +293,7 @@ export function AdminHome({ navigate }: AdminHomeProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => navigate('escrow-mediation')}
-                    className="text-[#7C3AED] border-[#7C3AED]/20"
+                    className="text-[#0047AB] border-[#0047AB]/20"
                   >
                     Mediation View
                   </Button>

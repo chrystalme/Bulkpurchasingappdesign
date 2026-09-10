@@ -121,7 +121,7 @@ export function DisputeOpen({
             </p>
             <div className='flex justify-center gap-3 pt-2'>
               <Button
-                className='bg-[#7C3AED] hover:bg-[#7C3AED]/90 text-white'
+                className='bg-[#0047AB] hover:bg-[#003D96] text-white'
                 onClick={() => navigate('dispute-management')}
               >
                 Go to Dispute Management

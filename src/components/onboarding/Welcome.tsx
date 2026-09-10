@@ -4,6 +4,8 @@ import {
   Shield, MessageSquare, ChevronRight, Zap, Package,
   MapPin, Clock, Check
 } from 'lucide-react';
+import { Brand } from '../brand/Brand';
+import { APP_NAME } from '../../lib/brand';
 
 interface WelcomeProps {
   onGetStarted: () => void;
@@ -195,17 +197,7 @@ export function Welcome({ onGetStarted, onNavigateToLogin, onNavigateToSignup, o
       {/* ── NAV ─────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#0047AB]/10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={handleSignUp}>
-            <div className="w-8 h-8 rounded-lg bg-[#0047AB] flex items-center justify-center">
-              <Users className="w-4 h-4 text-white" />
-            </div>
-            <span
-              className="font-bold text-[#0047AB] text-base tracking-tight"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              SaveTogether
-            </span>
-          </div>
+          <Brand size="md" className="cursor-pointer" onClick={handleSignUp} title="SaveTogether" />
           <div className="flex items-center gap-2">
             <button
               onClick={handleSignIn}
@@ -731,19 +723,9 @@ export function Welcome({ onGetStarted, onNavigateToLogin, onNavigateToSignup, o
       {/* ── FOOTER ───────────────────────────────────────────── */}
       <footer className="border-t border-[#0047AB]/10 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#0047AB] flex items-center justify-center">
-              <Users className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span
-              className="font-bold text-[#0047AB] text-sm"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              SaveTogether
-            </span>
-          </div>
+          <Brand size="sm" />
           <p className="text-xs text-gray-400">
-            © 2024 SaveTogether. Secure group buying, powered by escrow.
+            © 2024 {APP_NAME}. Secure group buying, powered by escrow.
           </p>
         </div>
       </footer>

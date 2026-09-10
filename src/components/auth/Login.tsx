@@ -7,7 +7,6 @@ import { Alert, AlertDescription } from '../ui/alert';
 import {
   Eye,
   EyeOff,
-  ShoppingBag,
   Lock,
   Mail,
   AlertCircle,
@@ -16,6 +15,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { Brand, BrandMark } from '../brand/Brand';
 import { isValidEmail } from '../../lib/sanitizer';
 import {
   Dialog,
@@ -163,18 +163,10 @@ export function Login({ onNavigateToSignup, onNavigateHome }: LoginProps) {
           <button
             type="button"
             onClick={onNavigateHome}
-            className="flex items-center gap-2 cursor-pointer"
+            className="cursor-pointer"
             title="Back to home"
           >
-            <div className="w-8 h-8 rounded-lg bg-[#0047AB] flex items-center justify-center">
-              <ShoppingBag className="w-4 h-4 text-white" />
-            </div>
-            <span
-              className="font-bold text-[#0047AB] text-base tracking-tight"
-              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-            >
-              SaveTogether
-            </span>
+            <Brand size="md" />
           </button>
 
           <div className="flex items-center gap-2">
@@ -203,9 +195,7 @@ export function Login({ onNavigateToSignup, onNavigateHome }: LoginProps) {
         <div className="w-full max-w-md">
         {/* Logo and Welcome */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <ShoppingBag className="w-10 h-10 text-[#0047AB]" />
-          </div>
+          <BrandMark size="hero" tone="inverse" className="mx-auto mb-4" />
           <h1 className="text-white mb-2">Welcome Back</h1>
           <p className="text-white/80">Save Together, Buy Smarter</p>
         </div>

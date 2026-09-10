@@ -22,7 +22,20 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #030213;
+  /* ── BRAND · SaveTogether (new Figma design system) ──────────────
+   * Canonical palette. Mirrored for TypeScript consumers in
+   * src/lib/brand.ts — keep the two in step. */
+  --brand: #0047ab;
+  --brand-hover: #003d96;
+  --brand-tint: #ebf1fb;
+  --brand-accent: #6ee7b7;
+  --brand-accent-hover: #5dd4a4;
+  --brand-deep: #064e3b;
+  --brand-ink: #0d1117;
+  --brand-surface: #f4f4f5;
+  /* Primary actions carry the brand blue (the shadcn default was near-black,
+   * which rendered CTAs that the Figma design never shows). */
+  --primary: var(--brand);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.95 0.0058 264.53);
   --secondary-foreground: #030213;
@@ -93,6 +106,16 @@
 }
 
 @theme inline {
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-tint: var(--brand-tint);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-hover: var(--brand-accent-hover);
+  --color-brand-deep: var(--brand-deep);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-surface: var(--brand-surface);
+  /* Brand palette companions used for status, not identity:
+   * positive #10B981 · alert #FB7185 · caution/rating #FACC15 */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

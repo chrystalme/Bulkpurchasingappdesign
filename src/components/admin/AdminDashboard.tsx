@@ -177,12 +177,12 @@ export function AdminDashboard({ navigate }: AdminDashboardProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Vendors</p>
-                  <p className="text-2xl font-bold text-[#8B5CF6]">
+                  <p className="text-2xl font-bold text-[#0047AB]">
                     {stats?.vendors || 0}
                   </p>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <ShoppingCart className="w-6 h-6 text-[#8B5CF6]" />
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <ShoppingCart className="w-6 h-6 text-[#0047AB]" />
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">Product suppliers</p>
