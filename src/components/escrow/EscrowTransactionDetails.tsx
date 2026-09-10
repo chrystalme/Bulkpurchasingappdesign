@@ -23,6 +23,7 @@ import { ErrorState } from '../ui/ErrorState';
 import { fetchTransactionById } from '../../store/slices/escrowSlice';
 import { selectCurrentTransaction, selectEscrowLoading, selectEscrowError } from '../../store/selectors/escrowSelectors';
 import type { EscrowTransaction } from '../../lib/types';
+import { parseDate } from '../../lib/formatters';
 
 interface EscrowDetailsProps {
   transactionId?: string;
@@ -63,7 +64,9 @@ export function EscrowTransactionDetails({
   };
 
   const formatDate = (date: string | Date) => {
-    return new Date(date).toLocaleDateString('en-US', {
+    const parsed = parseDate(date);
+    if (!parsed) return '—';
+    return parsed.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

@@ -11,6 +11,7 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchConversations, selectConversation } from '../../store/slices/chatSlice';
 import type { Screen } from '../../App';
 import type { Conversation } from '../../lib/types/chat.types';
+import { parseDate } from '../../lib/formatters';
 
 interface ChatDashboardRealProps {
   navigate: (screen: Screen) => void;
@@ -63,12 +64,13 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
 
   // Format timestamp
   const formatTime = (timestamp: string) => {
-    const date = new Date(timestamp);
+    const date = parseDate(timestamp);
+    if (!date) return '';
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) {
+    if (diffDays <= 0) {
       return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     } else if (diffDays === 1) {
       return 'Yesterday';

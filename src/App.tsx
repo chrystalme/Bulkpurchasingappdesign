@@ -31,6 +31,7 @@ import { ReviewForm } from './components/reviews/ReviewForm';
 import { Profile } from './components/profile/Profile';
 import { BottomNav } from './components/navigation/BottomNav';
 import { Toaster } from './components/ui/sonner';
+import { ErrorBoundary } from './components/errors/ErrorBoundary';
 import { EscrowCheckout } from './components/escrow/buyer/EscrowCheckout';
 import { BuyerTransactionDashboard } from './components/escrow/buyer/BuyerTransactionDashboard';
 import { InspectionWindow } from './components/escrow/buyer/InspectionWindow';
@@ -42,6 +43,7 @@ import { DisputeMediation } from './components/escrow/dispute/DisputeMediation';
 import { VendorDashboard } from './components/vendor/VendorDashboard';
 import { VendorAddProduct } from './components/vendor/VendorAddProduct';
 import { VendorProducts } from './components/vendor/VendorProducts';
+import { VendorProductDetail } from './components/vendor/VendorProductDetail';
 import { VendorOrders } from './components/vendor/VendorOrders';
 import { VendorCustomers } from './components/vendor/VendorCustomers';
 import { UserManagement } from './components/admin/UserManagement';
@@ -79,6 +81,8 @@ export type Screen =
   | 'vendor-dashboard'
   | 'vendor-add-product'
   | 'vendor-products'
+  | 'vendor-product-detail'
+  | 'vendor-product-edit'
   | 'vendor-orders'
   | 'vendor-customers'
   | 'vendor-analytics'
@@ -88,11 +92,19 @@ export type Screen =
   | 'transaction-history'
   | 'dispute-management';
 
+/** Navigation signature shared by the screens that take a selected id. */
+export type NavigateFn = (
+  screen: Screen,
+  groupId?: string,
+  productId?: string | null
+) => void;
+
 function AppContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const dispatch = useAppDispatch();
   const currentScreen = useAppSelector(state => state.navigation.currentScreen);
   const selectedGroupId = useAppSelector(state => state.navigation.selectedGroupId);
+  const selectedProductId = useAppSelector(state => state.navigation.selectedProductId);
   const restorationComplete = useAppSelector(state => state.navigation.restorationComplete);
   const pendingScreen = useAppSelector(state => state.navigation.pendingScreen);
   const pendingGroupId = useAppSelector(state => state.navigation.pendingGroupId);
@@ -213,6 +225,8 @@ function AppContent() {
     'vendor-dashboard',
     'vendor-add-product',
     'vendor-products',
+    'vendor-product-detail',
+    'vendor-product-edit',
     'vendor-orders',
     'vendor-customers',
     'vendor-analytics',
@@ -260,7 +274,11 @@ function AppContent() {
     });
   }, [isAuthenticated, restorationComplete, dispatch]);
 
-  const handleNavigate = (screen: Screen, groupId?: string) => {
+  const handleNavigate = (
+    screen: Screen,
+    groupId?: string,
+    productId?: string | null
+  ) => {
     // Guests: browse-only. Gated actions are remembered and routed to
     // login, then continued after auth. Neutral taps (home) fall back to
     // the landing page instead of forcing auth.
@@ -282,7 +300,7 @@ function AppContent() {
     }
 
     // Redux-persist handles persistence automatically
-    dispatch(navigate({ screen, groupId }));
+    dispatch(navigate({ screen, groupId, productId }));
   };
 
   const handleNavigateToWelcome = () => {
@@ -424,8 +442,22 @@ function AppContent() {
         return <VendorDashboard navigate={handleNavigate} />;
       case 'vendor-add-product':
         return <VendorAddProduct navigate={handleNavigate} />;
+      case 'vendor-product-edit':
+        return (
+          <VendorAddProduct
+            navigate={handleNavigate}
+            productId={selectedProductId}
+          />
+        );
       case 'vendor-products':
         return <VendorProducts navigate={handleNavigate} />;
+      case 'vendor-product-detail':
+        return (
+          <VendorProductDetail
+            navigate={handleNavigate}
+            productId={selectedProductId}
+          />
+        );
       case 'vendor-orders':
         return <VendorOrders navigate={handleNavigate} />;
       case 'vendor-customers':
@@ -472,7 +504,13 @@ function AppContent() {
               }`
         }`}
       >
-        {renderScreen()}
+        <ErrorBoundary
+          resetKey={currentScreen}
+          label={currentScreen}
+          onGoHome={() => handleNavigate('home')}
+        >
+          {renderScreen()}
+        </ErrorBoundary>
         {showBottomNav && (
           <BottomNav currentScreen={currentScreen} navigate={handleNavigate} />
         )}

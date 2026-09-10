@@ -74,7 +74,13 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
     )
       return true;
     if (itemId === 'admin-users' && currentScreen === 'admin-create-user') return true;
-    if (itemId === 'vendor-products' && currentScreen === 'vendor-add-product') return true;
+    if (
+      itemId === 'vendor-products' &&
+      (currentScreen === 'vendor-add-product' ||
+        currentScreen === 'vendor-product-detail' ||
+        currentScreen === 'vendor-product-edit')
+    )
+      return true;
     if (
       itemId === 'groups' &&
       (currentScreen === 'group-detail' ||

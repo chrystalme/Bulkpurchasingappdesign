@@ -34,6 +34,7 @@ import {
   selectVendorsLoading,
   selectVendorsError,
 } from '../../store/selectors';
+import { formatDate } from '../../lib/formatters';
 
 interface VendorDashboardProps {
   navigate: (screen: Screen) => void;
@@ -338,7 +339,7 @@ export function VendorDashboard({ navigate }: VendorDashboardProps) {
                       <span>Qty: {order.quantity}</span>
                       <span>•</span>
                       <span>
-                        {new Date(order.orderDate).toLocaleDateString()}
+                        {formatDate(order.orderDate)}
                       </span>
                     </div>
                   </div>

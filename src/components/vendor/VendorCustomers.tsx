@@ -13,6 +13,7 @@ import { ErrorState } from '../ui/ErrorState';
 import { fetchVendorCustomers } from '../../store/slices/vendorsSlice';
 import { selectVendorCustomers, selectVendorsLoading, selectVendorsError } from '../../store/selectors/vendorsSelectors';
 import type { VendorCustomer } from '../../lib/types';
+import { formatDate } from '../../lib/formatters';
 
 interface VendorCustomersProps {
   navigate: (screen: Screen) => void;
@@ -195,7 +196,7 @@ export function VendorCustomers({ navigate }: VendorCustomersProps) {
                       <div>
                         <p className="text-xs text-gray-600">Last Order</p>
                         <p className="text-sm text-gray-900">
-                          {new Date(customer.last_order_date).toLocaleDateString('en-US', {
+                          {formatDate(customer.last_order_date, 'en-US', {
                             month: 'short',
                             day: 'numeric'
                           })}

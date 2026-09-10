@@ -14,6 +14,7 @@ import { CountdownTimer } from '../CountdownTimer';
 import { InfoCard } from '../InfoCard';
 import { Screen } from '../../../App';
 import { mockEscrowTransactions } from '../../../lib/mockData';
+import { formatDate } from '../../../lib/formatters';
 
 interface SellerAwaitingInspectionProps {
   navigate: (screen: Screen) => void;
@@ -131,7 +132,7 @@ export function SellerAwaitingInspection({
               <div>
                 <p className='text-sm text-gray-600'>Delivered</p>
                 <p className='font-medium text-gray-900'>
-                  {new Date(transaction.deliveredAt).toLocaleDateString(
+                  {formatDate(transaction.deliveredAt, 
                     'en-US',
                     {
                       month: 'long',

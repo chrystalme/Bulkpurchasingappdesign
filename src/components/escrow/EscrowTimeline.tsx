@@ -8,6 +8,7 @@ import {
   DollarSign,
 } from 'lucide-react';
 import { EscrowTransaction } from '../../lib/mockData';
+import { parseDate } from '../../lib/formatters';
 
 interface EscrowTimelineProps {
   transaction: EscrowTransaction;
@@ -80,8 +81,8 @@ export function EscrowTimeline({
   const steps = getSteps();
 
   const formatTimestamp = (timestamp?: string) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
+    const date = parseDate(timestamp);
+    if (!date) return '';
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',

@@ -33,9 +33,13 @@ interface VendorMetric {
 }
 
 interface ChartData {
-  month: string;
+  label: string;
   revenue: number;
 }
+
+/** Revenue figures on this screen are shown in dollars. */
+const money = (value: number) =>
+  `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 
 export function VendorAnalytics({ vendorId = '5' }: { vendorId?: string }) {
   const [stats, setStats] = useState<VendorStats | null>(null);
@@ -51,8 +55,10 @@ export function VendorAnalytics({ vendorId = '5' }: { vendorId?: string }) {
       const response = await apiClient.vendors.getDashboard(String(vendorId));
       if (response.success && response.data) {
         setStats(response.data);
-        // Generate mock chart data based on date range
-        generateChartData(dateRange);
+        // Build the chart from the vendor's real revenue figures.
+        setChartData(
+          generateChartData(dateRange, response.data.monthlyRevenue || 0),
+        );
       }
     } catch (err) {
       setError((err as Error).message || 'Failed to load analytics');
@@ -61,35 +67,61 @@ export function VendorAnalytics({ vendorId = '5' }: { vendorId?: string }) {
     }
   };
 
-  const generateChartData = (range: DateRange) => {
-    const data: ChartData[] = [];
+  /**
+   * Build the revenue series for the selected range.
+   *
+   * The API exposes no time-series endpoint, so the curve is derived from the
+   * vendor's real monthly revenue rather than random numbers: the buckets sum to
+   * that figure scaled to the range, so Highest / Average / Total agree with the
+   * Monthly Revenue card above. The weights are fixed, so switching range no
+   * longer reshuffles the chart.
+   */
+  const generateChartData = (range: DateRange, monthlyRevenue: number) => {
+    const spec: Record<
+      DateRange,
+      { buckets: number; stepDays: number; months: number; label: Intl.DateTimeFormatOptions }
+    > = {
+      '7d': { buckets: 7, stepDays: 1, months: 0, label: { weekday: 'short' } },
+      '30d': { buckets: 10, stepDays: 3, months: 0, label: { month: 'short', day: 'numeric' } },
+      '90d': { buckets: 13, stepDays: 7, months: 0, label: { month: 'short', day: 'numeric' } },
+      '1y': { buckets: 12, stepDays: 0, months: 1, label: { month: 'short', year: '2-digit' } },
+    };
+    const { buckets, stepDays, months, label } = spec[range];
+
+    // Fixed shape weights: a gentle, repeating sales rhythm.
+    const WEIGHTS = [
+      0.72, 1.05, 0.88, 1.24, 0.95, 1.12, 0.79, 1.0, 1.18, 0.83, 1.08, 0.9, 1.15,
+    ];
+    const weights = Array.from(
+      { length: buckets },
+      (_, i) => WEIGHTS[i % WEIGHTS.length],
+    );
+    const weightTotal = weights.reduce((acc, w) => acc + w, 0);
+
+    // The monthly figure covers the trailing 30 days, so scale it to the range.
+    const rangeRevenue = monthlyRevenue * (months || (buckets * stepDays) / 30);
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+
     const now = new Date();
-    let monthsBack = 0;
-
-    switch (range) {
-      case '7d':
-        monthsBack = 1;
-        break;
-      case '30d':
-        monthsBack = 1;
-        break;
-      case '90d':
-        monthsBack = 3;
-        break;
-      case '1y':
-        monthsBack = 12;
-        break;
-    }
-
-    for (let i = monthsBack - 1; i >= 0; i--) {
+    let allocated = 0;
+    return Array.from({ length: buckets }, (_, i) => {
+      const offset = buckets - 1 - i;
       const date = new Date(now);
-      date.setMonth(date.getMonth() - i);
-      data.push({
-        month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-        revenue: Math.floor(Math.random() * 10000) + 2000,
-      });
-    }
-    setChartData(data);
+      if (months) {
+        date.setMonth(date.getMonth() - offset);
+      } else {
+        date.setDate(date.getDate() - offset * stepDays);
+      }
+
+      // Give the last bucket the remainder so the total matches the figure above.
+      const revenue =
+        i === buckets - 1
+          ? round2(rangeRevenue - allocated)
+          : round2((rangeRevenue * weights[i]) / weightTotal);
+      allocated = round2(allocated + revenue);
+
+      return { label: date.toLocaleDateString('en-US', label), revenue };
+    });
   };
 
   useEffect(() => {
@@ -97,7 +129,9 @@ export function VendorAnalytics({ vendorId = '5' }: { vendorId?: string }) {
   }, [vendorId]);
 
   useEffect(() => {
-    generateChartData(dateRange);
+    setChartData(generateChartData(dateRange, stats?.monthlyRevenue || 0));
+    // Only the selected range should re-shape the chart; `stats` is read at hand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateRange]);
 
   const handleRetry = async () => {
@@ -121,14 +155,14 @@ export function VendorAnalytics({ vendorId = '5' }: { vendorId?: string }) {
     ? [
         {
           label: 'Total Revenue',
-          value: `$${stats.totalRevenue.toLocaleString()}`,
+          value: money(stats.totalRevenue),
           change: 12.5,
           icon: <DollarSign className="h-8 w-8" />,
           color: 'bg-green-100 text-green-700',
         },
         {
           label: 'Monthly Revenue',
-          value: `$${stats.monthlyRevenue.toLocaleString()}`,
+          value: money(stats.monthlyRevenue),
           change: 8.3,
           icon: <TrendingUp className="h-8 w-8" />,
           color: 'bg-blue-100 text-blue-700',
@@ -150,8 +184,11 @@ export function VendorAnalytics({ vendorId = '5' }: { vendorId?: string }) {
       ]
     : [];
 
-  const maxRevenue = Math.max(...chartData.map((d) => d.revenue));
-  const avgRevenue = Math.round(chartData.reduce((acc, d) => acc + d.revenue, 0) / chartData.length);
+  const totalRevenue = chartData.reduce((acc, d) => acc + d.revenue, 0);
+  const maxRevenue = chartData.length
+    ? Math.max(...chartData.map((d) => d.revenue))
+    : 0;
+  const avgRevenue = chartData.length ? totalRevenue / chartData.length : 0;
 
   return (
     <div className="space-y-6">
@@ -213,30 +250,55 @@ export function VendorAnalytics({ vendorId = '5' }: { vendorId?: string }) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="h-64 flex items-flex-end gap-2 bg-gray-50 p-4 rounded-lg">
-                {chartData.map((data, idx) => {
-                  const heightPercent = (data.revenue / maxRevenue) * 100;
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center justify-end gap-2">
-                      <div className="w-full bg-blue-600 rounded-t-lg hover:bg-blue-700 transition-colors" style={{ height: `${heightPercent}%`, minHeight: '20px' }} title={`$${data.revenue}`} />
-                      <span className="text-xs text-gray-600 text-center">{data.month}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              {chartData.length === 0 ? (
+                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-500">
+                    No revenue recorded for this period yet
+                  </p>
+                </div>
+              ) : (
+                <div className="h-64 flex gap-2 bg-gray-50 p-4 rounded-lg">
+                  {chartData.map((data, idx) => {
+                    const heightPercent =
+                      maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+                    return (
+                      <div
+                        key={idx}
+                        className="flex-1 h-full flex flex-col items-center gap-2"
+                      >
+                        {/* Plot area for this bucket: bars grow from the baseline. */}
+                        <div className="w-full flex-1 flex items-end">
+                          <div
+                            className="w-full bg-[#0047AB] rounded-t-lg hover:bg-[#003D96] transition-colors"
+                            style={{ height: `${heightPercent}%`, minHeight: '6px' }}
+                            title={money(data.revenue)}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-600 text-center whitespace-nowrap">
+                          {data.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-4 border-t pt-4">
                 <div>
                   <p className="text-xs text-gray-600 font-medium">Highest</p>
-                  <p className="text-lg font-bold text-gray-900">${maxRevenue.toLocaleString()}</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {money(maxRevenue)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 font-medium">Average</p>
-                  <p className="text-lg font-bold text-gray-900">${avgRevenue.toLocaleString()}</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {money(avgRevenue)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 font-medium">Total</p>
                   <p className="text-lg font-bold text-gray-900">
-                    ${chartData.reduce((acc, d) => acc + d.revenue, 0).toLocaleString()}
+                    {money(totalRevenue)}
                   </p>
                 </div>
               </div>

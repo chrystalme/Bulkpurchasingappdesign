@@ -42,6 +42,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { APP_NAME } from '../../lib/brand';
+import { formatDate, formatTime } from '../../lib/formatters';
 
 interface GroupDetailProps {
   navigate: (screen: Screen, groupId?: string) => void;
@@ -414,7 +415,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                     <span className='text-gray-600'>Created</span>
                     <span>
                       {currentGroup.created_at
-                        ? new Date(currentGroup.created_at).toLocaleDateString([], {
+                        ? formatDate(currentGroup.created_at, [], {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric',
@@ -515,9 +516,9 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                               {groupInternalChat.lastMessage.senderName}
                             </span>
                             <span className='text-xs text-gray-400'>
-                              {new Date(
+                              {formatTime(
                                 groupInternalChat.lastMessage.timestamp,
-                              ).toLocaleTimeString([], {
+                                [], {
                                 hour: 'numeric',
                                 minute: '2-digit',
                               })}
@@ -608,9 +609,9 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                               {vendorChat.lastMessage.content}
                             </p>
                             <span className='text-xs text-gray-400'>
-                              {new Date(
+                              {formatTime(
                                 vendorChat.lastMessage.timestamp,
-                              ).toLocaleTimeString([], {
+                                [], {
                                 hour: 'numeric',
                                 minute: '2-digit',
                               })}

@@ -14,6 +14,7 @@ import { CountdownTimer } from '../CountdownTimer';
 import { InfoCard } from '../InfoCard';
 import { Screen } from '../../../App';
 import { mockEscrowTransactions } from '../../../lib/mockData';
+import { formatDate } from '../../../lib/formatters';
 
 interface BuyerTransactionDashboardProps {
   navigate: (screen: Screen) => void;
@@ -178,7 +179,7 @@ export function BuyerTransactionDashboard({
                 <div className='flex justify-between text-sm'>
                   <span className='text-gray-600'>Delivered</span>
                   <span className='font-medium text-gray-900'>
-                    {new Date(transaction.deliveredAt).toLocaleDateString(
+                    {formatDate(transaction.deliveredAt, 
                       'en-US',
                       {
                         month: 'short',

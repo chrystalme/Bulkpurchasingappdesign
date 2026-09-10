@@ -1,19 +1,33 @@
-import { useState } from 'react';
-import { ArrowLeft, Plus, Upload, DollarSign } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { ArrowLeft, Plus, Upload, DollarSign, Save } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Screen } from '../../App';
+import { LoadingState } from '../ui/LoadingState';
+import type { NavigateFn } from '../../App';
+import { useAuth } from '../../contexts/AuthContext';
+import { apiClient } from '../../lib/api';
+import { fetchVendorProducts } from '../../store/slices/vendorsSlice';
+import { selectVendorProducts } from '../../store/selectors/vendorsSelectors';
+import type { Product } from '../../lib/types';
 import { toast } from 'sonner';
 
 interface VendorAddProductProps {
-  navigate: (screen: Screen) => void;
+  navigate: NavigateFn;
+  /** When set, the form edits this product instead of creating a new one. */
+  productId?: string | null;
 }
 
-export function VendorAddProduct({ navigate }: VendorAddProductProps) {
+export function VendorAddProduct({ navigate, productId }: VendorAddProductProps) {
+  const isEdit = Boolean(productId);
+  const dispatch = useDispatch();
+  const { user } = useAuth();
+  const storedProducts = useSelector(selectVendorProducts);
+
   const [productName, setProductName] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
@@ -22,39 +36,154 @@ export function VendorAddProduct({ navigate }: VendorAddProductProps) {
   const [moq, setMoq] = useState('');
   const [stock, setStock] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(isEdit);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Edit mode: prefill from the list already in the store, then confirm with the API.
+  useEffect(() => {
+    if (!productId) return;
+
+    let cancelled = false;
+
+    const prefill = (product: Product) => {
+      setProductName(product.name ?? '');
+      setCategory(product.category ?? '');
+      setBulkPrice(product.bulkPrice != null ? String(product.bulkPrice) : '');
+      setRetailPrice(product.retailPrice != null ? String(product.retailPrice) : '');
+      setMoq(product.moq != null ? String(product.moq) : '');
+    };
+
+    const cached = storedProducts.find((p) => p.id === productId);
+    if (cached) {
+      prefill(cached);
+      setIsLoadingProduct(false);
+    }
+
+    const loadProduct = async () => {
+      try {
+        const response = await apiClient.products.getById(productId);
+        if (cancelled) return;
+        if (response.success && response.data) {
+          prefill(response.data);
+        } else if (!cached) {
+          setLoadError(response.error || 'Product not found');
+        }
+      } catch (err) {
+        if (!cancelled && !cached) {
+          setLoadError((err as Error).message || 'Failed to load product');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingProduct(false);
+      }
+    };
+
+    loadProduct();
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, storedProducts]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!productName || !category || !bulkPrice || !retailPrice || !moq) {
       toast.error('Please fill in all required fields');
       return;
     }
 
+    if (!isEdit && !user?.vendor_id) {
+      toast.error('Your account is not linked to a vendor profile');
+      return;
+    }
+
     setIsProcessing(true);
-    setTimeout(() => {
-      toast.success('Product added successfully!');
+    try {
+      const payload = {
+        name: productName,
+        category,
+        bulkPrice: parseFloat(bulkPrice),
+        retailPrice: parseFloat(retailPrice),
+        moq: parseInt(moq, 10),
+      };
+
+      const response = isEdit && productId
+        ? await apiClient.products.update(productId, payload)
+        : await apiClient.products.create({
+            ...payload,
+            image: 'default-product',
+            vendorId: user!.vendor_id as string,
+            vendorName: user?.full_name ?? '',
+            vendorRating: 0,
+          });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Could not save the product');
+      }
+
+      toast.success(
+        isEdit ? 'Product updated successfully!' : 'Product added successfully!',
+      );
+
+      // Refresh the vendor's list so it reflects the change immediately.
+      const vendorId = user?.vendor_id || response.data?.vendorId;
+      if (vendorId) {
+        dispatch(fetchVendorProducts(String(vendorId)) as any);
+      }
       navigate('vendor-products');
-    }, 1500);
+    } catch (err) {
+      toast.error((err as Error).message || 'Could not save the product');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const savings = retailPrice && bulkPrice ? 
+  const handleCancel = () => {
+    if (isEdit && productId) {
+      navigate('vendor-product-detail', undefined, productId);
+    } else {
+      navigate('vendor-products');
+    }
+  };
+
+  const savings = retailPrice && bulkPrice ?
     (((parseFloat(retailPrice) - parseFloat(bulkPrice)) / parseFloat(retailPrice)) * 100).toFixed(0) : 0;
+
+  if (isLoadingProduct) {
+    return (
+      <div className="p-4">
+        <LoadingState count={3} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F4F5] pb-6">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('vendor-dashboard')} className="p-1">
+          <button onClick={handleCancel} className="p-1" aria-label="Back">
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
           <div className="flex-1">
-            <h1 className="font-semibold text-gray-900">Add New Product</h1>
-            <p className="text-xs text-gray-500">Create a bulk purchase listing</p>
+            <h1 className="font-semibold text-gray-900">
+              {isEdit ? 'Edit Product' : 'Add New Product'}
+            </h1>
+            <p className="text-xs text-gray-500">
+              {isEdit
+                ? 'Update this bulk purchase listing'
+                : 'Create a bulk purchase listing'}
+            </p>
           </div>
         </div>
       </div>
+
+      {loadError && (
+        <div className="p-4 max-w-2xl mx-auto">
+          <div className="bg-[#FB7185]/10 border border-[#FB7185]/20 rounded-lg p-3">
+            <p className="text-sm text-[#FB7185]">{loadError}</p>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="p-4 max-w-2xl mx-auto space-y-4">
         {/* Product Images */}
@@ -247,8 +376,13 @@ export function VendorAddProduct({ navigate }: VendorAddProductProps) {
             {isProcessing ? (
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Adding Product...
+                {isEdit ? 'Saving Changes...' : 'Adding Product...'}
               </div>
+            ) : isEdit ? (
+              <>
+                <Save className="w-5 h-5 mr-2" />
+                Save Changes
+              </>
             ) : (
               <>
                 <Plus className="w-5 h-5 mr-2" />
@@ -259,7 +393,7 @@ export function VendorAddProduct({ navigate }: VendorAddProductProps) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => navigate('vendor-dashboard')}
+            onClick={handleCancel}
             className="w-full h-12"
           >
             Cancel

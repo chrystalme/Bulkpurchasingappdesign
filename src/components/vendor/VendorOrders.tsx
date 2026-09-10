@@ -19,6 +19,7 @@ import {
 import type { VendorOrder } from '../../lib/types';
 import { apiClient } from '../../lib/api';
 import { toast } from 'sonner';
+import { formatDate } from '../../lib/formatters';
 
 interface VendorOrdersProps {
   navigate: (screen: Screen) => void;
@@ -248,7 +249,7 @@ export function VendorOrders({ navigate }: VendorOrdersProps) {
                     <div>
                       <p className="text-xs text-gray-600">Order Date</p>
                       <p className="text-sm text-gray-900">
-                        {new Date(order.order_date).toLocaleDateString(
+                        {formatDate(order.order_date, 
                           'en-US',
                           {
                             month: 'short',

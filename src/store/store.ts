@@ -33,7 +33,7 @@ const authPersistConfig = {
 const navigationPersistConfig = {
   key: 'navigation',
   storage,
-  whitelist: ['currentScreen', 'selectedGroupId'],
+  whitelist: ['currentScreen', 'selectedGroupId', 'selectedProductId'],
 };
 
 // Persist config for cart

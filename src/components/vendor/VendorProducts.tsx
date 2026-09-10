@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { Screen } from '../../App';
+import type { NavigateFn } from '../../App';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoadingState } from '../ui/LoadingState';
 import { ErrorState } from '../ui/ErrorState';
@@ -36,7 +36,7 @@ import { apiClient } from '../../lib/api';
 import { toast } from 'sonner';
 
 interface VendorProductsProps {
-  navigate: (screen: Screen) => void;
+  navigate: NavigateFn;
   vendorId?: string;
 }
 
@@ -253,11 +253,25 @@ export function VendorProducts({ navigate, vendorId }: VendorProductsProps) {
                     </div>
                   </div>
                   <div className='flex gap-2'>
-                    <Button variant='outline' size='sm' className='flex-1'>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='flex-1'
+                      onClick={() =>
+                        navigate('vendor-product-edit', undefined, product.id)
+                      }
+                    >
                       <Edit className='w-4 h-4 mr-1' />
                       Edit
                     </Button>
-                    <Button variant='outline' size='sm' className='flex-1'>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      className='flex-1'
+                      onClick={() =>
+                        navigate('vendor-product-detail', undefined, product.id)
+                      }
+                    >
                       <Eye className='w-4 h-4 mr-1' />
                       View
                     </Button>

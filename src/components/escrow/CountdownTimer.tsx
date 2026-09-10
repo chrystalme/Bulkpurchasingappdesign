@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
+import { parseDate } from '../../lib/formatters';
 
 interface CountdownTimerProps {
   targetDate: string;
@@ -19,7 +20,12 @@ export function CountdownTimer({ targetDate, label, onExpire, className = '' }: 
   useEffect(() => {
     const calculateTimeRemaining = () => {
       const now = new Date().getTime();
-      const target = new Date(targetDate).getTime();
+      const target = parseDate(targetDate)?.getTime();
+      // A missing or unparseable deadline must not render "NaN:NaN:NaN".
+      if (target === undefined) {
+        setTimeRemaining({ hours: 0, minutes: 0, seconds: 0, isExpired: true });
+        return;
+      }
       const difference = target - now;
 
       if (difference <= 0) {

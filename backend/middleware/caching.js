@@ -26,8 +26,10 @@ export const cacheMiddleware = (req, res, next) => {
     return next();
   }
 
-  // Cache GET requests for 5 minutes
-  res.set('Cache-Control', 'public, max-age=300'); // 5 minutes
+  // Reads must reflect writes immediately: nothing here invalidates a cached
+  // GET when a write lands, so a browser-served copy (previously 5-15 minutes)
+  // hides every create/update/delete until it expires.
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.set('Vary', 'Accept-Encoding');
 
   next();
@@ -77,40 +79,40 @@ export const staticCacheMiddleware = (req, res, next) => {
  * More fine-grained control over specific endpoints
  */
 export const apiCacheMiddleware = {
-  // Cache products for 10 minutes (they don't change often)
+  // Products, vendors, orders, groups and escrow are all mutable and
+  // auth-scoped: reads are never served from the browser cache so an edit,
+  // create or delete is visible on the very next request.
+
   products: (req, res, next) => {
     if (req.method === 'GET') {
-      res.set('Cache-Control', 'public, max-age=600'); // 10 minutes
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     } else {
       res.set('Cache-Control', 'no-cache, no-store');
     }
     next();
   },
 
-  // Cache vendors for 15 minutes
   vendors: (req, res, next) => {
     if (req.method === 'GET') {
-      res.set('Cache-Control', 'public, max-age=900'); // 15 minutes
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     } else {
       res.set('Cache-Control', 'no-cache, no-store');
     }
     next();
   },
 
-  // Cache orders for 5 minutes (user-specific)
   orders: (req, res, next) => {
     if (req.method === 'GET') {
-      res.set('Cache-Control', 'private, max-age=300'); // 5 minutes, private
+      res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     } else {
       res.set('Cache-Control', 'no-cache, no-store');
     }
     next();
   },
 
-  // Cache groups for 5 minutes
   groups: (req, res, next) => {
     if (req.method === 'GET') {
-      res.set('Cache-Control', 'private, max-age=300'); // 5 minutes, private
+      res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     } else {
       res.set('Cache-Control', 'no-cache, no-store');
     }
@@ -136,10 +138,10 @@ export const apiCacheMiddleware = {
     next();
   },
 
-  // Cache escrow for 5 minutes
+  // No caching for escrow (mutable, user-specific state machine)
   escrow: (req, res, next) => {
     if (req.method === 'GET') {
-      res.set('Cache-Control', 'private, max-age=300');
+      res.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     } else {
       res.set('Cache-Control', 'no-cache, no-store');
     }

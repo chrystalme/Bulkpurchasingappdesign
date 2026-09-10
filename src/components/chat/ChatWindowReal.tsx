@@ -17,6 +17,7 @@ import { chatSocket } from '../../lib/socket/chatSocket';
 import { sanitizeChatMessage, validateChatMessage } from '../../lib/sanitizer';
 import type { Conversation } from '../../lib/types/chat.types';
 import { useAuth } from '../../contexts/AuthContext';
+import { parseDate } from '../../lib/formatters';
 
 interface ChatWindowRealProps {
   conversation: Conversation;
@@ -152,8 +153,10 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
 
   // Format message time
   const formatMessageTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const date = parseDate(timestamp);
+    return date
+      ? date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : '';
   };
 
   return (

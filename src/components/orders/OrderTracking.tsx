@@ -10,6 +10,7 @@ import { ErrorState } from '../ui/ErrorState';
 import { DetailLoadingState } from '../ui/LoadingState';
 import { fetchOrders } from '../../store/slices/ordersSlice';
 import { selectOrders, selectOrdersLoading, selectOrdersError } from '../../store/selectors/ordersSelectors';
+import { formatDate } from '../../lib/formatters';
 
 interface OrderTrackingProps {
   navigate: (screen: Screen) => void;
@@ -181,7 +182,7 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
                           </h5>
                           {(isCompleted || isCurrent) && (
                             <span className="text-sm text-gray-500">
-                              {new Date(step.date).toLocaleDateString('en-US', {
+                              {formatDate(step.date, 'en-US', {
                                 month: 'short',
                                 day: 'numeric',
                               })}
@@ -190,7 +191,7 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
                         </div>
                         {isCurrent && !isCompleted && (
                           <p className="text-sm text-gray-600">
-                            Estimated: {new Date(step.date).toLocaleDateString('en-US', {
+                            Estimated: {formatDate(step.date, 'en-US', {
                               month: 'long',
                               day: 'numeric',
                               year: 'numeric',
@@ -229,7 +230,7 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
                 <div className="flex-1">
                   <h5 className="mb-1">Out for Delivery</h5>
                   <p className="text-sm text-gray-600">
-                    Your package is with our delivery partner and will arrive by {new Date(order.estimatedDelivery).toLocaleDateString('en-US', {
+                    Your package is with our delivery partner and will arrive by {formatDate(order.estimatedDelivery, 'en-US', {
                       month: 'long',
                       day: 'numeric',
                     })}

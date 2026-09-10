@@ -9,6 +9,7 @@ import type {
   Evidence,
   Dispute,
   User,
+  UserRole,
   TrustScore,
   Group,
   GroupMember,
@@ -30,6 +31,62 @@ interface ApiResponse<T> {
   accessToken?: string;
   user?: User;
   error?: string;
+}
+
+/**
+ * Product rows as they come off the wire: snake_case keys, numeric columns
+ * (prices) serialised as strings, joined vendor columns alongside.
+ * See FRONTEND_INTEGRATION_GUIDE.md for the column → field mapping.
+ */
+type RawProduct = Record<string, unknown>;
+
+function toNumber(value: unknown): number {
+  const n = typeof value === 'number' ? value : parseFloat(String(value));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Map an API product row onto the app's `Product` contract, so no screen has to
+ * know both spellings. Unknown columns are kept for anything not modelled yet.
+ */
+function normalizeProduct(raw: RawProduct): Product {
+  return {
+    ...raw,
+    id: String(raw.id ?? ''),
+    name: String(raw.name ?? ''),
+    image: String(raw.image ?? ''),
+    category: String(raw.category ?? ''),
+    moq: toNumber(raw.moq),
+    bulkPrice: toNumber(raw.bulkPrice ?? raw.bulk_price),
+    retailPrice: toNumber(raw.retailPrice ?? raw.retail_price),
+    vendorId: String(raw.vendorId ?? raw.vendor_id ?? ''),
+    vendorName: String(raw.vendorName ?? raw.vendor_name ?? ''),
+    vendorRating: toNumber(raw.vendorRating ?? raw.vendor_rating),
+  } as Product;
+}
+
+/**
+ * Map the app's `Product` (camelCase) onto the snake_case request body the
+ * products routes validate. `vendor_id` is only sent when creating.
+ */
+function toProductPayload(
+  product: Partial<Product>,
+  isCreate = false,
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  const put = (key: string, value: unknown) => {
+    if (value !== undefined) payload[key] = value;
+  };
+
+  put('name', product.name);
+  put('image', product.image);
+  put('category', product.category);
+  put('moq', product.moq);
+  put('bulk_price', product.bulkPrice);
+  put('retail_price', product.retailPrice);
+  if (isCreate) put('vendor_id', product.vendorId);
+
+  return payload;
 }
 
 // Specific response types for different endpoints
@@ -71,6 +128,73 @@ interface UserStatsResponse extends ApiResponse<{
   vendors: number;
   members: number;
 }> {}
+
+// --- Payload normalisers -------------------------------------------------
+// The API answers in snake_case while the app consumes camelCase (escrow) or
+// the DB-shaped User type. Normalise at this boundary so every caller gets
+// the shape its types promise, and so a missing field degrades gracefully
+// instead of crashing a screen on `undefined.toLocaleDateString()`.
+
+const asNumber = (value: unknown): number => {
+  const parsed = typeof value === 'number' ? value : parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+function normaliseEscrowTransaction(raw: any): EscrowTransaction {
+  const products: any[] = Array.isArray(raw?.products)
+    ? raw.products.filter((p: any) => p && p.product_name)
+    : [];
+  const productNames = products.map((p: any) => String(p.product_name));
+
+  return {
+    id: String(raw?.id ?? ''),
+    transactionNumber: raw?.transaction_number ?? undefined,
+    orderId: String(raw?.order_id ?? ''),
+    orderNumber: raw?.order_number ?? undefined,
+    orderStatus: raw?.order_status ?? undefined,
+    buyerId: String(raw?.buyer_id ?? ''),
+    buyerName: raw?.buyer_name ?? undefined,
+    buyerEmail: raw?.buyer_email ?? undefined,
+    sellerId: String(raw?.seller_id ?? ''),
+    sellerName: raw?.seller_name ?? '',
+    sellerEmail: raw?.seller_email ?? undefined,
+    amount: asNumber(raw?.amount),
+    escrowFee: asNumber(raw?.escrow_fee ?? raw?.escrowFee),
+    status: raw?.status ?? 'locked',
+    createdAt: raw?.created_at ?? raw?.createdAt ?? '',
+    paidAt: raw?.paid_at ?? raw?.paidAt ?? undefined,
+    shippedAt: raw?.shipped_at ?? raw?.shippedAt ?? undefined,
+    deliveredAt: raw?.delivered_at ?? raw?.deliveredAt ?? undefined,
+    inspectionDeadline:
+      raw?.inspection_deadline ?? raw?.inspectionDeadline ?? undefined,
+    autoReleaseAt: raw?.auto_release_at ?? raw?.autoReleaseAt ?? undefined,
+    releasedAt: raw?.released_at ?? raw?.releasedAt ?? undefined,
+    productName: productNames.length ? productNames.join(', ') : 'Group Order',
+    products: products.map((p: any) => ({
+      productName: String(p.product_name),
+      quantity: asNumber(p.quantity),
+      price: asNumber(p.price),
+    })),
+    sellerVerified: Boolean(raw?.seller_verified ?? raw?.sellerVerified ?? false),
+    trackingId: raw?.tracking_id ?? raw?.trackingId ?? undefined,
+    courier: raw?.courier ?? undefined,
+  };
+}
+
+function normaliseUser(raw: any): User {
+  return {
+    id: String(raw?.id ?? ''),
+    email: raw?.email ?? '',
+    name: raw?.name ?? '',
+    role: (raw?.role ?? 'member') as UserRole,
+    avatar: raw?.avatar ?? undefined,
+    phone: raw?.phone ?? undefined,
+    vendor_id: raw?.vendor_id ?? raw?.vendorId ?? null,
+    trust_score: raw?.trust_score ?? raw?.trustScore ?? null,
+    created_at: raw?.created_at ?? raw?.createdAt ?? undefined,
+    is_active: raw?.is_active ?? raw?.isActive ?? true,
+  };
+}
 
 class ApiClient {
   private isRefreshing = false;
@@ -269,14 +393,20 @@ class ApiClient {
       vendor_id?: string;
     }): Promise<ProductsResponse> => {
       const params = new URLSearchParams(filters as any);
-      const response = await this.request<Product[]>(
+      const response = await this.request<RawProduct[]>(
         `products?${params.toString()}`,
       );
-      return response as unknown as ProductsResponse;
+      return {
+        ...response,
+        data: (response.data ?? []).map(normalizeProduct),
+      } as unknown as ProductsResponse;
     },
     getById: async (id: string): Promise<ProductResponse> => {
-      const response = await this.request<Product>(`products/${id}`);
-      return response as unknown as ProductResponse;
+      const response = await this.request<RawProduct>(`products/${id}`);
+      return {
+        ...response,
+        data: response.data ? normalizeProduct(response.data) : undefined,
+      } as unknown as ProductResponse;
     },
     getCategories: async (): Promise<CategoriesResponse> => {
       const response = await this.request<string[]>('products/categories');
@@ -285,21 +415,27 @@ class ApiClient {
     create: async (
       productData: Omit<Product, 'id'>,
     ): Promise<ProductResponse> => {
-      const response = await this.request<Product>('products', {
+      const response = await this.request<RawProduct>('products', {
         method: 'POST',
-        body: JSON.stringify(productData),
+        body: JSON.stringify(toProductPayload(productData, true)),
       });
-      return response as unknown as ProductResponse;
+      return {
+        ...response,
+        data: response.data ? normalizeProduct(response.data) : undefined,
+      } as unknown as ProductResponse;
     },
     update: async (
       id: string,
       productData: Partial<Product>,
     ): Promise<ProductResponse> => {
-      const response = await this.request<Product>(`products/${id}`, {
+      const response = await this.request<RawProduct>(`products/${id}`, {
         method: 'PUT',
-        body: JSON.stringify(productData),
+        body: JSON.stringify(toProductPayload(productData)),
       });
-      return response as unknown as ProductResponse;
+      return {
+        ...response,
+        data: response.data ? normalizeProduct(response.data) : undefined,
+      } as unknown as ProductResponse;
     },
     delete: async (id: string): Promise<ApiResponse<null>> => {
       return this.request<null>(`products/${id}`, {
@@ -409,14 +545,23 @@ class ApiClient {
       const response = await this.request<EscrowTransaction[]>(
         `escrow/transactions?${params.toString()}`,
       );
-      return response as unknown as EscrowTransactionsResponse;
+      const raw = Array.isArray(response?.data) ? response.data : [];
+      return {
+        ...response,
+        data: raw.map(normaliseEscrowTransaction),
+      } as EscrowTransactionsResponse;
     },
 
     getById: async (id: string): Promise<EscrowTransactionResponse> => {
       const response = await this.request<EscrowTransaction>(
         `escrow/transactions/${id}`,
       );
-      return response as unknown as EscrowTransactionResponse;
+      // This endpoint answers with `transaction`, not `data`.
+      const raw = (response as any)?.data ?? (response as any)?.transaction;
+      return {
+        ...response,
+        data: raw ? normaliseEscrowTransaction(raw) : undefined,
+      } as EscrowTransactionResponse;
     },
     createTransaction: async (
       orderId: string,
@@ -504,11 +649,16 @@ class ApiClient {
   users = {
     getAll: async (): Promise<UsersResponse> => {
       const response = await this.request<User[]>('users');
-      return response as unknown as UsersResponse;
+      const raw = Array.isArray(response?.data) ? response.data : [];
+      return { ...response, data: raw.map(normaliseUser) } as UsersResponse;
     },
     getById: async (id: string): Promise<UserResponse> => {
       const response = await this.request<User>(`users/${id}`);
-      return response as unknown as UserResponse;
+      const raw = (response as any)?.data ?? (response as any)?.user;
+      return {
+        ...response,
+        data: raw ? normaliseUser(raw) : undefined,
+      } as UserResponse;
     },
     getStats: async (): Promise<UserStatsResponse> => {
       const response = await this.request<{
@@ -522,24 +672,55 @@ class ApiClient {
       return response as unknown as UserStatsResponse;
     },
 
-    create: async (
-      userData: Omit<User, 'id' | 'createdAt'>,
-    ): Promise<UserResponse> => {
+    create: async (userData: {
+      email: string;
+      password: string;
+      name: string;
+      role: UserRole;
+      vendorId?: string;
+    }): Promise<UserResponse> => {
       const response = await this.request<User>('users', {
         method: 'POST',
-        body: JSON.stringify(userData),
+        body: JSON.stringify({
+          email: userData.email,
+          password: userData.password,
+          name: userData.name,
+          role: userData.role,
+          vendorId: userData.vendorId || undefined,
+        }),
       });
-      return response as unknown as UserResponse;
+      // This endpoint answers with `user`, not `data`.
+      const raw = (response as any)?.data ?? (response as any)?.user;
+      return {
+        ...response,
+        data: raw ? normaliseUser(raw) : undefined,
+      } as UserResponse;
     },
     update: async (
       id: string,
-      userData: Partial<User>,
+      userData: Partial<User> & { password?: string },
     ): Promise<UserResponse> => {
+      // The app models users in the DB's snake_case shape while the API
+      // expects camelCase keys. Translate at this boundary so callers can
+      // keep speaking the type they were given.
+      const body: Record<string, unknown> = {};
+      if (userData.name !== undefined) body.name = userData.name;
+      if (userData.email !== undefined) body.email = userData.email;
+      if (userData.password) body.password = userData.password;
+      if (userData.role !== undefined) body.role = userData.role;
+      if (userData.vendor_id !== undefined) body.vendorId = userData.vendor_id ?? '';
+      if (userData.is_active !== undefined) body.isActive = userData.is_active;
+      if (userData.trust_score !== undefined) body.trustScore = userData.trust_score;
+
       const response = await this.request<User>(`users/${id}`, {
         method: 'PUT',
-        body: JSON.stringify(userData),
+        body: JSON.stringify(body),
       });
-      return response as unknown as UserResponse;
+      const raw = (response as any)?.data ?? (response as any)?.user;
+      return {
+        ...response,
+        data: raw ? normaliseUser(raw) : undefined,
+      } as UserResponse;
     },
     delete: async (id: string): Promise<ApiResponse<null>> => {
       return this.request<null>(`users/${id}`, {
@@ -550,13 +731,21 @@ class ApiClient {
       const response = await this.request<User>(`users/${id}/activate`, {
         method: 'POST',
       });
-      return response as unknown as UserResponse;
+      const raw = (response as any)?.data ?? (response as any)?.user;
+      return {
+        ...response,
+        data: raw ? normaliseUser(raw) : undefined,
+      } as UserResponse;
     },
     deactivate: async (id: string): Promise<UserResponse> => {
       const response = await this.request<User>(`users/${id}/deactivate`, {
         method: 'POST',
       });
-      return response as unknown as UserResponse;
+      const raw = (response as any)?.data ?? (response as any)?.user;
+      return {
+        ...response,
+        data: raw ? normaliseUser(raw) : undefined,
+      } as UserResponse;
     },
   };
 

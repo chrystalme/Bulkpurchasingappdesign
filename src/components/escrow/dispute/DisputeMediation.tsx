@@ -18,6 +18,7 @@ import { Screen } from '../../../App';
 import { mockDisputes, Evidence } from '../../../lib/mockData';
 import { apiClient } from '../../../lib/api';
 import { toast } from 'sonner';
+import { formatDate, formatDateTime } from '../../../lib/formatters';
 
 interface DisputeMediationProps {
   navigate: (screen: Screen) => void;
@@ -178,7 +179,7 @@ export function DisputeMediation({
                 <div className='flex justify-between'>
                   <span className='text-gray-600'>Opened:</span>
                   <span className='font-medium text-gray-900'>
-                    {new Date(dispute.createdAt).toLocaleDateString('en-US', {
+                    {formatDate(dispute.createdAt, 'en-US', {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric',
@@ -293,7 +294,7 @@ export function DisputeMediation({
                               {evidence.type}
                             </Badge>
                             <span className='text-xs text-gray-500'>
-                              {new Date(evidence.timestamp).toLocaleString(
+                              {formatDateTime(evidence.timestamp, 
                                 'en-US',
                                 {
                                   month: 'short',
@@ -341,7 +342,7 @@ export function DisputeMediation({
                               {evidence.type}
                             </Badge>
                             <span className='text-xs text-gray-500'>
-                              {new Date(evidence.timestamp).toLocaleString(
+                              {formatDateTime(evidence.timestamp, 
                                 'en-US',
                                 {
                                   month: 'short',

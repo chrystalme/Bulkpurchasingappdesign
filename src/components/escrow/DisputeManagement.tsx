@@ -18,6 +18,7 @@ import type { Dispute } from '../../lib/types/escrow.types';
 import { apiClient } from '../../lib/api';
 import { mockDisputes } from '../../lib/mockData';
 import { toast } from 'sonner';
+import { formatDate } from '../../lib/formatters';
 
 interface DisputeWithTransaction extends Dispute {
   transactionId: string;
@@ -215,7 +216,7 @@ export function DisputeManagement() {
                   <div>
                     <p className="text-xs text-gray-600 font-medium">CREATED</p>
                     <p className="text-sm text-gray-900 mt-1">
-                      {new Date(dispute.createdAt).toLocaleDateString('en-US', {
+                      {formatDate(dispute.createdAt, 'en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',
@@ -276,8 +277,8 @@ export function DisputeManagement() {
                                 <div>
                                   <p className="font-medium text-blue-900">Timeline</p>
                                   <p className="text-blue-800 text-xs mt-1">
-                                    Created: {new Date(selectedDispute.createdAt).toLocaleDateString('en-US')}
-                                    {selectedDispute.resolvedAt && ` • Resolved: ${new Date(selectedDispute.resolvedAt).toLocaleDateString('en-US')}`}
+                                    Created: {formatDate(selectedDispute.createdAt, 'en-US')}
+                                    {selectedDispute.resolvedAt && ` • Resolved: ${formatDate(selectedDispute.resolvedAt, 'en-US')}`}
                                   </p>
                                 </div>
                               </div>
