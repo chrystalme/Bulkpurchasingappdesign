@@ -1,9 +1,15 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+export interface CartAllocation {
+  memberId: string;
+  quantity: number;
+  paid?: boolean;
+}
+
 export interface CartItemData {
   productId: string;
   quantity: number;
-  allocations: { memberId: string; quantity: number }[];
+  allocations: CartAllocation[];
 }
 
 interface CartState {
@@ -66,9 +72,52 @@ const cartSlice = createSlice({
           item.allocations.push({
             memberId: action.payload.memberId,
             quantity: action.payload.quantity,
+            paid: false,
           });
         }
       }
+    },
+    toggleAllocationPaid: (
+      state,
+      action: PayloadAction<{ productId: string; memberId: string }>
+    ) => {
+      const item = state.items.find(i => i.productId === action.payload.productId);
+      if (item) {
+        const alloc = item.allocations.find(a => a.memberId === action.payload.memberId);
+        if (alloc) {
+          alloc.paid = !alloc.paid;
+        }
+      }
+    },
+    setAllocationPaid: (
+      state,
+      action: PayloadAction<{ productId: string; memberId: string; paid: boolean }>
+    ) => {
+      const item = state.items.find(i => i.productId === action.payload.productId);
+      if (item) {
+        const alloc = item.allocations.find(a => a.memberId === action.payload.memberId);
+        if (alloc) {
+          alloc.paid = action.payload.paid;
+        }
+      }
+    },
+    setMemberPaymentStatus: (
+      state,
+      action: PayloadAction<{ memberId: string; paid: boolean }>
+    ) => {
+      state.items.forEach(item => {
+        const alloc = item.allocations.find(a => a.memberId === action.payload.memberId);
+        if (alloc) {
+          alloc.paid = action.payload.paid;
+        }
+      });
+    },
+    markAllPaid: (state) => {
+      state.items.forEach(item => {
+        item.allocations.forEach(alloc => {
+          alloc.paid = true;
+        });
+      });
     },
     clearCart: (state) => {
       state.items = [];
@@ -83,6 +132,10 @@ export const {
   removeItem,
   updateQuantity,
   updateAllocation,
+  toggleAllocationPaid,
+  setAllocationPaid,
+  setMemberPaymentStatus,
+  markAllPaid,
   clearCart,
 } = cartSlice.actions;
 
