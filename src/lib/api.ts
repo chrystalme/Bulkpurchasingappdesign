@@ -357,7 +357,29 @@ class ApiClient {
       const response = await this.request<VendorStats>(
         `vendors/${vendorId}/dashboard`,
       );
-      return response as unknown as VendorStatsResponse;
+
+      // The API answers in snake_case while the app consumes VendorStats
+      // (camelCase). Normalise at this boundary so every caller gets the
+      // shape its types promise, and so a missing field degrades to 0
+      // instead of crashing a screen on `undefined.toLocaleString()`.
+      const raw = (response?.data ?? {}) as Record<string, unknown>;
+      const num = (value: unknown): number => {
+        const parsed = typeof value === 'number' ? value : parseFloat(String(value));
+        return Number.isFinite(parsed) ? parsed : 0;
+      };
+      const pick = (camel: string, snake: string) => num(raw[camel] ?? raw[snake]);
+      const stats: VendorStats = {
+        totalRevenue: pick('totalRevenue', 'total_revenue'),
+        monthlyRevenue: pick('monthlyRevenue', 'monthly_revenue'),
+        totalOrders: pick('totalOrders', 'total_orders'),
+        pendingOrders: pick('pendingOrders', 'pending_orders'),
+        totalProducts: pick('totalProducts', 'total_products'),
+        totalCustomers: pick('totalCustomers', 'total_customers'),
+        averageRating: pick('averageRating', 'average_rating'),
+        totalReviews: pick('totalReviews', 'total_reviews'),
+      };
+
+      return { ...response, data: stats } as VendorStatsResponse;
     },
     getOrders: async (vendorId: string): Promise<VendorOrdersResponse> => {
       const response = await this.request<VendorOrder[]>(
