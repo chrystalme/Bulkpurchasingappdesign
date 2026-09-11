@@ -158,10 +158,11 @@ async function seedDatabase() {
       VALUES 
         ('ORD-001', $1, $2, 'shipped', 215.96, NOW() + INTERVAL '5 days'),
         ('ORD-002', $3, $4, 'paid', 152.48, NOW() + INTERVAL '7 days'),
-        ('ORD-003', $1, $5, 'delivered', 359.95, NOW() - INTERVAL '2 days')
+        ('ORD-003', $1, $5, 'delivered', 359.95, NOW() - INTERVAL '2 days'),
+        ('ORD-004', $3, $6, 'shipped', 77.98, NOW() + INTERVAL '6 days')
       RETURNING id
     `,
-      [groupIds[0], userIds[6], groupIds[1], userIds[7], userIds[8]],
+      [groupIds[0], userIds[6], groupIds[1], userIds[7], userIds[8], userIds[9]],
     );
     console.log(`✅ Created ${ordersResult.rowCount} orders`);
     const orderIds = ordersResult.rows.map(r => r.id);
@@ -175,7 +176,8 @@ async function seedDatabase() {
       VALUES 
         ($1, $2, 6, 35.99),
         ($3, $4, 4, 38.12),
-        ($5, $6, 2, 175.99)
+        ($5, $6, 2, 175.99),
+        ($7, $8, 2, 38.99)
     `,
       [
         orderIds[0],
@@ -184,6 +186,8 @@ async function seedDatabase() {
         productsArray[0],
         orderIds[2],
         productsArray[13],
+        orderIds[3],
+        productsArray[1],
       ],
     );
     console.log('✅ Added order items');
@@ -423,7 +427,10 @@ async function seedDatabase() {
          NULL, NULL, $11, $12),
         ($13, $14, $15, $16, 359.95, 10.80, 'released',
          NOW() - INTERVAL '10 days', NOW() - INTERVAL '8 days', NOW() - INTERVAL '5 days',
-         NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days', $17, $18)
+         NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days', $17, $18),
+        ($19, $20, $21, $22, 77.98, 2.34, 'pending_inspection',
+         NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day', NULL,
+         NOW() + INTERVAL '4 days', NOW() + INTERVAL '4 days', $23, $24)
       RETURNING id
     `,
       [
@@ -445,6 +452,12 @@ async function seedDatabase() {
         userIds[3],
         'TRK-5555666777',
         'FastShip Express',
+        'ESC-004',
+        orderIds[3],
+        userIds[9],
+        userIds[3],
+        'TRK-7777888999',
+        'QuickDeliver Co.',
       ],
     );
     console.log(`✅ Created ${escrowResult.rowCount} escrow transactions`);

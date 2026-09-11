@@ -3,14 +3,14 @@ import { ArrowLeft, Search, MessageCircle, Users, Store } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Card, CardContent } from '../ui/card';
 import { ChatWindowReal } from './ChatWindowReal';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchConversations, selectConversation } from '../../store/slices/chatSlice';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Screen } from '../../App';
-import type { Conversation } from '../../lib/types/chat.types';
 import { parseDate } from '../../lib/formatters';
 
 interface ChatDashboardRealProps {
@@ -19,6 +19,9 @@ interface ChatDashboardRealProps {
 
 export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
   const dispatch = useAppDispatch();
+  const { user } = useAuth();
+  const isVendor = user?.role === 'vendor';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'group' | 'vendor'>('all');
 
@@ -42,14 +45,23 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
   // Filter conversations
   const filteredConversations = useMemo(() => {
     return conversations.filter((conv) => {
-      const matchesSearch = conv.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const searchTarget = isVendor
+        ? `${conv.groupName || ''} ${conv.title} ${conv.lastMessage?.content || ''}`
+        : `${conv.title} ${conv.groupName || ''} ${conv.lastMessage?.content || ''}`;
+      const matchesSearch = searchTarget.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Vendors only participate in group-vendor chats; no internal tab needed
+      if (isVendor) {
+        return matchesSearch;
+      }
+
       const matchesTab =
         activeTab === 'all' ||
         (activeTab === 'group' && conv.type === 'group') ||
         (activeTab === 'vendor' && conv.type === 'group-vendor');
       return matchesSearch && matchesTab;
     });
-  }, [conversations, searchQuery, activeTab]);
+  }, [conversations, searchQuery, activeTab, isVendor]);
 
   // Count unread messages by type
   const unreadCounts = useMemo(() => ({
@@ -99,16 +111,20 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('home')}
+            onClick={() => navigate(isVendor ? 'vendor-dashboard' : 'home')}
             className="text-white hover:bg-white/10"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
-            <h2 className="text-white text-xl font-semibold">Messages</h2>
-            {unreadCounts.all > 0 && (
+            <h2 className="text-white text-xl font-semibold">
+              {isVendor ? 'Group Messages' : 'Messages'}
+            </h2>
+            {unreadCounts.all > 0 ? (
               <p className="text-white/80 text-sm">{unreadCounts.all} unread</p>
-            )}
+            ) : isVendor ? (
+              <p className="text-white/80 text-sm">Chats with purchasing groups</p>
+            ) : null}
           </div>
           <MessageCircle className="w-6 h-6 text-white" />
         </div>
@@ -118,7 +134,7 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
             type="text"
-            placeholder="Search conversations..."
+            placeholder={isVendor ? 'Search group chats or messages...' : 'Search conversations...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 bg-white/90 border-0"
@@ -126,75 +142,97 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <div className="bg-white border-b sticky top-[136px] z-10">
-          <TabsList className="w-full grid grid-cols-3 h-12 bg-transparent rounded-none">
-            <TabsTrigger
-              value="all"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-[#0047AB] rounded-none"
-            >
-              All
-              {unreadCounts.all > 0 && (
-                <Badge className="ml-2 bg-[#FB7185] text-white text-xs">
-                  {unreadCounts.all}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="group"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-[#0047AB] rounded-none"
-            >
-              <Users className="w-4 h-4 mr-1" />
-              Internal
-              {unreadCounts.group > 0 && (
-                <Badge className="ml-2 bg-[#FB7185] text-white text-xs">
-                  {unreadCounts.group}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="vendor"
-              className="data-[state=active]:border-b-2 data-[state=active]:border-[#0047AB] rounded-none"
-            >
-              <Store className="w-4 h-4 mr-1" />
-              Vendors
-              {unreadCounts.vendor > 0 && (
-                <Badge className="ml-2 bg-[#FB7185] text-white text-xs">
-                  {unreadCounts.vendor}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        {/* Conversation List */}
-        <div className="p-4 space-y-2">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="w-8 h-8 border-4 border-[#0047AB] border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : error ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <p className="text-red-500">{error}</p>
-                <Button className="mt-4" onClick={() => dispatch(fetchConversations())}>
-                  Retry
-                </Button>
-              </CardContent>
-            </Card>
-          ) : filteredConversations.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No conversations found</p>
-                {searchQuery && (
-                  <p className="text-sm text-gray-400 mt-2">Try a different search term</p>
+      {/* Tabs - only for regular members who navigate both internal and vendor chats */}
+      {!isVendor && (
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+          <div className="bg-white border-b sticky top-[136px] z-10">
+            <TabsList className="w-full grid grid-cols-3 h-12 bg-transparent rounded-none">
+              <TabsTrigger
+                value="all"
+                className="data-[state=active]:border-b-2 data-[state=active]:border-[#0047AB] rounded-none"
+              >
+                All
+                {unreadCounts.all > 0 && (
+                  <Badge className="ml-2 bg-[#FB7185] text-white text-xs">
+                    {unreadCounts.all}
+                  </Badge>
                 )}
-              </CardContent>
-            </Card>
-          ) : (
-            filteredConversations.map((conversation) => (
+              </TabsTrigger>
+              <TabsTrigger
+                value="group"
+                className="data-[state=active]:border-b-2 data-[state=active]:border-[#0047AB] rounded-none"
+              >
+                <Users className="w-4 h-4 mr-1" />
+                Internal
+                {unreadCounts.group > 0 && (
+                  <Badge className="ml-2 bg-[#FB7185] text-white text-xs">
+                    {unreadCounts.group}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="vendor"
+                className="data-[state=active]:border-b-2 data-[state=active]:border-[#0047AB] rounded-none"
+              >
+                <Store className="w-4 h-4 mr-1" />
+                Vendors
+                {unreadCounts.vendor > 0 && (
+                  <Badge className="ml-2 bg-[#FB7185] text-white text-xs">
+                    {unreadCounts.vendor}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </Tabs>
+      )}
+
+      {/* Conversation List */}
+      <div className="p-4 space-y-2">
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="w-8 h-8 border-4 border-[#0047AB] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : error ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-red-500">{error}</p>
+              <Button className="mt-4" onClick={() => dispatch(fetchConversations())}>
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : filteredConversations.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              {isVendor ? (
+                <>
+                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="font-medium text-gray-700">No group messages found</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    {searchQuery
+                      ? 'Try a different search term'
+                      : 'Purchasing groups will appear here when they reach out to negotiate orders.'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No conversations found</p>
+                  {searchQuery && (
+                    <p className="text-sm text-gray-400 mt-2">Try a different search term</p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          filteredConversations.map((conversation) => {
+            const displayName = isVendor
+              ? (conversation.groupName || conversation.title)
+              : conversation.title;
+
+            return (
               <Card
                 key={conversation.id}
                 className="cursor-pointer hover:shadow-md transition-shadow"
@@ -205,11 +243,11 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
                     {/* Avatar */}
                     <div className="relative">
                       <Avatar className="w-12 h-12 bg-[#0047AB] text-white">
-                        <AvatarFallback className="bg-[#0047AB] text-white">
-                          {conversation.avatar || conversation.title.charAt(0)}
+                        <AvatarFallback className="bg-[#0047AB] text-white font-medium">
+                          {displayName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      {conversation.isOnline && (
+                      {!isVendor && conversation.isOnline && (
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#6EE7B7] rounded-full border-2 border-white" />
                       )}
                     </div>
@@ -217,7 +255,7 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-1">
-                        <h4 className="font-semibold truncate">{conversation.title}</h4>
+                        <h4 className="font-semibold truncate">{displayName}</h4>
                         {conversation.lastMessage && (
                           <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
                             {formatTime(conversation.lastMessage.timestamp)}
@@ -227,7 +265,17 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
 
                       {/* Type indicator */}
                       <div className="flex items-center gap-1 mt-1">
-                        {conversation.type === 'group-vendor' ? (
+                        {isVendor ? (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                            <Users className="w-3.5 h-3.5 text-[#0047AB]" />
+                            <span className="font-medium text-[#0047AB]">Purchasing Group</span>
+                            {conversation.lastMessage?.senderName && (
+                              <span className="text-gray-400 truncate">
+                                · From {conversation.lastMessage.senderName}
+                              </span>
+                            )}
+                          </div>
+                        ) : conversation.type === 'group-vendor' ? (
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-1 text-xs text-gray-500">
                               <Store className="w-3 h-3" />
@@ -269,10 +317,10 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
-      </Tabs>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
