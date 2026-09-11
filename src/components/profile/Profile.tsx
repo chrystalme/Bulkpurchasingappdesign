@@ -39,11 +39,13 @@ export function Profile({ navigate }: ProfileProps) {
   // Get trust score for current user
   const userTrustScore = mockTrustScores[0];
 
-  // Format member since date
-  const memberSince = new Date(user.createdAt).toLocaleDateString('en-US', {
-    month: 'long',
-    year: 'numeric',
-  });
+  // Format member since date (User is the DB-shaped snake_case type)
+  const memberSince = user.created_at && !Number.isNaN(new Date(user.created_at).getTime())
+    ? new Date(user.created_at).toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+      })
+    : 'Unknown';
 
   // Mock user stats (in a real app, these would come from the backend)
   const userStats = {

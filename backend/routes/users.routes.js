@@ -235,10 +235,13 @@ router.post(
 );
 
 // PUT /api/users/:id - Update user
+// Admin and superUser may edit accounts they are allowed to manage. Fields:
+// name, email, password (optional), role*, vendorId, isActive*, trustScore
+// (*superUser only — see the guards below).
 router.put('/:id', canManageUsers, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, role, vendorId, isActive, trustScore } = req.body;
+    const { name, email, password, role, vendorId, isActive, trustScore } = req.body;
 
     // Check target user role
     const targetResult = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
@@ -252,6 +255,16 @@ router.put('/:id', canManageUsers, async (req, res) => {
       return res.status(403).json({ error: 'Cannot modify a super user' });
     }
 
+    // Only superUsers may edit a peer admin account. Letting an admin change
+    // another admin's email/password would be a privilege-escalation path.
+    if (
+      targetUser.role === 'admin' &&
+      req.user.role !== 'superUser' &&
+      req.user.id !== id
+    ) {
+      return res.status(403).json({ error: 'Only super users can modify admin accounts' });
+    }
+
     // Strict role check: ONLY superUser can activate or deactivate users
     if (isActive !== undefined && req.user.role !== 'superUser') {
       return res.status(403).json({ error: 'Only super users can activate or deactivate users' });
@@ -262,29 +275,66 @@ router.put('/:id', canManageUsers, async (req, res) => {
       return res.status(403).json({ error: 'Only super users can modify user roles' });
     }
 
+    if (role !== undefined && !['superUser', 'admin', 'vendor', 'member'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
     const updates = [];
     const values = [];
     let paramCount = 1;
 
     if (name !== undefined) {
+      if (!String(name).trim()) {
+        return res.status(400).json({ error: 'Name is required' });
+      }
       updates.push(`name = $${paramCount++}`);
-      values.push(name);
+      values.push(String(name).trim());
     }
+
+    if (email !== undefined) {
+      const normalisedEmail = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalisedEmail)) {
+        return res.status(400).json({ error: 'Valid email is required' });
+      }
+      const emailTaken = await pool.query(
+        'SELECT id FROM users WHERE LOWER(email) = $1 AND id != $2',
+        [normalisedEmail, id],
+      );
+      if (emailTaken.rows.length > 0) {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+      updates.push(`email = $${paramCount++}`);
+      values.push(normalisedEmail);
+    }
+
+    if (password !== undefined && password !== null && password !== '') {
+      if (String(password).length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      }
+      updates.push(`password_hash = $${paramCount++}`);
+      values.push(await bcrypt.hash(String(password), 10));
+    }
+
     if (role !== undefined) {
       updates.push(`role = $${paramCount++}`);
       values.push(role);
     }
     if (vendorId !== undefined) {
+      // Empty string clears the vendor link.
       updates.push(`vendor_id = $${paramCount++}`);
-      values.push(vendorId);
+      values.push(vendorId === '' ? null : vendorId);
     }
     if (isActive !== undefined) {
       updates.push(`is_active = $${paramCount++}`);
       values.push(isActive);
     }
     if (trustScore !== undefined) {
+      const parsedTrust = Number(trustScore);
+      if (!Number.isFinite(parsedTrust) || parsedTrust < 0 || parsedTrust > 100) {
+        return res.status(400).json({ error: 'Trust score must be a number between 0 and 100' });
+      }
       updates.push(`trust_score = $${paramCount++}`);
-      values.push(trustScore);
+      values.push(parsedTrust);
     }
 
     if (updates.length === 0) {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -6,7 +6,12 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Screen } from '../../App';
-import { authService, UserRole } from '../../lib/auth';
+import type { UserRole } from '../../lib/types';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { createUser, fetchUsers, fetchUserStats } from '../../store/slices/usersSlice';
+import { fetchVendors } from '../../store/slices/vendorsSlice';
+import { selectUsersSaving } from '../../store/selectors/usersSelectors';
+import { selectVendors } from '../../store/selectors/vendorsSelectors';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -15,15 +20,25 @@ interface CreateUserProps {
 }
 
 export function CreateUser({ navigate }: CreateUserProps) {
+  const dispatch = useAppDispatch();
   const { user: currentUser } = useAuth();
+  const saving = useAppSelector(selectUsersSaving);
+  const vendors = useAppSelector(selectVendors);
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('member');
   const [vendorId, setVendorId] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Vendors power the "link to vendor profile" picker.
+    if (vendors.length === 0) {
+      dispatch(fetchVendors() as any);
+    }
+  }, [dispatch, vendors.length]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name || !email || !password) {
@@ -41,23 +56,28 @@ export function CreateUser({ navigate }: CreateUserProps) {
       return;
     }
 
-    setIsProcessing(true);
+    if (role === 'vendor' && !vendorId) {
+      toast.error('Select the vendor this account belongs to');
+      return;
+    }
 
-    const result = authService.createUser(
-      email,
-      password,
-      name,
-      role,
-      role === 'vendor' ? vendorId : undefined
+    const result = await dispatch(
+      createUser({
+        email: email.trim(),
+        password,
+        name: name.trim(),
+        role,
+        vendorId: role === 'vendor' ? vendorId : undefined,
+      }) as any,
     );
 
-    setIsProcessing(false);
-
-    if (result.success) {
+    if (createUser.fulfilled.match(result)) {
       toast.success('User created successfully');
+      dispatch(fetchUsers() as any);
+      dispatch(fetchUserStats() as any);
       navigate('admin-users');
     } else {
-      toast.error(result.error || 'Failed to create user');
+      toast.error((result.payload as string) || 'Failed to create user');
     }
   };
 
@@ -175,13 +195,19 @@ export function CreateUser({ navigate }: CreateUserProps) {
 
             {role === 'vendor' && (
               <div>
-                <Label htmlFor="vendorId">Vendor ID (Optional)</Label>
-                <Input
-                  id="vendorId"
-                  placeholder="e.g., 1, 2, 3..."
-                  value={vendorId}
-                  onChange={(e) => setVendorId(e.target.value)}
-                />
+                <Label htmlFor="vendorId">Linked Vendor</Label>
+                <Select value={vendorId || undefined} onValueChange={setVendorId}>
+                  <SelectTrigger id="vendorId">
+                    <SelectValue placeholder="Select a vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendors.map((vendor) => (
+                      <SelectItem key={vendor.id} value={vendor.id}>
+                        {vendor.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-gray-500 mt-1">
                   Link this user to an existing vendor profile
                 </p>
@@ -236,10 +262,10 @@ export function CreateUser({ navigate }: CreateUserProps) {
         <div className="space-y-3 pt-2">
           <Button
             type="submit"
-            disabled={isProcessing}
+            disabled={saving}
             className="w-full bg-[#0047AB] hover:bg-[#0047AB]/90 text-white h-12"
           >
-            {isProcessing ? (
+            {saving ? (
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 Creating User...
