@@ -61,6 +61,10 @@ export {
 export {
   fetchUsers,
   fetchUserStats,
+  createUser,
+  updateUser,
+  deleteUser,
+  setUserActive,
   clearUsers,
 } from './usersSlice';
 
@@ -94,6 +98,10 @@ export {
   navigate,
   setSelectedGroupId,
   setRestorationComplete,
+  setPendingNavigation,
+  clearPendingNavigation,
+  toggleSidebar,
+  setSidebarCollapsed,
   restoreFromPersistedState,
 } from './navigationSlice';
 

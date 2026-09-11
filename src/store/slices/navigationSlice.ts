@@ -11,6 +11,8 @@ interface NavigationState {
    *  restored after login so the flow continues where they left off. */
   pendingScreen: Screen | null;
   pendingGroupId: string | null;
+  /** Desktop sidebar collapsed to icon-only rail. */
+  sidebarCollapsed: boolean;
 }
 
 const initialState: NavigationState = {
@@ -20,6 +22,7 @@ const initialState: NavigationState = {
   restorationComplete: false,
   pendingScreen: null,
   pendingGroupId: null,
+  sidebarCollapsed: false,
 };
 
 const navigationSlice = createSlice({
@@ -62,6 +65,12 @@ const navigationSlice = createSlice({
       state.pendingScreen = null;
       state.pendingGroupId = null;
     },
+    toggleSidebar: (state) => {
+      state.sidebarCollapsed = !state.sidebarCollapsed;
+    },
+    setSidebarCollapsed: (state, action: PayloadAction<boolean>) => {
+      state.sidebarCollapsed = action.payload;
+    },
     restoreFromPersistedState: (
       state,
       action: PayloadAction<{
@@ -87,6 +96,8 @@ export const {
   setRestorationComplete,
   setPendingNavigation,
   clearPendingNavigation,
+  toggleSidebar,
+  setSidebarCollapsed,
   restoreFromPersistedState,
 } = navigationSlice.actions;
 

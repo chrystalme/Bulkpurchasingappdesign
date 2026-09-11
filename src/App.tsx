@@ -23,7 +23,6 @@ import { GroupsBrowse } from './components/groups/GroupsBrowse';
 import { GroupDiscover } from './components/groups/GroupDiscover';
 import { ProductCatalog } from './components/products/ProductCatalog';
 import { GroupCart } from './components/products/GroupCart';
-import { VendorChat } from './components/chat/VendorChat';
 import { ChatDashboardReal } from './components/chat/ChatDashboardReal';
 import { Checkout } from './components/checkout/Checkout';
 import { OrderTracking } from './components/orders/OrderTracking';
@@ -105,6 +104,7 @@ function AppContent() {
   const currentScreen = useAppSelector(state => state.navigation.currentScreen);
   const selectedGroupId = useAppSelector(state => state.navigation.selectedGroupId);
   const selectedProductId = useAppSelector(state => state.navigation.selectedProductId);
+  const sidebarCollapsed = useAppSelector(state => state.navigation.sidebarCollapsed);
   const restorationComplete = useAppSelector(state => state.navigation.restorationComplete);
   const pendingScreen = useAppSelector(state => state.navigation.pendingScreen);
   const pendingGroupId = useAppSelector(state => state.navigation.pendingGroupId);
@@ -499,7 +499,9 @@ function AppContent() {
             ? 'w-full min-h-screen'
             : `max-w-md lg:max-w-6xl mx-auto bg-white min-h-screen relative ${
                 showBottomNav
-                  ? 'pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:ml-64'
+                  ? `pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 ${
+                      sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+                    }`
                   : 'pb-6'
               }`
         }`}
