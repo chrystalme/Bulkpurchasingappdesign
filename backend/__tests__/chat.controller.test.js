@@ -116,6 +116,96 @@ describe('Chat Controller', () => {
       expect(res.body.data).toHaveLength(0);
     });
 
+    it('should return group-vendor conversations with group_name for vendor user', async () => {
+      const req = createMockReq({ user: { id: 'vendor-uuid', role: 'vendor' } });
+      const res = createMockRes();
+
+      setMockQueryResults([
+        {
+          rows: [
+            {
+              id: 'conv-vendor-1',
+              type: 'group-vendor',
+              title: 'SolarTech Distributors',
+              avatar: '🏢',
+              group_id: 'group-10',
+              vendor_id: 'vendor-uuid',
+              product_id: 'prod-5',
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+              group_name: 'Green Energy Buyers Group',
+              vendor_name: 'SolarTech Distributors',
+              vendor_avatar: '🏢',
+              is_vendor_online: true,
+              last_message: {
+                id: 'msg-1',
+                content: 'Can you offer a discount for 50 panels?',
+                senderId: 'admin-uuid',
+                senderName: 'Alice Group Admin',
+                senderAvatar: '',
+                timestamp: '2026-01-01T00:05:00Z',
+                read: false,
+              },
+              unread_count: '1',
+              typing_users: null,
+            },
+          ],
+        },
+      ]);
+
+      await getUserConversations(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveLength(1);
+      const conv = res.body.data[0];
+      expect(conv.type).toBe('group-vendor');
+      expect(conv.groupName).toBe('Green Energy Buyers Group');
+      expect(conv.vendorId).toBe('vendor-uuid');
+      expect(conv.unreadCount).toBe(1);
+    });
+
+    it('should include permissions (canSend, userRole, groupRole) in conversation response', async () => {
+      const req = createMockReq({ user: { id: 'user-admin-uuid' } });
+      const res = createMockRes();
+
+      setMockQueryResults([
+        {
+          rows: [
+            {
+              id: 'conv-vendor-1',
+              type: 'group-vendor',
+              title: 'PowerCell Inc.',
+              avatar: '⚡',
+              group_id: 'group-2',
+              vendor_id: 'vendor-powercell',
+              product_id: null,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+              group_name: 'Neighborhood Grocery',
+              vendor_name: 'PowerCell Solutions',
+              vendor_avatar: '⚡',
+              is_vendor_online: true,
+              user_role: 'admin',
+              can_send: true,
+              group_role: 'admin',
+              last_message: null,
+              unread_count: '0',
+              typing_users: null,
+            },
+          ],
+        },
+      ]);
+
+      await getUserConversations(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data[0].canSend).toBe(true);
+      expect(res.body.data[0].userRole).toBe('admin');
+      expect(res.body.data[0].groupRole).toBe('admin');
+    });
+
     it('should handle database errors gracefully', async () => {
       const req = createMockReq();
       const res = createMockRes();

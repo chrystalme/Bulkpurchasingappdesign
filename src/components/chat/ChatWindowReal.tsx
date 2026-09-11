@@ -13,6 +13,7 @@ import {
   addOptimisticMessage,
   conversationRead,
 } from '../../store/slices/chatSlice';
+import { fetchGroups, fetchGroupById } from '../../store/slices/groupsSlice';
 import { chatSocket } from '../../lib/socket/chatSocket';
 import { sanitizeChatMessage, validateChatMessage } from '../../lib/sanitizer';
 import type { Conversation } from '../../lib/types/chat.types';
@@ -33,6 +34,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const groups = useAppSelector(state => state.groups.groups);
   const currentGroup = useAppSelector(state => state.groups.currentGroup);
   const messages = useAppSelector(
     state => state.chat.messagesByConversation[conversation.id] || [],
@@ -53,6 +55,18 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
     dispatch(fetchParticipants(conversation.id));
   }, [dispatch, conversation.id]);
 
+  // Ensure group information is available for group-vendor conversations
+  useEffect(() => {
+    if (conversation.groupId) {
+      if (!groups || groups.length === 0) {
+        dispatch(fetchGroups());
+      }
+      if (!currentGroup || currentGroup.id !== conversation.groupId) {
+        dispatch(fetchGroupById(conversation.groupId));
+      }
+    }
+  }, [dispatch, conversation.groupId, groups.length, currentGroup?.id]);
+
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,11 +77,20 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
     dispatch(conversationRead(conversation.id));
   }, [dispatch, conversation.id, messages.length]);
 
-  // For vendor chats, only group admin can send; for internal chats, all members can
-  const isGroupAdmin =
-    currentGroup?.user_role === 'admin' || user?.role === 'vendor';
-  const canSendMessages =
-    conversation.type === 'group-vendor' ? isGroupAdmin : true;
+  // For vendor chats, vendor or group admin can send; for internal chats, all members can
+  const isVendor = user?.role === 'vendor';
+  const myParticipant = participants.find(p => p.userId === user?.id);
+  const matchingGroup = (currentGroup?.id === conversation.groupId ? currentGroup : null)
+    || groups.find(g => g.id === conversation.groupId);
+  const isGroupAdmin = matchingGroup?.user_role === 'admin'
+    || matchingGroup?.created_by === user?.id
+    || conversation.groupRole === 'admin'
+    || conversation.userRole === 'admin'
+    || myParticipant?.role === 'admin';
+  const canSendMessages = isVendor
+    || (conversation.type === 'group-vendor'
+      ? (isGroupAdmin || myParticipant?.canSend === true || conversation.canSend === true)
+      : true);
 
   // Handle input change with typing indicator
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,6 +182,10 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
       : '';
   };
 
+  const displayTitle = isVendor
+    ? (conversation.groupName || conversation.title)
+    : conversation.title;
+
   return (
     <div className='fixed inset-0 z-50 flex flex-col h-[100dvh] bg-white max-w-md lg:max-w-6xl mx-auto shadow-2xl'>
       {/* Header */}
@@ -175,14 +202,21 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
         <div className='flex-1'>
           <div className='flex items-center gap-2'>
             <Avatar className='w-10 h-10 bg-white/20'>
-              <AvatarFallback className='bg-white/20 text-white'>
-                {conversation.avatar || conversation.title.charAt(0)}
+              <AvatarFallback className='bg-white/20 text-white font-medium'>
+                {displayTitle.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <h3 className='text-white font-semibold'>{conversation.title}</h3>
+              <h3 className='text-white font-semibold'>{displayTitle}</h3>
               <div className='flex items-center gap-2 text-xs text-white/80'>
-                {conversation.type === 'group-vendor' ? (
+                {isVendor ? (
+                  <>
+                    <Users className='w-3 h-3' />
+                    <span>
+                      Purchasing Group · {participants.length > 0 ? `${participants.length} members` : 'Direct inquiry'}
+                    </span>
+                  </>
+                ) : conversation.type === 'group-vendor' ? (
                   <>
                     <Store className='w-3 h-3' />
                     <span>{conversation.isOnline ? 'Online' : 'Offline'}</span>
@@ -322,7 +356,11 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
             onChange={handleInputChange}
             onKeyDown={handleKeyPress}
             placeholder={
-              canSendMessages ? 'Type a message...' : 'Messages disabled'
+              !canSendMessages
+                ? 'Messages disabled'
+                : isVendor
+                  ? 'Reply to group...'
+                  : 'Type a message...'
             }
             className='flex-1'
             disabled={!canSendMessages}

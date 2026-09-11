@@ -28,6 +28,9 @@ export const getUserConversations = async (req, res) => {
         vendor.name as vendor_name,
         vendor.avatar as vendor_avatar,
         vendor.is_online as is_vendor_online,
+        cp.role as user_role,
+        cp.can_send,
+        (SELECT gm.role FROM group_members gm WHERE gm.group_id = c.group_id AND gm.user_id = $1) as group_role,
         -- Last message
         (
           SELECT json_build_object(
@@ -112,6 +115,9 @@ export const getUserConversations = async (req, res) => {
       vendorAvatar: row.vendor_avatar,
       productId: row.product_id,
       isOnline: row.is_vendor_online || false,
+      userRole: row.user_role,
+      canSend: row.can_send !== undefined ? row.can_send : true,
+      groupRole: row.group_role,
       lastMessage: row.last_message,
       unreadCount: parseInt(row.unread_count) || 0,
       typingUsers: row.typing_users || [],

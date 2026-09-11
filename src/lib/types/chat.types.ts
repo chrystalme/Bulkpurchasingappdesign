@@ -15,6 +15,9 @@ export interface Conversation {
   vendorAvatar?: string;
   productId?: string;
   isOnline?: boolean;
+  canSend?: boolean;
+  userRole?: string;
+  groupRole?: string;
   lastMessage?: ChatMessage;
   unreadCount: number;
   typingUsers?: TypingUser[];

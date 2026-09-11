@@ -230,34 +230,43 @@ async function seedDatabase() {
     const group2Members = [userIds[9], userIds[6], userIds[7], userIds[8]];
     const group3Members = [userIds[6], userIds[7]];
 
-    // Add participants for GreenTech vendor chat (Group 1)
+    // Add participants for GreenTech vendor chat (Group 1 - admin: Afam)
     const greenTechConvo = vendorConversations.find(c => c.group_id === groupIds[0]);
-    const greenTechParticipants = group1Members.map(user_id => `('${greenTechConvo.id}', '${user_id}', 'member')`).join(',');
+    const greenTechParticipants = group1Members.map(user_id => {
+      const isAdmin = user_id === userIds[6];
+      return `('${greenTechConvo.id}', '${user_id}', '${isAdmin ? 'admin' : 'member'}', ${isAdmin})`;
+    }).join(',');
     await client.query(`
-      INSERT INTO conversation_participants (conversation_id, user_id, role)
+      INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
       VALUES 
         ${greenTechParticipants},
-        ('${greenTechConvo.id}', '${userIds[2]}', 'vendor')
+        ('${greenTechConvo.id}', '${userIds[2]}', 'vendor', true)
     `);
 
-    // Add participants for PowerCell vendor chat (Group 2)
+    // Add participants for PowerCell vendor chat (Group 2 - admin: Ngozi)
     const powerCellConvo = vendorConversations.find(c => c.group_id === groupIds[1]);
-    const powerCellParticipants = group2Members.map(user_id => `('${powerCellConvo.id}', '${user_id}', 'member')`).join(',');
+    const powerCellParticipants = group2Members.map(user_id => {
+      const isAdmin = user_id === userIds[9];
+      return `('${powerCellConvo.id}', '${user_id}', '${isAdmin ? 'admin' : 'member'}', ${isAdmin})`;
+    }).join(',');
     await client.query(`
-      INSERT INTO conversation_participants (conversation_id, user_id, role)
+      INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
       VALUES 
         ${powerCellParticipants},
-        ('${powerCellConvo.id}', '${userIds[3]}', 'vendor')
+        ('${powerCellConvo.id}', '${userIds[3]}', 'vendor', true)
     `);
 
-    // Add participants for BulkOffice vendor chat (Group 3)
+    // Add participants for BulkOffice vendor chat (Group 3 - admin: Afam)
     const bulkOfficeConvo = vendorConversations.find(c => c.group_id === groupIds[2]);
-    const bulkOfficeParticipants = group3Members.map(user_id => `('${bulkOfficeConvo.id}', '${user_id}', 'member')`).join(',');
+    const bulkOfficeParticipants = group3Members.map(user_id => {
+      const isAdmin = user_id === userIds[6];
+      return `('${bulkOfficeConvo.id}', '${user_id}', '${isAdmin ? 'admin' : 'member'}', ${isAdmin})`;
+    }).join(',');
      await client.query(`
-      INSERT INTO conversation_participants (conversation_id, user_id, role)
+      INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
       VALUES 
         ${bulkOfficeParticipants},
-        ('${bulkOfficeConvo.id}', '${userIds[5]}', 'vendor')
+        ('${bulkOfficeConvo.id}', '${userIds[5]}', 'vendor', true)
     `);
 
     console.log('✅ Added conversation participants');
