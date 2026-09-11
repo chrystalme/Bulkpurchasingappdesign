@@ -7,24 +7,37 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticateToken);
 
-// GET /api/escrow/transactions - Get user's escrow transactions
+// GET /api/escrow/transactions - Get escrow transactions
+//
+// Members and vendors only ever see transactions they are a party to
+// (buyer or seller). Admins and superUsers moderate the platform, so an
+// unfiltered request returns every transaction on the platform — this is
+// what backs the admin "Platform Transactions" screen. Passing an explicit
+// ?type=buyer|seller still scopes the result to the caller.
 router.get('/transactions', async (req, res) => {
   try {
     const userId = req.user.id;
     const { type } = req.query; // 'buyer', 'seller', or 'all'
+    const isAdmin = req.user.role === 'superUser' || req.user.role === 'admin';
 
     let query = `
       SELECT 
         et.*,
         o.order_number,
+        o.status as order_status,
         bp.name as buyer_name,
+        bp.email as buyer_email,
         sp.name as seller_name,
-        json_agg(
-          json_build_object(
-            'product_name', p.name,
-            'quantity', oi.quantity,
-            'price', oi.price
-          )
+        sp.email as seller_email,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'product_name', p.name,
+              'quantity', oi.quantity,
+              'price', oi.price
+            )
+          ) FILTER (WHERE oi.id IS NOT NULL),
+          '[]'
         ) as products
       FROM escrow_transactions et
       JOIN orders o ON et.order_id = o.id
@@ -44,20 +57,21 @@ router.get('/transactions', async (req, res) => {
     } else if (type === 'seller') {
       query += ` AND et.seller_id = $${paramCount++}`;
       params.push(userId);
-    } else {
+    } else if (!isAdmin) {
       query += ` AND (et.buyer_id = $${paramCount} OR et.seller_id = $${paramCount})`;
       params.push(userId);
       paramCount++;
     }
 
     query +=
-      ' GROUP BY et.id, o.order_number, bp.name, sp.name ORDER BY et.created_at DESC';
+      ' GROUP BY et.id, o.order_number, o.status, bp.name, bp.email, sp.name, sp.email ORDER BY et.created_at DESC';
 
     const result = await pool.query(query, params);
 
     res.json({
       success: true,
       data: result.rows,
+      scope: isAdmin && !type ? 'platform' : 'own',
     });
   } catch (error) {
     console.error('Get escrow transactions error:', error);

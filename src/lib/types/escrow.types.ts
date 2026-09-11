@@ -1,8 +1,21 @@
+export interface EscrowProductLine {
+  productName: string;
+  quantity: number;
+  price: number;
+}
+
 export interface EscrowTransaction {
   id: string;
+  transactionNumber?: string;
   orderId: string;
+  orderNumber?: string;
+  orderStatus?: string;
   buyerId: string;
+  buyerName?: string;
+  buyerEmail?: string;
   sellerId: string;
+  sellerName: string;
+  sellerEmail?: string;
   amount: number;
   escrowFee: number;
   status: 'locked' | 'pending_inspection' | 'released' | 'disputed' | 'refunded';
@@ -14,7 +27,7 @@ export interface EscrowTransaction {
   autoReleaseAt?: string;
   releasedAt?: string;
   productName: string;
-  sellerName: string;
+  products?: EscrowProductLine[];
   sellerVerified: boolean;
   trackingId?: string;
   courier?: string;
