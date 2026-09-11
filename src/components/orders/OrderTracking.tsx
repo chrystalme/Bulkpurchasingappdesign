@@ -57,7 +57,9 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
     );
   }
 
-  if (error || !order) {
+  // A fetch failure (network/5xx) is a real error; an empty list is not —
+  // it just means this member has not placed an order yet.
+  if (error) {
     return (
       <div className="min-h-screen bg-[#F4F4F5]">
         <div className="bg-white border-b border-gray-200 p-4 lg:p-6 sticky top-0 z-10">
@@ -77,10 +79,47 @@ export function OrderTracking({ navigate }: OrderTrackingProps) {
         <div className="p-4 lg:p-6">
           <div className="max-w-3xl mx-auto">
             <ErrorState
-              title="Order not found"
-              description={error || 'Unable to load order details'}
+              title="Couldn't load your orders"
+              description={error}
               onRetry={() => dispatch(fetchOrders() as any)}
             />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Honest empty state: no orders yet (not an error).
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-[#F4F4F5]">
+        <div className="bg-white border-b border-gray-200 p-4 lg:p-6 sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('group-detail')}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div className="flex-1">
+              <h3>Order Tracking</h3>
+            </div>
+          </div>
+        </div>
+        <div className="p-4 lg:p-6">
+          <div className="max-w-3xl mx-auto text-center">
+            <Package className="w-12 h-12 text-[#0047AB] mx-auto mb-3" />
+            <h4 className="mb-1">No orders yet</h4>
+            <p className="text-sm text-gray-500 mb-6">
+              When you place a group buy, you'll be able to track its delivery here.
+            </p>
+            <Button
+              className="bg-[#0047AB] hover:bg-[#0047AB]/90"
+              onClick={() => navigate('products')}
+            >
+              Browse products
+            </Button>
           </div>
         </div>
       </div>
