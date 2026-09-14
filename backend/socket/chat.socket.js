@@ -17,7 +17,10 @@ const authenticateSocket = async (socket, next) => {
       return next(new Error('Authentication error: No token provided'));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'save-together-development-jwt-secret-key-12345'
+    );
     socket.userId = decoded.userId;
     socket.userRole = decoded.role;
     
@@ -50,7 +53,11 @@ const initializeChatSocket = (io) => {
 
         // Verify user has access to this conversation
         const accessCheck = await pool.query(
-          'SELECT id FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2',
+          `SELECT c.id 
+           FROM conversations c
+           LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id AND cp.user_id = $2
+           LEFT JOIN group_members gm ON c.group_id = gm.group_id AND gm.user_id = $2
+           WHERE c.id = $1 AND (cp.user_id = $2 OR gm.user_id = $2 OR c.vendor_id = $2)`,
           [conversationId, socket.userId]
         );
 
@@ -59,12 +66,13 @@ const initializeChatSocket = (io) => {
           return;
         }
 
-        // Join the room
+        // Join the room (support both raw ID and prefixed room name)
         socket.join(conversationId);
+        socket.join(`conversation:${conversationId}`);
         console.log(`User ${socket.userId} joined conversation ${conversationId}`);
 
         // Notify others in the room
-        socket.to(conversationId).emit('user-joined', {
+        socket.to(conversationId).to(`conversation:${conversationId}`).emit('user-joined', {
           userId: socket.userId,
           conversationId,
         });
@@ -91,10 +99,11 @@ const initializeChatSocket = (io) => {
     socket.on('leave-conversation', (data) => {
       const { conversationId } = data;
       socket.leave(conversationId);
+      socket.leave(`conversation:${conversationId}`);
       console.log(`User ${socket.userId} left conversation ${conversationId}`);
 
       // Notify others
-      socket.to(conversationId).emit('user-left', {
+      socket.to(conversationId).to(`conversation:${conversationId}`).emit('user-left', {
         userId: socket.userId,
         conversationId,
       });
@@ -148,10 +157,29 @@ const initializeChatSocket = (io) => {
 
           // Check if user can send messages
           const participantCheck = await client.query(
-            `SELECT cp.can_send, u.name, u.avatar
-             FROM conversation_participants cp
-             JOIN users u ON cp.user_id = u.id
-             WHERE cp.conversation_id = $1 AND cp.user_id = $2`,
+            `SELECT 
+               c.type as conversation_type,
+               c.vendor_id,
+               cp.role as participant_role,
+               cp.can_send as participant_can_send,
+               gm.role as group_role,
+               COALESCE(
+                 CASE 
+                   WHEN c.type = 'group-vendor' THEN (
+                     (gm.role = 'admin' OR cp.role = 'admin' OR c.vendor_id = $2 OR cp.role = 'vendor')
+                     AND COALESCE(cp.can_send, true)
+                   )
+                   ELSE COALESCE(cp.can_send, true)
+                 END,
+                 false
+               ) as can_send,
+               u.name,
+               u.avatar
+             FROM conversations c
+             JOIN users u ON u.id = $2
+             LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id AND cp.user_id = $2
+             LEFT JOIN group_members gm ON c.group_id = gm.group_id AND gm.user_id = $2
+             WHERE c.id = $1 AND (cp.user_id = $2 OR gm.user_id = $2 OR c.vendor_id = $2)`,
             [conversationId, socket.userId]
           );
 
@@ -161,7 +189,19 @@ const initializeChatSocket = (io) => {
             return;
           }
 
-          if (!participantCheck.rows[0].can_send) {
+          const participantRow = participantCheck.rows[0];
+          let canSend = participantRow.can_send;
+          if (participantRow.conversation_type === 'group-vendor') {
+            const isGroupAdmin = participantRow.group_role === 'admin' || participantRow.participant_role === 'admin';
+            const isVendor = participantRow.vendor_id === socket.userId || participantRow.participant_role === 'vendor';
+            if (!isGroupAdmin && !isVendor) {
+              canSend = false;
+            } else if (participantRow.participant_can_send === false) {
+              canSend = false;
+            }
+          }
+
+          if (!canSend) {
             await client.query('ROLLBACK');
             socket.emit('error', { 
               message: 'You do not have permission to send messages in this conversation' 
@@ -169,8 +209,8 @@ const initializeChatSocket = (io) => {
             return;
           }
 
-          const senderName = participantCheck.rows[0].name;
-          const senderAvatar = participantCheck.rows[0].avatar;
+          const senderName = participantRow.name;
+          const senderAvatar = participantRow.avatar;
 
           // Insert message
           const messageResult = await client.query(
@@ -209,7 +249,7 @@ const initializeChatSocket = (io) => {
           };
 
           // Broadcast to all users in the conversation (including sender)
-          io.to(conversationId).emit('new-message', message);
+          io.to(conversationId).to(`conversation:${conversationId}`).emit('new-message', message);
 
           // Notify offline participants via external channels
           notificationService.notifyOfflineParticipants(
@@ -267,7 +307,7 @@ const initializeChatSocket = (io) => {
         }
 
         // Broadcast to others in the room (not to sender)
-        socket.to(conversationId).emit('user-typing', {
+        socket.to(conversationId).to(`conversation:${conversationId}`).emit('user-typing', {
           userId: socket.userId,
           userName,
           conversationId,
@@ -299,7 +339,7 @@ const initializeChatSocket = (io) => {
         );
 
         // Notify others that this user has read messages
-        socket.to(conversationId).emit('messages-read', {
+        socket.to(conversationId).to(`conversation:${conversationId}`).emit('messages-read', {
           userId: socket.userId,
           conversationId,
           readAt: new Date().toISOString(),
@@ -338,7 +378,7 @@ const initializeChatSocket = (io) => {
         const conversationId = result.rows[0].conversation_id;
 
         // Broadcast deletion to all users in conversation
-        io.to(conversationId).emit('message-deleted', {
+        io.to(conversationId).to(`conversation:${conversationId}`).emit('message-deleted', {
           messageId,
           conversationId,
         });
@@ -429,10 +469,14 @@ const initializeChatSocket = (io) => {
       console.error('Error cleaning typing indicators:', error);
     } finally {
       cleanupRunning = false;
-      setTimeout(cleanupTypingIndicators, 10000);
+      if (process.env.NODE_ENV !== 'test') {
+        setTimeout(cleanupTypingIndicators, 10000);
+      }
     }
   };
-  cleanupTypingIndicators();
+  if (process.env.NODE_ENV !== 'test') {
+    cleanupTypingIndicators();
+  }
 
   console.log('Chat Socket.IO initialized');
 };

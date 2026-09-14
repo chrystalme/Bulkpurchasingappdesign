@@ -8,21 +8,23 @@ DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS conversation_participants CASCADE;
 DROP TABLE IF EXISTS conversations CASCADE;
 
--- Conversations table (group internal chats and group-vendor chats)
+-- Conversations table (group internal chats, group-vendor chats, and 1:1 direct messages)
 CREATE TABLE conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    type VARCHAR(20) NOT NULL CHECK (type IN ('group', 'group-vendor')),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('group', 'group-vendor', 'direct')),
     title VARCHAR(255) NOT NULL,
     avatar VARCHAR(100),
-    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    group_id UUID REFERENCES groups(id) ON DELETE CASCADE, -- NULL for direct messages
     vendor_id UUID REFERENCES users(id) ON DELETE CASCADE, -- Only for group-vendor type
     product_id UUID REFERENCES products(id) ON DELETE SET NULL, -- Optional: product being discussed
+    user_a UUID REFERENCES users(id) ON DELETE CASCADE, -- Only for direct type (canonical pair, user_a < user_b)
+    user_b UUID REFERENCES users(id) ON DELETE CASCADE, -- Only for direct type (canonical pair)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     -- Ensure vendor_id is set for group-vendor conversations
     CONSTRAINT check_vendor_for_vendor_chat 
-        CHECK ((type = 'group-vendor' AND vendor_id IS NOT NULL) OR type = 'group'),
+        CHECK ((type = 'group-vendor' AND vendor_id IS NOT NULL) OR type IN ('group', 'direct')),
     
     -- Unique constraint: one group can only have one internal chat
     CONSTRAINT unique_group_internal_chat 
@@ -35,6 +37,11 @@ CREATE TABLE conversations (
 CREATE UNIQUE INDEX unique_group_vendor_chat_idx
     ON conversations (group_id, vendor_id)
     WHERE type = 'group-vendor';
+
+-- One direct conversation per user pair (user_a/user_b are the canonical sorted pair)
+CREATE UNIQUE INDEX unique_direct_chat_idx
+    ON conversations (user_a, user_b)
+    WHERE type = 'direct';
 
 -- Conversation participants
 CREATE TABLE conversation_participants (
@@ -175,6 +182,74 @@ CREATE TRIGGER add_to_group_chat_trigger
     AFTER INSERT ON group_members
     FOR EACH ROW
     EXECUTE FUNCTION add_member_to_group_chat();
+
+-- Function and trigger to auto-add members to group-vendor chats
+CREATE OR REPLACE FUNCTION add_member_to_vendor_chats()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
+    SELECT 
+        c.id,
+        NEW.user_id,
+        CASE WHEN NEW.role = 'admin' THEN 'admin' ELSE 'member' END,
+        (NEW.role = 'admin')
+    FROM conversations c
+    WHERE c.group_id = NEW.group_id 
+      AND c.type = 'group-vendor'
+      AND (c.vendor_id IS NULL OR c.vendor_id != NEW.user_id)
+    ON CONFLICT (conversation_id, user_id) DO UPDATE
+    SET role = EXCLUDED.role,
+        can_send = EXCLUDED.can_send
+    WHERE conversation_participants.role != 'vendor';
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS add_to_vendor_chat_trigger ON group_members;
+CREATE TRIGGER add_to_vendor_chat_trigger
+    AFTER INSERT OR UPDATE ON group_members
+    FOR EACH ROW
+    EXECUTE FUNCTION add_member_to_vendor_chats();
+
+-- Function and trigger to auto-enroll group members and vendor when group-vendor chat is created
+CREATE OR REPLACE FUNCTION enroll_members_in_new_vendor_chat()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.type = 'group-vendor' THEN
+        -- Enroll vendor with can_send = true
+        IF NEW.vendor_id IS NOT NULL THEN
+            INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
+            VALUES (NEW.id, NEW.vendor_id, 'vendor', true)
+            ON CONFLICT (conversation_id, user_id) DO UPDATE
+            SET role = 'vendor', can_send = true;
+        END IF;
+
+        -- Enroll all current group_members with can_send = (role = 'admin'), excluding the vendor
+        INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
+        SELECT 
+            NEW.id,
+            gm.user_id,
+            CASE WHEN gm.role = 'admin' THEN 'admin' ELSE 'member' END,
+            (gm.role = 'admin')
+        FROM group_members gm
+        WHERE gm.group_id = NEW.group_id
+          AND (NEW.vendor_id IS NULL OR gm.user_id != NEW.vendor_id)
+        ON CONFLICT (conversation_id, user_id) DO UPDATE
+        SET role = EXCLUDED.role,
+            can_send = EXCLUDED.can_send
+        WHERE conversation_participants.role != 'vendor';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS enroll_members_in_new_vendor_chat_trigger ON conversations;
+CREATE TRIGGER enroll_members_in_new_vendor_chat_trigger
+    AFTER INSERT ON conversations
+    FOR EACH ROW
+    EXECUTE FUNCTION enroll_members_in_new_vendor_chat();
 
 -- Function to clean up expired typing indicators (run periodically)
 CREATE OR REPLACE FUNCTION cleanup_expired_typing_indicators()

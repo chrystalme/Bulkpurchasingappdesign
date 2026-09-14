@@ -4,6 +4,7 @@ import {
   getUserConversations,
   getConversationById,
   createGroupVendorConversation,
+  createDirectConversation,
   getConversationParticipants,
   getMessages,
   sendMessage,
@@ -43,6 +44,13 @@ router.get('/conversations/:conversationId', getConversationById);
  * Body: { groupId, vendorId, productId? }
  */
 router.post('/conversations/group-vendor', createGroupVendorConversation);
+
+/**
+ * POST /api/chat/conversations/direct
+ * Create (or fetch) a 1:1 direct conversation with another user
+ * Body: { userId }
+ */
+router.post('/conversations/direct', createDirectConversation);
 
 /**
  * GET /api/chat/conversations/:conversationId/participants

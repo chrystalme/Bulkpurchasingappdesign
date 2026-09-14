@@ -28,9 +28,27 @@ export const getUserConversations = async (req, res) => {
         vendor.name as vendor_name,
         vendor.avatar as vendor_avatar,
         vendor.is_online as is_vendor_online,
-        cp.role as user_role,
-        cp.can_send,
-        (SELECT gm.role FROM group_members gm WHERE gm.group_id = c.group_id AND gm.user_id = $1) as group_role,
+        CASE WHEN c.type = 'direct' THEN (
+          SELECT u.name FROM users u WHERE u.id = (CASE WHEN c.user_a = $1 THEN c.user_b ELSE c.user_a END)
+        ) END as direct_name,
+        CASE WHEN c.type = 'direct' THEN (
+          SELECT u.avatar FROM users u WHERE u.id = (CASE WHEN c.user_a = $1 THEN c.user_b ELSE c.user_a END)
+        ) END as direct_avatar,
+        CASE WHEN c.type = 'direct' THEN (
+          SELECT u.is_online FROM users u WHERE u.id = (CASE WHEN c.user_a = $1 THEN c.user_b ELSE c.user_a END)
+        ) END as direct_is_online,
+        COALESCE(cp.role, gm.role) as user_role,
+        COALESCE(
+          CASE 
+            WHEN c.type = 'group-vendor' THEN (
+              (gm.role = 'admin' OR cp.role = 'admin' OR c.vendor_id = $1 OR cp.role = 'vendor')
+              AND COALESCE(cp.can_send, true)
+            )
+            ELSE COALESCE(cp.can_send, true)
+          END,
+          false
+        ) as can_send,
+        (SELECT gm2.role FROM group_members gm2 WHERE gm2.group_id = c.group_id AND gm2.user_id = $1) as group_role,
         -- Last message
         (
           SELECT json_build_object(
@@ -56,7 +74,7 @@ export const getUserConversations = async (req, res) => {
           SELECT COUNT(m.id)
           FROM messages m
           WHERE m.conversation_id = c.id 
-            AND m.created_at > cp.last_read_at
+            AND m.created_at > COALESCE(cp.last_read_at, '1970-01-01'::timestamp)
             AND m.sender_id != $1
             AND m.is_deleted = false
         ) as unread_count,
@@ -75,10 +93,11 @@ export const getUserConversations = async (req, res) => {
             AND ti.user_id != $1
         ) as typing_users
       FROM conversations c
-      JOIN conversation_participants cp ON c.id = cp.conversation_id
+      LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id AND cp.user_id = $1
+      LEFT JOIN group_members gm ON c.group_id = gm.group_id AND gm.user_id = $1
       LEFT JOIN groups g ON c.group_id = g.id
       LEFT JOIN users vendor ON c.vendor_id = vendor.id
-      WHERE cp.user_id = $1
+      WHERE (cp.user_id = $1 OR (c.type = 'group-vendor' AND gm.user_id = $1))
     `;
 
     const params = [userId];
@@ -106,17 +125,19 @@ export const getUserConversations = async (req, res) => {
     const conversations = result.rows.map(row => ({
       id: row.id,
       type: row.type,
-      title: row.title,
-      avatar: row.avatar,
+      title: row.type === 'direct' ? (row.direct_name || row.title) : row.title,
+      avatar: row.type === 'direct' ? (row.direct_avatar || row.avatar) : row.avatar,
       groupId: row.group_id,
       groupName: row.group_name,
       vendorId: row.vendor_id,
       vendorName: row.vendor_name,
       vendorAvatar: row.vendor_avatar,
       productId: row.product_id,
-      isOnline: row.is_vendor_online || false,
+      isOnline: row.type === 'direct'
+        ? (row.direct_is_online || false)
+        : (row.is_vendor_online || false),
       userRole: row.user_role,
-      canSend: row.can_send !== undefined ? row.can_send : true,
+      canSend: Boolean(row.can_send),
       groupRole: row.group_role,
       lastMessage: row.last_message,
       unreadCount: parseInt(row.unread_count) || 0,
@@ -162,13 +183,32 @@ export const getConversationById = async (req, res) => {
         vendor.name as vendor_name,
         vendor.avatar as vendor_avatar,
         vendor.is_online as is_vendor_online,
-        cp.role as user_role,
-        cp.can_send
+        CASE WHEN c.type = 'direct' THEN (
+          SELECT u.name FROM users u WHERE u.id = (CASE WHEN c.user_a = $2 THEN c.user_b ELSE c.user_a END)
+        ) END as direct_name,
+        CASE WHEN c.type = 'direct' THEN (
+          SELECT u.avatar FROM users u WHERE u.id = (CASE WHEN c.user_a = $2 THEN c.user_b ELSE c.user_a END)
+        ) END as direct_avatar,
+        CASE WHEN c.type = 'direct' THEN (
+          SELECT u.is_online FROM users u WHERE u.id = (CASE WHEN c.user_a = $2 THEN c.user_b ELSE c.user_a END)
+        ) END as direct_is_online,
+        COALESCE(cp.role, gm.role) as user_role,
+        COALESCE(
+          CASE 
+            WHEN c.type = 'group-vendor' THEN (
+              (gm.role = 'admin' OR cp.role = 'admin' OR c.vendor_id = $2 OR cp.role = 'vendor')
+              AND COALESCE(cp.can_send, true)
+            )
+            ELSE COALESCE(cp.can_send, true)
+          END,
+          false
+        ) as can_send
       FROM conversations c
-      JOIN conversation_participants cp ON c.id = cp.conversation_id
+      LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id AND cp.user_id = $2
+      LEFT JOIN group_members gm ON c.group_id = gm.group_id AND gm.user_id = $2
       LEFT JOIN groups g ON c.group_id = g.id
       LEFT JOIN users vendor ON c.vendor_id = vendor.id
-      WHERE c.id = $1 AND cp.user_id = $2
+      WHERE c.id = $1 AND (cp.user_id = $2 OR (c.type = 'group-vendor' AND gm.user_id = $2) OR gm.user_id = $2)
       `,
       [conversationId, userId]
     );
@@ -187,17 +227,19 @@ export const getConversationById = async (req, res) => {
       data: {
         id: row.id,
         type: row.type,
-        title: row.title,
-        avatar: row.avatar,
+        title: row.type === 'direct' ? (row.direct_name || row.title) : row.title,
+        avatar: row.type === 'direct' ? (row.direct_avatar || row.avatar) : row.avatar,
         groupId: row.group_id,
         groupName: row.group_name,
         vendorId: row.vendor_id,
         vendorName: row.vendor_name,
         vendorAvatar: row.vendor_avatar,
         productId: row.product_id,
-        isOnline: row.is_vendor_online || false,
+        isOnline: row.type === 'direct'
+          ? (row.direct_is_online || false)
+          : (row.is_vendor_online || false),
         userRole: row.user_role,
-        canSend: row.can_send,
+        canSend: Boolean(row.can_send),
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       },
@@ -319,6 +361,7 @@ export const createGroupVendorConversation = async (req, res) => {
         `
         INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
         VALUES ($1, $2, $3, $4)
+        ON CONFLICT (conversation_id, user_id) DO NOTHING
         `,
         [conversationId, member.user_id, member.role, canSend]
       );
@@ -329,6 +372,8 @@ export const createGroupVendorConversation = async (req, res) => {
       `
       INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
       VALUES ($1, $2, $3, $4)
+      ON CONFLICT (conversation_id, user_id) DO UPDATE
+      SET role = 'vendor', can_send = true
       `,
       [conversationId, vendorId, 'vendor', true]
     );
@@ -360,6 +405,145 @@ export const createGroupVendorConversation = async (req, res) => {
 };
 
 /**
+ * Create (or fetch) a 1:1 direct conversation between the current user
+ * and another user. Idempotent: repeated calls return the same conversation.
+ * Body: { userId }
+ */
+export const createDirectConversation = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { userId: targetId } = req.body;
+
+    if (!targetId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+
+    if (targetId === userId) {
+      return res.status(400).json({ success: false, error: 'Cannot start a conversation with yourself' });
+    }
+
+    // Target must exist and be active
+    const targetCheck = await pool.query(
+      'SELECT id, name, avatar FROM users WHERE id = $1 AND is_active = true',
+      [targetId]
+    );
+    if (targetCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    const target = targetCheck.rows[0];
+
+    // Canonical pair: always store the sorted (user_a < user_b) pair so the
+    // unique index dedupes conversations regardless of who initiates.
+    const [userA, userB] = [userId, targetId].sort();
+
+    // Get-or-create
+    const existing = await pool.query(
+      `SELECT id FROM conversations WHERE type = 'direct' AND user_a = $1 AND user_b = $2`,
+      [userA, userB]
+    );
+
+    let conversationId;
+    if (existing.rows.length > 0) {
+      conversationId = existing.rows[0].id;
+    } else {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        const convResult = await client.query(
+          `INSERT INTO conversations (type, title, avatar, user_a, user_b)
+           VALUES ('direct', $1, $2, $3, $4)
+           RETURNING id`,
+          [target.name, target.avatar, userA, userB]
+        );
+        conversationId = convResult.rows[0].id;
+
+        await client.query(
+          `INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
+           VALUES ($1, $2, 'member', true), ($1, $3, 'member', true)
+           ON CONFLICT (conversation_id, user_id) DO NOTHING`,
+          [conversationId, userA, userB]
+        );
+
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        // Concurrent create hit the unique index -> fetch the winner
+        if (error.code === '23505') {
+          const winner = await pool.query(
+            `SELECT id FROM conversations WHERE type = 'direct' AND user_a = $1 AND user_b = $2`,
+            [userA, userB]
+          );
+          if (winner.rows.length > 0) {
+            conversationId = winner.rows[0].id;
+          } else {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      } finally {
+        client.release();
+      }
+    }
+
+    // Return the conversation in the same shape as the conversations list
+    const convRow = await pool.query(
+      `SELECT
+         c.id,
+         c.type,
+         c.title,
+         c.avatar,
+         c.group_id,
+         c.vendor_id,
+         c.product_id,
+         c.created_at,
+         c.updated_at,
+         peer.name as peer_name,
+         peer.avatar as peer_avatar,
+         peer.is_online as peer_is_online
+       FROM conversations c
+       JOIN users peer ON peer.id = (CASE WHEN c.user_a = $2 THEN c.user_b ELSE c.user_a END)
+       WHERE c.id = $1`,
+      [conversationId, userId]
+    );
+
+    if (convRow.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Conversation not found' });
+    }
+
+    const row = convRow.rows[0];
+    res.status(existing.rows.length > 0 ? 200 : 201).json({
+      success: true,
+      data: {
+        id: row.id,
+        type: row.type,
+        title: row.peer_name || row.title,
+        avatar: row.peer_avatar || row.avatar,
+        groupId: null,
+        groupName: null,
+        vendorId: null,
+        vendorName: null,
+        vendorAvatar: null,
+        productId: null,
+        isOnline: row.peer_is_online || false,
+        userRole: 'member',
+        canSend: true,
+        groupRole: null,
+        lastMessage: null,
+        unreadCount: 0,
+        typingUsers: [],
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      },
+    });
+  } catch (error) {
+    console.error('Create direct conversation error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create conversation' });
+  }
+};
+
+/**
  * Get all participants in a conversation
  */
 export const getConversationParticipants = async (req, res) => {
@@ -369,7 +553,11 @@ export const getConversationParticipants = async (req, res) => {
 
     // Check if user is part of this conversation
     const accessCheck = await pool.query(
-      'SELECT id FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2',
+      `SELECT c.id 
+       FROM conversations c
+       LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id AND cp.user_id = $2
+       LEFT JOIN group_members gm ON c.group_id = gm.group_id AND gm.user_id = $2
+       WHERE c.id = $1 AND (cp.user_id = $2 OR gm.user_id = $2 OR c.vendor_id = $2)`,
       [conversationId, userId]
     );
 
@@ -434,7 +622,11 @@ export const getMessages = async (req, res) => {
 
     // Check if user is part of this conversation
     const accessCheck = await pool.query(
-      'SELECT id FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2',
+      `SELECT c.id 
+       FROM conversations c
+       LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id AND cp.user_id = $2
+       LEFT JOIN group_members gm ON c.group_id = gm.group_id AND gm.user_id = $2
+       WHERE c.id = $1 AND (cp.user_id = $2 OR gm.user_id = $2 OR c.vendor_id = $2)`,
       [conversationId, userId]
     );
 
@@ -525,10 +717,29 @@ export const sendMessage = async (req, res) => {
     // Check if user can send messages in this conversation
     const participantCheck = await client.query(
       `
-      SELECT cp.can_send, u.name, u.avatar
-      FROM conversation_participants cp
-      JOIN users u ON cp.user_id = u.id
-      WHERE cp.conversation_id = $1 AND cp.user_id = $2
+      SELECT 
+        c.type as conversation_type,
+        c.vendor_id,
+        cp.role as participant_role,
+        cp.can_send as participant_can_send,
+        gm.role as group_role,
+        COALESCE(
+          CASE 
+            WHEN c.type = 'group-vendor' THEN (
+              (gm.role = 'admin' OR cp.role = 'admin' OR c.vendor_id = $2 OR cp.role = 'vendor')
+              AND COALESCE(cp.can_send, true)
+            )
+            ELSE COALESCE(cp.can_send, true)
+          END,
+          false
+        ) as can_send,
+        u.name,
+        u.avatar
+      FROM conversations c
+      JOIN users u ON u.id = $2
+      LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id AND cp.user_id = $2
+      LEFT JOIN group_members gm ON c.group_id = gm.group_id AND gm.user_id = $2
+      WHERE c.id = $1 AND (cp.user_id = $2 OR gm.user_id = $2 OR c.vendor_id = $2)
       `,
       [conversationId, userId]
     );
@@ -542,7 +753,19 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    if (!participantCheck.rows[0].can_send) {
+    const participantRow = participantCheck.rows[0];
+    let canSend = participantRow.can_send;
+    if (participantRow.conversation_type === 'group-vendor') {
+      const isGroupAdmin = participantRow.group_role === 'admin' || participantRow.participant_role === 'admin';
+      const isVendor = participantRow.vendor_id === userId || participantRow.participant_role === 'vendor';
+      if (!isGroupAdmin && !isVendor) {
+        canSend = false;
+      } else if (participantRow.participant_can_send === false) {
+        canSend = false;
+      }
+    }
+
+    if (!canSend) {
       console.log(`Message send failed: User ${userId} does not have send permission in conversation ${conversationId}.`);
       await client.query('ROLLBACK');
       return res.status(403).json({
@@ -551,8 +774,8 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    const senderName = participantCheck.rows[0].name;
-    const senderAvatar = participantCheck.rows[0].avatar;
+    const senderName = participantRow.name;
+    const senderAvatar = participantRow.avatar;
 
     // Insert message
     const messageResult = await client.query(
@@ -595,7 +818,13 @@ export const sendMessage = async (req, res) => {
 
     // Emit socket event (handled in socket.io server)
     if (req.app.get('io')) {
-      req.app.get('io').to(conversationId).emit('new-message', message);
+      const io = req.app.get('io');
+      const target = io.to(conversationId);
+      if (typeof target.to === 'function') {
+        target.to(`conversation:${conversationId}`).emit('new-message', message);
+      } else {
+        target.emit('new-message', message);
+      }
     }
 
     // Notify offline participants via external channels (SMS/WhatsApp)
@@ -691,7 +920,13 @@ export const deleteMessage = async (req, res) => {
 
     // Emit socket event
     if (req.app.get('io')) {
-      req.app.get('io').to(conversationId).emit('message-deleted', { messageId });
+      const io = req.app.get('io');
+      const target = io.to(conversationId);
+      if (typeof target.to === 'function') {
+        target.to(`conversation:${conversationId}`).emit('message-deleted', { messageId, conversationId });
+      } else {
+        target.emit('message-deleted', { messageId, conversationId });
+      }
     }
 
     res.json({
@@ -734,11 +969,21 @@ export const setTypingIndicator = async (req, res) => {
 
       // Emit socket event
       if (req.app.get('io')) {
-        req.app.get('io').to(conversationId).emit('user-typing', {
-          userId,
-          conversationId,
-          isTyping: true,
-        });
+        const io = req.app.get('io');
+        const target = io.to(conversationId);
+        if (typeof target.to === 'function') {
+          target.to(`conversation:${conversationId}`).emit('user-typing', {
+            userId,
+            conversationId,
+            isTyping: true,
+          });
+        } else {
+          target.emit('user-typing', {
+            userId,
+            conversationId,
+            isTyping: true,
+          });
+        }
       }
     } else {
       // Remove typing indicator
@@ -749,11 +994,21 @@ export const setTypingIndicator = async (req, res) => {
 
       // Emit socket event
       if (req.app.get('io')) {
-        req.app.get('io').to(conversationId).emit('user-typing', {
-          userId,
-          conversationId,
-          isTyping: false,
-        });
+        const io = req.app.get('io');
+        const target = io.to(conversationId);
+        if (typeof target.to === 'function') {
+          target.to(`conversation:${conversationId}`).emit('user-typing', {
+            userId,
+            conversationId,
+            isTyping: false,
+          });
+        } else {
+          target.emit('user-typing', {
+            userId,
+            conversationId,
+            isTyping: false,
+          });
+        }
       }
     }
 
