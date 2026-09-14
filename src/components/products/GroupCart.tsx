@@ -35,7 +35,14 @@ import {
   toggleAllocationPaid,
   setMemberPaymentStatus,
   markAllPaid,
+  fetchGroupCart,
+  updateCartQuantity,
+  updateCartAllocation,
+  setMemberCartPayment,
+  markAllCartPaid,
+  removeCartItem,
 } from '../../store/slices/cartSlice';
+import { chatSocket } from '../../lib/socket/chatSocket';
 import type { GroupMember } from '../../lib/types';
 import { toast } from 'sonner';
 
@@ -47,10 +54,13 @@ interface GroupCartProps {
 export function GroupCart({ navigate, groupId }: GroupCartProps) {
   const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const [error] = useState<string | null>(null);
 
   const products = useAppSelector(selectProducts);
-  const loading = useAppSelector(selectProductsLoading);
+  const productsLoading = useAppSelector(selectProductsLoading);
+  const cartLoading = useAppSelector(state => state.cart.loading);
+  const cartError = useAppSelector(state => state.cart.error);
+  const loading = productsLoading || cartLoading;
+
   const cartItems = useAppSelector(state => state.cart.items);
   const cartGroupId = useAppSelector(state => state.cart.groupId);
   const currentGroup = useAppSelector(state => state.groups.currentGroup);
@@ -71,15 +81,21 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
     }));
   }, [currentGroup?.members]);
 
-  // Set cart group when component mounts or groupId changes
+  // Set cart group and fetch backend cart when component mounts or groupId changes
   useEffect(() => {
-    if (groupId && cartGroupId !== groupId) {
+    if (groupId) {
       dispatch(setCartGroup(groupId));
-    }
-    if (groupId && (!currentGroup || currentGroup.id !== groupId)) {
+      dispatch(fetchGroupCart(groupId));
+      chatSocket.joinCart(groupId);
       dispatch(fetchGroupById(groupId) as any);
     }
-  }, [dispatch, groupId, cartGroupId, currentGroup]);
+
+    return () => {
+      if (groupId) {
+        chatSocket.leaveCart(groupId);
+      }
+    };
+  }, [dispatch, groupId]);
 
   useEffect(() => {
     if (products.length === 0) {
@@ -92,45 +108,57 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
   );
 
   const handleUpdateQuantity = (productId: string, delta: number) => {
-    dispatch(updateQuantity({ productId, delta }));
+    if (groupId) {
+      dispatch(updateCartQuantity({ groupId, productId, delta }));
+    } else {
+      dispatch(updateQuantity({ productId, delta }));
+    }
   };
 
   const handleRemoveItem = (productId: string) => {
-    dispatch(removeItem(productId));
+    if (groupId) {
+      dispatch(removeCartItem({ groupId, productId }));
+    } else {
+      dispatch(removeItem(productId));
+    }
     toast.info('Item removed from cart');
   };
 
   const handleTogglePaid = (productId: string, memberId: string) => {
-    dispatch(toggleAllocationPaid({ productId, memberId }));
+    const item = cartItems.find(i => i.productId === productId);
+    const currentAlloc = item?.allocations?.find(a => a.memberId === memberId);
+    const nextPaid = !(currentAlloc?.paid);
+    if (groupId) {
+      dispatch(updateCartAllocation({ groupId, productId, memberId, paid: nextPaid }));
+    } else {
+      dispatch(toggleAllocationPaid({ productId, memberId }));
+    }
   };
 
   const handleToggleMemberOverallPaid = (memberId: string, currentPaid: boolean) => {
-    dispatch(setMemberPaymentStatus({ memberId, paid: !currentPaid }));
+    if (groupId) {
+      dispatch(setMemberCartPayment({ groupId, memberId, paid: !currentPaid }));
+    } else {
+      dispatch(setMemberPaymentStatus({ memberId, paid: !currentPaid }));
+    }
     toast.success(`Updated payment fulfillment for member`);
   };
 
   const handleMarkAllPaid = () => {
-    dispatch(markAllPaid());
+    if (groupId) {
+      dispatch(markAllCartPaid(groupId));
+    } else {
+      dispatch(markAllPaid());
+    }
     toast.success('All member purchase orders marked as paid!');
   };
 
-  // Helper to ensure each cartItem has allocations showing member contributions towards MOQ
+  // Helper to render member allocations directly from backend state
   const getItemAllocations = (cartItem: any, productMoq: number) => {
     if (cartItem.allocations && cartItem.allocations.length > 0) {
       return cartItem.allocations;
     }
-
-    // Default distribution among members if not explicitly set
-    const totalQty = cartItem.quantity;
-    const count = Math.min(members.length, 3);
-    const baseQty = Math.max(1, Math.floor(totalQty / count));
-    const remainder = totalQty - baseQty * count;
-
-    return members.slice(0, count).map((m, idx) => ({
-      memberId: m.user_id || m.id,
-      quantity: idx === 0 ? baseQty + remainder : baseQty,
-      paid: idx === 0, // First member paid as initial state
-    }));
+    return [];
   };
 
   const calculateSubtotal = () => {
@@ -207,7 +235,7 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
     );
   }
 
-  if (error) {
+  if (cartError) {
     return (
       <div className="min-h-screen bg-[#F4F4F5]">
         <div className="bg-white border-b border-gray-200 p-4 lg:p-6">
@@ -226,8 +254,13 @@ export function GroupCart({ navigate, groupId }: GroupCartProps) {
           <div className="max-w-4xl mx-auto">
             <ErrorState
               title="Failed to load cart"
-              description={error}
-              onRetry={() => dispatch(fetchProducts() as any)}
+              description={cartError}
+              onRetry={() => {
+                if (groupId) {
+                  dispatch(fetchGroupCart(groupId));
+                }
+                dispatch(fetchProducts() as any);
+              }}
             />
           </div>
         </div>

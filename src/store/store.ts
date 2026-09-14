@@ -43,11 +43,11 @@ const cartPersistConfig = {
   whitelist: ['groupId', 'items'],
 };
 
-// Persist config for chat (only selected conversation)
+// Persist config for chat
 const chatPersistConfig = {
   key: 'chat',
   storage,
-  whitelist: ['selectedConversationId'],
+  whitelist: [],
 };
 
 export const store = configureStore({

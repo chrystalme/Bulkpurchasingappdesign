@@ -24,9 +24,11 @@ import ordersRoutes from './routes/orders.routes.js';
 import escrowRoutes from './routes/escrow.routes.js';
 import groupRoutes from './routes/groups.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import cartRoutes from './routes/cart.routes.js';
 
-// Import Socket.IO chat initializer
+// Import Socket.IO initializers
 import { initializeChatSocket } from './socket/chat.socket.js';
+import { initializeCartSocket } from './socket/cart.socket.js';
 
 // Load environment variables
 dotenv.config();
@@ -138,11 +140,13 @@ app.use('/api/products', productsRoutes);
 app.use('/api/vendors', vendorsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/escrow', escrowRoutes);
+app.use('/api/groups/:groupId/cart', cartRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/chat', chatRoutes);
 
-// Initialize Socket.IO chat handlers
+// Initialize Socket.IO handlers
 initializeChatSocket(io);
+initializeCartSocket(io);
 
 // 404 handler for unmatched routes
 app.use((req, res) => {

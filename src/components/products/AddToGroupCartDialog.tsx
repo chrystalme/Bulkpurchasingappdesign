@@ -7,6 +7,7 @@ import {
   setCartGroup,
   addItem,
   clearCart,
+  addToGroupCart,
 } from '../../store/slices/cartSlice';
 import type { CartItemData } from '../../store/slices/cartSlice';
 import {
@@ -82,7 +83,7 @@ export function AddToGroupCartDialog({
     selectedGroupId !== '' &&
     selectedGroupId !== cartGroupId;
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product || !selectedGroupId) return;
 
     const needToSwitch = cartGroupId != null && cartItems.length > 0 && selectedGroupId !== cartGroupId;
@@ -98,21 +99,35 @@ export function AddToGroupCartDialog({
     }
 
     dispatch(setCartGroup(selectedGroupId));
-    const currentUserId = user?.id || 'current-user';
-    const existingItem = cartItems.find(item => item.productId === product.id.toString());
-    const newTotalQty = existingItem ? existingItem.quantity + quantity : quantity;
-    const existingAlloc = existingItem?.allocations?.find(a => a.memberId === currentUserId);
-    const otherAllocs = existingItem?.allocations?.filter(a => a.memberId !== currentUserId) || [];
-    const newAllocQty = existingAlloc ? existingAlloc.quantity + quantity : quantity;
 
-    const cartItem: CartItemData = {
-      productId: product.id.toString(),
-      quantity: newTotalQty,
-      allocations: [...otherAllocs, { memberId: currentUserId, quantity: newAllocQty }],
-    };
-    dispatch(addItem(cartItem));
+    try {
+      await dispatch(
+        addToGroupCart({
+          groupId: selectedGroupId,
+          productId: product.id.toString(),
+          quantity,
+          memberId: user?.id,
+        })
+      ).unwrap();
+      toast.success(`${product.name} (x${quantity}) added to group cart!`);
+    } catch {
+      // Fallback optimistic local dispatch if backend offline
+      const currentUserId = user?.id || 'current-user';
+      const existingItem = cartItems.find(item => item.productId === product.id.toString());
+      const newTotalQty = existingItem ? existingItem.quantity + quantity : quantity;
+      const existingAlloc = existingItem?.allocations?.find(a => a.memberId === currentUserId);
+      const otherAllocs = existingItem?.allocations?.filter(a => a.memberId !== currentUserId) || [];
+      const newAllocQty = existingAlloc ? existingAlloc.quantity + quantity : quantity;
 
-    toast.success(`${product.name} (x${quantity}) added to group cart!`);
+      const cartItem: CartItemData = {
+        productId: product.id.toString(),
+        quantity: newTotalQty,
+        allocations: [...otherAllocs, { memberId: currentUserId, quantity: newAllocQty }],
+      };
+      dispatch(addItem(cartItem));
+      toast.success(`${product.name} (x${quantity}) added to group cart!`);
+    }
+
     onClose();
     setShowSwitchWarning(false);
     setPendingConfirm(false);
