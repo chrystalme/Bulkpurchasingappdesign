@@ -5,3 +5,6 @@ node_modules
 
 # Hermes agent private workspace (plans, session state)
 .hermes/
+
+# Subagent/auditor workspaces
+.agents/
