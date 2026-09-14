@@ -33,6 +33,22 @@ interface ApiResponse<T> {
   error?: string;
 }
 
+export interface CartAllocation {
+  id?: string;
+  memberId: string;
+  memberName?: string;
+  memberAvatar?: string;
+  quantity: number;
+  paid?: boolean;
+}
+
+export interface CartItemData {
+  id?: string;
+  productId: string;
+  quantity: number;
+  allocations: CartAllocation[];
+}
+
 /**
  * Product rows as they come off the wire: snake_case keys, numeric columns
  * (prices) serialised as strings, joined vendor columns alongside.
@@ -752,7 +768,7 @@ class ApiClient {
   // Chat endpoints
   chat = {
     getConversations: async (filters?: {
-      type?: 'group' | 'group-vendor';
+      type?: 'group' | 'group-vendor' | 'direct';
       groupId?: string;
     }): Promise<ApiResponse<any[]>> => {
       const params = new URLSearchParams();
@@ -761,6 +777,14 @@ class ApiClient {
       const query = params.toString() ? `?${params.toString()}` : '';
       const response = await this.request<any[]>(`chat/conversations${query}`);
       return response as unknown as ApiResponse<any[]>;
+    },
+    createDirectConversation: async (
+      userId: string,
+    ): Promise<ApiResponse<any>> => {
+      return this.request<any>(`chat/conversations/direct`, {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      });
     },
     getMessages: async (
       conversationId: string,
@@ -896,6 +920,67 @@ class ApiClient {
       return this.request<null>(`groups/${groupId}/join-requests/${requestId}`, {
         method: 'PUT',
         body: JSON.stringify({ action }),
+      });
+    },
+  };
+
+  cart = {
+    get: async (groupId: string): Promise<ApiResponse<{ groupId: string; items: CartItemData[] }>> => {
+      return this.request<{ groupId: string; items: CartItemData[] }>(`groups/${groupId}/cart`);
+    },
+    addItem: async (
+      groupId: string,
+      data: { productId: string; quantity: number; memberId?: string },
+    ): Promise<ApiResponse<{ groupId: string; items: CartItemData[] }>> => {
+      return this.request<{ groupId: string; items: CartItemData[] }>(`groups/${groupId}/cart/items`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    updateQuantity: async (
+      groupId: string,
+      productId: string,
+      data: { delta?: number; quantity?: number },
+    ): Promise<ApiResponse<{ groupId: string; items: CartItemData[] }>> => {
+      return this.request<{ groupId: string; items: CartItemData[] }>(`groups/${groupId}/cart/items/${productId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    updateAllocation: async (
+      groupId: string,
+      productId: string,
+      memberId: string,
+      data: { quantity?: number; paid?: boolean },
+    ): Promise<ApiResponse<{ groupId: string; items: CartItemData[] }>> => {
+      return this.request<{ groupId: string; items: CartItemData[] }>(
+        `groups/${groupId}/cart/items/${productId}/allocations/${memberId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        },
+      );
+    },
+    updatePayment: async (
+      groupId: string,
+      data: { memberId?: string; paid?: boolean; markAll?: boolean },
+    ): Promise<ApiResponse<{ groupId: string; items: CartItemData[] }>> => {
+      return this.request<{ groupId: string; items: CartItemData[] }>(`groups/${groupId}/cart/allocations/payment`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    removeItem: async (
+      groupId: string,
+      productId: string,
+    ): Promise<ApiResponse<{ groupId: string; items: CartItemData[] }>> => {
+      return this.request<{ groupId: string; items: CartItemData[] }>(`groups/${groupId}/cart/items/${productId}`, {
+        method: 'DELETE',
+      });
+    },
+    clear: async (groupId: string): Promise<ApiResponse<null>> => {
+      return this.request<null>(`groups/${groupId}/cart`, {
+        method: 'DELETE',
       });
     },
   };

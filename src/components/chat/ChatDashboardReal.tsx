@@ -255,7 +255,12 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-1">
-                        <h4 className="font-semibold truncate">{displayName}</h4>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <h4 className="font-semibold truncate">{displayName}</h4>
+                          {conversation.type === 'group-vendor' && !conversation.canSend && (
+                            <Badge variant="outline" className="text-xs shrink-0">Observer</Badge>
+                          )}
+                        </div>
                         {conversation.lastMessage && (
                           <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
                             {formatTime(conversation.lastMessage.timestamp)}
@@ -277,13 +282,21 @@ export function ChatDashboardReal({ navigate }: ChatDashboardRealProps) {
                           </div>
                         ) : conversation.type === 'group-vendor' ? (
                           <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
                               <Store className="w-3 h-3" />
                               <span>Group ⟷ Vendor</span>
+                              {!conversation.canSend && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Read-only</Badge>
+                              )}
                             </div>
                             {conversation.groupName && (
                               <span className="text-xs text-gray-400">for {conversation.groupName}</span>
                             )}
+                          </div>
+                        ) : conversation.type === 'direct' ? (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <MessageCircle className="w-3 h-3" />
+                            <span>Direct Message</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1 text-xs text-gray-500">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Send, Users, Store, Info, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Send, Users, Store, Info, ShieldAlert, MessageCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Avatar, AvatarFallback } from '../ui/avatar';
@@ -12,6 +12,7 @@ import {
   fetchParticipants,
   addOptimisticMessage,
   conversationRead,
+  selectConversation,
 } from '../../store/slices/chatSlice';
 import { fetchGroups, fetchGroupById } from '../../store/slices/groupsSlice';
 import { chatSocket } from '../../lib/socket/chatSocket';
@@ -34,7 +35,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const groups = useAppSelector(state => state.groups.groups);
+  const groups = useAppSelector(state => state.groups.groups) || [];
   const currentGroup = useAppSelector(state => state.groups.currentGroup);
   const messages = useAppSelector(
     state => state.chat.messagesByConversation[conversation.id] || [],
@@ -65,7 +66,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
         dispatch(fetchGroupById(conversation.groupId));
       }
     }
-  }, [dispatch, conversation.groupId, groups.length, currentGroup?.id]);
+  }, [dispatch, conversation.groupId, groups?.length, currentGroup?.id]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -77,20 +78,29 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
     dispatch(conversationRead(conversation.id));
   }, [dispatch, conversation.id, messages.length]);
 
-  // For vendor chats, vendor or group admin can send; for internal chats, all members can
-  const isVendor = user?.role === 'vendor';
+  // Set selected conversation in Redux while ChatWindowReal is mounted
+  useEffect(() => {
+    dispatch(selectConversation(conversation.id));
+    return () => {
+      dispatch(selectConversation(null));
+    };
+  }, [dispatch, conversation.id]);
+
+  // Find current user participant record first to eliminate TDZ ReferenceError
   const myParticipant = participants.find(p => p.userId === user?.id);
+
+  // For vendor chats, vendor or group admin can send; for internal chats, all members can
+  const isVendor = user?.role === 'vendor' || myParticipant?.role === 'vendor';
   const matchingGroup = (currentGroup?.id === conversation.groupId ? currentGroup : null)
     || groups.find(g => g.id === conversation.groupId);
   const isGroupAdmin = matchingGroup?.user_role === 'admin'
     || matchingGroup?.created_by === user?.id
     || conversation.groupRole === 'admin'
-    || conversation.userRole === 'admin'
-    || myParticipant?.role === 'admin';
-  const canSendMessages = isVendor
-    || (conversation.type === 'group-vendor'
-      ? (isGroupAdmin || myParticipant?.canSend === true || conversation.canSend === true)
-      : true);
+    || conversation.userRole === 'admin';
+  const isInternalGroup = conversation.type === 'group';
+  const canSendMessages = isInternalGroup
+    ? (myParticipant?.canSend !== false)
+    : (isVendor || ((isGroupAdmin || conversation.canSend === true) && myParticipant?.canSend !== false));
 
   // Handle input change with typing indicator
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,6 +178,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (!canSendMessages) return;
       handleSendMessage();
     }
   };
@@ -182,12 +193,12 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
       : '';
   };
 
-  const displayTitle = isVendor
+  const displayTitle = (isVendor
     ? (conversation.groupName || conversation.title)
-    : conversation.title;
+    : conversation.title) || 'Chat';
 
   return (
-    <div className='fixed inset-0 z-50 flex flex-col h-[100dvh] bg-white max-w-md lg:max-w-6xl mx-auto shadow-2xl'>
+    <div className='fixed inset-0 z-[60] flex flex-col h-full h-[100vh] h-[100dvh] max-h-[100dvh] bg-white max-w-md lg:max-w-6xl mx-auto shadow-2xl overflow-hidden'>
       {/* Header */}
       <div className='bg-gradient-to-r from-[#0047AB] to-[#6EE7B7] p-4 pt-[max(1rem,env(safe-area-inset-top))] flex items-center gap-3 shrink-0'>
         <Button
@@ -221,6 +232,11 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
                     <Store className='w-3 h-3' />
                     <span>{conversation.isOnline ? 'Online' : 'Offline'}</span>
                   </>
+                ) : conversation.type === 'direct' ? (
+                  <>
+                    <MessageCircle className='w-3 h-3' />
+                    <span>{conversation.isOnline ? 'Online' : 'Direct message'}</span>
+                  </>
                 ) : (
                   <>
                     <Users className='w-3 h-3' />
@@ -246,8 +262,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
         <Alert className='m-4 border-blue-200 bg-blue-50'>
           <ShieldAlert className='h-4 w-4 text-blue-600' />
           <AlertDescription className='text-sm text-blue-800'>
-            You're viewing this conversation (read-only). Only the group admin
-            can send messages to the vendor.
+            You have read-only access to this vendor conversation. Only the group admin and vendor can send messages.
           </AlertDescription>
         </Alert>
       )}
@@ -278,7 +293,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
                   {!message.isOwn && (
                     <Avatar className='w-8 h-8 flex-shrink-0 bg-[#0047AB] text-white'>
                       <AvatarFallback className='bg-[#0047AB] text-white text-xs'>
-                        {message.senderAvatar || message.senderName.charAt(0)}
+                        {message.senderAvatar || (message.senderName ? message.senderName.charAt(0) : 'U')}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -286,7 +301,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
                   <div>
                     {!message.isOwn && (
                       <p className='text-xs text-gray-500 mb-1 px-3'>
-                        {message.senderName}
+                        {message.senderName || 'Member'}
                       </p>
                     )}
                     <div
@@ -347,7 +362,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
         {!canSendMessages && conversation.type === 'group-vendor' && (
           <div className='flex items-center justify-center gap-2 text-sm text-gray-500 mb-2'>
             <ShieldAlert className='w-4 h-4' />
-            <span>Only group admin can send messages</span>
+            <span>Only the group admin and vendor can send messages</span>
           </div>
         )}
         <div className='flex items-center gap-2'>
@@ -357,7 +372,7 @@ export function ChatWindowReal({ conversation, onBack }: ChatWindowRealProps) {
             onKeyDown={handleKeyPress}
             placeholder={
               !canSendMessages
-                ? 'Messages disabled'
+                ? 'Messages disabled (view only)'
                 : isVendor
                   ? 'Reply to group...'
                   : 'Type a message...'

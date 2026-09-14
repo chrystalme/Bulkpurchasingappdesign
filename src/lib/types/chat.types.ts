@@ -5,10 +5,10 @@
 
 export interface Conversation {
   id: string;
-  type: 'group' | 'group-vendor';
+  type: 'group' | 'group-vendor' | 'direct';
   title: string;
   avatar?: string;
-  groupId: string;
+  groupId?: string | null;
   groupName?: string;
   vendorId?: string;
   vendorName?: string;

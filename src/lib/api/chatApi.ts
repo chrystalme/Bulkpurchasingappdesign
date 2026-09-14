@@ -34,7 +34,7 @@ export type {
  * @deprecated Use apiClient.chat.getConversations() instead
  */
 export async function getUserConversations(params?: {
-  type?: 'group' | 'group-vendor';
+  type?: 'group' | 'group-vendor' | 'direct';
   groupId?: string;
 }): Promise<Conversation[]> {
   const response = await apiClient.chat.getConversations(params);

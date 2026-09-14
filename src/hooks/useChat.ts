@@ -165,9 +165,28 @@ export function useConversation(conversationId: string | null) {
     }
   }, [conversationId]);
 
+  // Compute canSend permission for current user
+  const myParticipant = useMemo(
+    () => participants.find(p => p.userId === user?.id),
+    [participants, user?.id]
+  );
+  const isVendor = user?.role === 'vendor' || myParticipant?.role === 'vendor';
+  const isGroupAdmin = myParticipant?.role === 'admin' || user?.role === 'admin' || user?.role === 'superUser';
+  const canSend = useMemo(() => {
+    if (isVendor) return true;
+    if (myParticipant) {
+      if (myParticipant.canSend !== undefined) {
+        return Boolean(myParticipant.canSend);
+      }
+      return isGroupAdmin;
+    }
+    if (user?.role === 'admin' || user?.role === 'superUser') return true;
+    return false;
+  }, [isVendor, myParticipant, isGroupAdmin, user?.role]);
+
   // Send message via Socket.IO with optimistic local update
   const sendMessage = useCallback((content: string) => {
-    if (!conversationId || !content.trim()) return;
+    if (!conversationId || !content.trim() || !canSend) return;
 
     // Optimistically add the message to local state so it appears immediately
     const optimisticMessage: ChatMessage = {
@@ -184,7 +203,7 @@ export function useConversation(conversationId: string | null) {
     setMessages(prev => [...prev, optimisticMessage]);
 
     chatSocket.sendMessage(conversationId, content.trim());
-  }, [conversationId, user]);
+  }, [conversationId, user, canSend]);
 
   // Send typing indicator
   const sendTypingIndicator = useCallback((isTyping: boolean) => {
@@ -297,6 +316,7 @@ export function useConversation(conversationId: string | null) {
     error,
     typingUsers,
     messagesEndRef,
+    canSend,
     sendMessage,
     sendTypingIndicator,
     markAsRead,

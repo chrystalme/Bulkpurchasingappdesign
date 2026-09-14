@@ -17,9 +17,11 @@ import {
   fetchConversations,
   clearChat,
 } from '../slices/chatSlice';
+import { cartUpdated, cartCleared } from '../slices/cartSlice';
 
-// Track which conversations we've joined to avoid duplicate joins
+// Track which conversations and carts we've joined to avoid duplicate joins
 const joinedConversations = new Set<string>();
+const joinedCarts = new Set<string>();
 
 export const chatSocketMiddleware: Middleware<
   {},
@@ -88,6 +90,16 @@ export const chatSocketMiddleware: Middleware<
       // Conversation joined successfully
       console.log('Joined conversation:', data.conversationId);
     });
+
+    // Listen for group cart updates
+    chatSocket.on('cart-updated', (data: { groupId: string; items: any[]; updatedBy: string }) => {
+      store.dispatch(cartUpdated(data));
+    });
+
+    // Listen for group cart cleared
+    chatSocket.on('cart-cleared', (data: { groupId: string; clearedBy: string }) => {
+      store.dispatch(cartCleared(data));
+    });
   };
 
   return (next) => (action) => {
@@ -111,7 +123,25 @@ export const chatSocketMiddleware: Middleware<
     if (action.type === 'auth/logout') {
       chatSocket.disconnect();
       joinedConversations.clear();
+      joinedCarts.clear();
       store.dispatch(clearChat());
+    }
+
+    // Handle cart group changes - join cart room
+    if (action.type === 'cart/setCartGroup') {
+      const groupId = action.payload;
+      if (groupId && !joinedCarts.has(groupId)) {
+        chatSocket.joinCart(groupId);
+        joinedCarts.add(groupId);
+      }
+    }
+
+    if (action.type === 'cart/fetchGroupCart/fulfilled') {
+      const groupId = action.payload?.groupId;
+      if (groupId && !joinedCarts.has(groupId)) {
+        chatSocket.joinCart(groupId);
+        joinedCarts.add(groupId);
+      }
     }
 
     // Handle conversation selection - join room

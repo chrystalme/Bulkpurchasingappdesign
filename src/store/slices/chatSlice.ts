@@ -65,7 +65,7 @@ const initialState: ChatState = {
 
 export const fetchConversations = createAsyncThunk(
   'chat/fetchConversations',
-  async (filters?: { type?: 'group' | 'group-vendor'; groupId?: string }, { rejectWithValue }) => {
+  async (filters?: { type?: 'group' | 'group-vendor' | 'direct'; groupId?: string }, { rejectWithValue }) => {
     try {
       const conversations = await getUserConversations(filters);
       return conversations;

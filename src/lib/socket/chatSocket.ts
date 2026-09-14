@@ -12,6 +12,7 @@ class ChatSocketService {
   private socket: Socket | null = null;
   private listeners: Map<string, Set<Function>> = new Map();
   private joinedConversations: Set<string> = new Set();
+  private joinedCarts: Set<string> = new Set();
 
   /**
    * Connect to Socket.IO server
@@ -42,6 +43,9 @@ class ChatSocketService {
       this.joinedConversations.forEach(conversationId => {
         this.socket?.emit('join-conversation', { conversationId });
       });
+      this.joinedCarts.forEach(groupId => {
+        this.socket?.emit('join-cart', { groupId });
+      });
     });
 
     this.socket.on('disconnect', reason => {
@@ -70,6 +74,7 @@ class ChatSocketService {
       this.socket = null;
       this.listeners.clear();
       this.joinedConversations.clear();
+      this.joinedCarts.clear();
       console.log('Socket.IO disconnected');
     }
   }
@@ -153,11 +158,48 @@ class ChatSocketService {
         this.emit('joined-conversation', data);
       },
     );
+
+    // Group cart events
+    this.socket.on('cart-updated', (data: { groupId: string; items: any[]; updatedBy: string }) => {
+      this.emit('cart-updated', data);
+    });
+
+    this.socket.on('cart-cleared', (data: { groupId: string; clearedBy: string }) => {
+      this.emit('cart-cleared', data);
+    });
+
+    this.socket.on('joined-cart', (data: { groupId: string }) => {
+      this.emit('joined-cart', data);
+    });
+
+    this.socket.on('left-cart', (data: { groupId: string }) => {
+      this.emit('left-cart', data);
+    });
   }
 
   // ============================================
   // EMIT EVENTS TO SERVER
   // ============================================
+
+  /**
+   * Join a group cart room
+   */
+  joinCart(groupId: string): void {
+    this.joinedCarts.add(groupId);
+    if (this.socket?.connected) {
+      this.socket.emit('join-cart', { groupId });
+    }
+  }
+
+  /**
+   * Leave a group cart room
+   */
+  leaveCart(groupId: string): void {
+    this.joinedCarts.delete(groupId);
+    if (this.socket?.connected) {
+      this.socket.emit('leave-cart', { groupId });
+    }
+  }
 
   /**
    * Join a conversation room

@@ -35,8 +35,10 @@ import {
   UserPlus,
 } from 'lucide-react';
 import type { Screen } from '../../App';
-import { fetchConversations } from '../../store/slices/chatSlice';
+import { fetchConversations, selectConversation } from '../../store/slices/chatSlice';
 import type { Conversation } from '../../lib/types/chat.types';
+import type { GroupMember } from '../../lib/types';
+import { apiClient } from '../../lib/api';
 import { ChatWindowReal } from '../chat/ChatWindowReal';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Input } from '../ui/input';
@@ -83,6 +85,21 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
 
   const conversations = useAppSelector(state => state.chat.conversations);
   const chatsLoading = useAppSelector(state => state.chat.conversationsLoading);
+  const selectedConversationId = useAppSelector(state => state.chat.selectedConversationId);
+
+  // Synchronize Redux selectedConversationId with local selectedChat
+  useEffect(() => {
+    if (!selectedChat && selectedConversationId) {
+      const matchingChat = conversations.find(
+        (c) => c.id === selectedConversationId && c.groupId === groupId
+      );
+      if (matchingChat) {
+        setSelectedChat(matchingChat);
+      } else {
+        dispatch(selectConversation(null));
+      }
+    }
+  }, [selectedChat, selectedConversationId, conversations, groupId, dispatch]);
 
   // Fetch conversations for this group
   useEffect(() => {
@@ -166,6 +183,38 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
     }
   };
 
+  const handleMessageMember = async (member: GroupMember) => {
+    try {
+      const response = await apiClient.chat.createDirectConversation(
+        member.user_id,
+      );
+      if (!response.success || !response.data) {
+        console.error('Failed to start conversation:', response.error);
+        return;
+      }
+      const conv = response.data;
+      const conversation: Conversation = {
+        id: conv.id,
+        type: 'direct',
+        title: conv.title,
+        avatar: conv.avatar,
+        groupId: null,
+        isOnline: conv.isOnline,
+        canSend: true,
+        unreadCount: 0,
+        createdAt: conv.createdAt,
+        updatedAt: conv.updatedAt,
+      };
+      // Refresh the global conversation list so the DM also shows up in the
+      // Messages dashboard.
+      dispatch(fetchConversations());
+      setSelectedChat(conversation);
+      dispatch(selectConversation(conv.id));
+    } catch (err) {
+      console.error('Failed to open conversation:', err);
+    }
+  };
+
   const moqProgress = currentGroup
     ? (currentGroup.current_quantity / currentGroup.moq_target) * 100
     : 0;
@@ -175,7 +224,10 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
     return (
       <ChatWindowReal
         conversation={selectedChat}
-        onBack={() => setSelectedChat(null)}
+        onBack={() => {
+          setSelectedChat(null);
+          dispatch(selectConversation(null));
+        }}
       />
     );
   }
@@ -534,7 +586,12 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
 
                   <Button
                     className='w-full bg-[#0047AB]'
-                    onClick={() => setSelectedChat(groupInternalChat)}
+                    onClick={() => {
+                      setSelectedChat(groupInternalChat);
+                      if (groupInternalChat) {
+                        dispatch(selectConversation(groupInternalChat.id));
+                      }
+                    }}
                   >
                     <MessageCircle className='w-4 h-4 mr-2' />
                     Open Group Chat
@@ -573,7 +630,12 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                     >
                       <CardContent
                         className='p-4'
-                        onClick={() => setSelectedChat(vendorChat)}
+                        onClick={() => {
+                          setSelectedChat(vendorChat);
+                          if (vendorChat) {
+                            dispatch(selectConversation(vendorChat.id));
+                          }
+                        }}
                       >
                         <div className='flex items-center justify-between mb-3'>
                           <div className='flex items-center gap-3'>
@@ -738,7 +800,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                           <Button
                             variant='ghost'
                             size='sm'
-                            onClick={() => handleUpdateRole(member.id, 'admin')}
+                            onClick={() => handleUpdateRole(member.user_id, 'admin')}
                             title='Promote to admin'
                           >
                             <Shield className='w-4 h-4' />
@@ -747,7 +809,7 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                         <Button
                           variant='ghost'
                           size='sm'
-                          onClick={() => handleRemoveMember(member.id)}
+                          onClick={() => handleRemoveMember(member.user_id)}
                           className='text-red-600 hover:text-red-700'
                           title='Remove member'
                         >
@@ -757,7 +819,12 @@ export function GroupDetailNew({ navigate, groupId }: GroupDetailProps) {
                     )}
 
                     {user?.id !== member.user_id && (
-                      <Button variant='ghost' size='sm'>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => handleMessageMember(member)}
+                        title='Send direct message'
+                      >
                         <MessageCircle className='w-4 h-4' />
                       </Button>
                     )}

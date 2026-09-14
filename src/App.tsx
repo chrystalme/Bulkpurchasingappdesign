@@ -13,6 +13,7 @@ import {
   setPendingNavigation,
   clearPendingNavigation,
 } from './store/slices/navigationSlice';
+import { selectConversation } from './store/slices/chatSlice';
 import { Welcome } from './components/onboarding/Welcome';
 import { Login } from './components/auth/Login';
 import { Signup } from './components/auth/Signup';
@@ -299,6 +300,11 @@ function AppContent() {
       return;
     }
 
+    // Reset selected conversation when navigating to a non-chat screen
+    if (screen !== 'chat' && screen !== 'chat-dashboard' && screen !== 'group-detail') {
+      dispatch(selectConversation(null));
+    }
+
     // Redux-persist handles persistence automatically
     dispatch(navigate({ screen, groupId, productId }));
   };
@@ -479,13 +485,23 @@ function AppContent() {
     }
   };
 
+  const selectedConversationId = useAppSelector(
+    (state) => state.chat.selectedConversationId
+  );
+  const isChatCapableScreen =
+    currentScreen === 'chat' ||
+    currentScreen === 'chat-dashboard' ||
+    currentScreen === 'group-detail';
+  const isChatOpen = isChatCapableScreen && Boolean(selectedConversationId);
+
   const showBottomNav =
     (isAuthenticated ||
       currentScreen === 'products' ||
       currentScreen === 'group-discover') &&
     currentScreen !== 'welcome' &&
     currentScreen !== 'login' &&
-    currentScreen !== 'signup';
+    currentScreen !== 'signup' &&
+    !isChatOpen;
 
   const isLandingPage =
     !isAuthenticated &&
@@ -502,7 +518,9 @@ function AppContent() {
                   ? `pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 ${
                       sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
                     }`
-                  : 'pb-6'
+                  : isChatOpen
+                    ? 'pb-0'
+                    : 'pb-6'
               }`
         }`}
       >

@@ -84,6 +84,18 @@ export function BottomNav({ currentScreen, navigate }: BottomNavProps) {
   const totalUnread = useAppSelector((state) =>
     state.chat.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0)
   );
+  const selectedConversationId = useAppSelector(
+    (state) => state.chat.selectedConversationId
+  );
+  const isChatCapableScreen =
+    currentScreen === 'chat' ||
+    currentScreen === 'chat-dashboard' ||
+    currentScreen === 'group-detail';
+  const isChatOpen = isChatCapableScreen && Boolean(selectedConversationId);
+
+  if (isChatOpen) {
+    return null;
+  }
 
   // ── Role-based sidebar sections (grouped exactly as the Figma design) ──
   const guestSections: NavSection[] = [
