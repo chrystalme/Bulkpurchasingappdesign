@@ -541,10 +541,15 @@ export const removeMember = async (req, res) => {
     await client.query('BEGIN');
 
     // Remove member
-    await client.query(
+    const deleteMember = await client.query(
       'DELETE FROM group_members WHERE group_id = $1 AND user_id = $2',
       [groupId, memberId],
     );
+
+    if (deleteMember.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Member not found' });
+    }
 
     // Remove from group conversations
     await client.query(
