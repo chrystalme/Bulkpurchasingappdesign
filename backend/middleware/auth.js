@@ -12,7 +12,10 @@ export const authenticateToken = async (req, res, next) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'save-together-development-jwt-secret-key-12345'
+    );
 
     // Get user from database
     const result = await pool.query(

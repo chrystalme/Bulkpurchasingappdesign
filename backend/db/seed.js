@@ -1,8 +1,10 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import bcrypt from 'bcrypt';
 import pool from '../config/database.js';
 
-async function seedDatabase() {
-  const client = await pool.connect();
+export async function seedDatabase(customPool = pool) {
+  const client = await (customPool || pool).connect();
 
   try {
     await client.query('BEGIN');
@@ -20,16 +22,18 @@ async function seedDatabase() {
         ('PowerCell Solutions', 4.7, '3.5 km away', 'https://api.dicebear.com/7.x/initials/svg?seed=PCS', true),
         ('SolarTech Distributors', 4.9, '4.0 km away', 'https://api.dicebear.com/7.x/initials/svg?seed=STD', true),
         ('Industrial Supplies Co.', 4.8, '6.0 km away', 'https://api.dicebear.com/7.x/initials/svg?seed=ISC', true)
-      RETURNING id
+      RETURNING id, name
     `);
     console.log(`✅ Created ${vendorsResult.rowCount} vendors`);
+
+    const vendorMap = {};
+    vendorsResult.rows.forEach(r => {
+      vendorMap[r.name] = r.id;
+    });
 
     // 2. Create Users
     console.log('👥 Seeding users...');
     const hashedPassword = await bcrypt.hash('password123', 10);
-
-    // Get vendor IDs first before creating users
-    const vendorIds = vendorsResult.rows.map(r => r.id);
 
     const usersResult = await client.query(
       `
@@ -41,19 +45,29 @@ async function seedDatabase() {
         ('vendor@powercell.com', $1, 'PowerCell Solutions', 'vendor', 'https://api.dicebear.com/7.x/initials/svg?seed=PCS', $3, NULL),
         ('vendor@freshfarm.com', $1, 'Fresh Farm Collective', 'vendor', 'https://api.dicebear.com/7.x/initials/svg?seed=FFC', $4, NULL),
         ('vendor@techwholesale.com', $1, 'Tech Wholesale Hub', 'vendor', 'https://api.dicebear.com/7.x/initials/svg?seed=TWH', $5, NULL),
+        ('vendor@officeessentials.com', $1, 'Office Essentials Plus', 'vendor', 'https://api.dicebear.com/7.x/initials/svg?seed=OEP', $6, NULL),
         ('afam@example.com', $1, 'Afam', 'member', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Afam', NULL, 92),
         ('chioma@example.com', $1, 'Chioma', 'member', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Chioma', NULL, 88),
         ('eze@example.com', $1, 'Eze', 'member', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Eze', NULL, 95),
         ('ngozi@example.com', $1, 'Ngozi', 'member', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ngozi', NULL, 85)
-      RETURNING id
+      RETURNING id, email, name
     `,
-      [hashedPassword, vendorIds[4], vendorIds[3], vendorIds[0], vendorIds[1]],
+      [
+        hashedPassword,
+        vendorMap['SolarTech Distributors'],
+        vendorMap['PowerCell Solutions'],
+        vendorMap['Fresh Farm Collective'],
+        vendorMap['Tech Wholesale Hub'],
+        vendorMap['Office Essentials Plus'],
+      ],
     );
     console.log(
       `✅ Created ${usersResult.rowCount} users (password: password123)`,
     );
-    // Store IDs for later use
-    const userIds = usersResult.rows.map(r => r.id);
+    const userMap = {};
+    usersResult.rows.forEach(r => {
+      userMap[r.email] = r.id;
+    });
 
     // 3. Create Products
     console.log('🛍️ Seeding products...');
@@ -92,18 +106,23 @@ async function seedDatabase() {
         -- Industrial Supplies Co. products
         ('Heavy Duty Extension Cords 50ft (Pack of 10)', 'extension-cord', 124.99, 179.99, 5, $6, 'Industrial'),
         ('LED Work Lights 50W (Pack of 6)', 'work-light', 139.99, 199.99, 4, $6, 'Industrial')
-      RETURNING id
+      RETURNING id, name
     `,
       [
-        vendorIds[0],
-        vendorIds[1],
-        vendorIds[2],
-        vendorIds[3],
-        vendorIds[4],
-        vendorIds[5],
+        vendorMap['Fresh Farm Collective'],
+        vendorMap['Tech Wholesale Hub'],
+        vendorMap['Office Essentials Plus'],
+        vendorMap['PowerCell Solutions'],
+        vendorMap['SolarTech Distributors'],
+        vendorMap['Industrial Supplies Co.'],
       ],
     );
     console.log(`✅ Created ${productsResult.rowCount} products`);
+
+    const productMap = {};
+    productsResult.rows.forEach(r => {
+      productMap[r.name] = r.id;
+    });
 
     // 4. Create Groups
     console.log('👨‍👩‍👧‍👦 Seeding groups...');
@@ -114,14 +133,16 @@ async function seedDatabase() {
         ('Office Supplies Squad', 'Bulk buying for our co-working space', 'OFFICE2024', 100, 75, 'active', $1),
         ('Neighborhood Grocery', 'Fresh produce and pantry staples', 'GROCERY123', 50, 20, 'active', $2),
         ('Tech Accessories', 'Phone cases, chargers, and cables', 'TECH456', 30, 27, 'pending', $3)
-      RETURNING id
+      RETURNING id, name
     `,
-      [userIds[6], userIds[9], userIds[6]],
+      [userMap['afam@example.com'], userMap['ngozi@example.com'], userMap['afam@example.com']],
     );
     console.log(`✅ Created ${groupsResult.rowCount} groups`);
 
-    // Store IDs for later use
-    const groupIds = groupsResult.rows.map(r => r.id);
+    const groupMap = {};
+    groupsResult.rows.forEach(r => {
+      groupMap[r.name] = r.id;
+    });
 
     // 5. Add group members
     console.log('🤝 Adding group members...');
@@ -129,162 +150,158 @@ async function seedDatabase() {
       `
       INSERT INTO group_members (group_id, user_id, role)
       VALUES 
+        -- Office Supplies Squad
         ($1, $2, 'admin'), ($1, $3, 'member'), ($1, $4, 'member'),
+        -- Neighborhood Grocery
         ($5, $6, 'admin'), ($5, $7, 'member'), ($5, $8, 'member'), ($5, $9, 'member'),
+        -- Tech Accessories
         ($10, $11, 'admin'), ($10, $12, 'member')
     `,
       [
-        groupIds[0],
-        userIds[6],
-        userIds[7],
-        userIds[8],
-        groupIds[1],
-        userIds[9],
-        userIds[6],
-        userIds[7],
-        userIds[8],
-        groupIds[2],
-        userIds[6],
-        userIds[7],
+        groupMap['Office Supplies Squad'],
+        userMap['afam@example.com'],
+        userMap['chioma@example.com'],
+        userMap['eze@example.com'],
+        groupMap['Neighborhood Grocery'],
+        userMap['ngozi@example.com'],
+        userMap['afam@example.com'],
+        userMap['chioma@example.com'],
+        userMap['eze@example.com'],
+        groupMap['Tech Accessories'],
+        userMap['afam@example.com'],
+        userMap['chioma@example.com'],
       ],
     );
     console.log('✅ Added group members');
 
-    // 6. Create sample orders
+    // 6. Create sample orders (strictly aligned with group assigned vendors)
     console.log('📋 Seeding orders...');
     const ordersResult = await client.query(
       `
       INSERT INTO orders (order_number, group_id, buyer_id, status, total_amount, estimated_delivery)
       VALUES 
-        ('ORD-001', $1, $2, 'shipped', 215.96, NOW() + INTERVAL '5 days'),
-        ('ORD-002', $3, $4, 'paid', 152.48, NOW() + INTERVAL '7 days'),
-        ('ORD-003', $1, $5, 'delivered', 359.95, NOW() - INTERVAL '2 days'),
-        ('ORD-004', $3, $6, 'shipped', 77.98, NOW() + INTERVAL '6 days')
-      RETURNING id
+        ('ORD-001', $1, $2, 'shipped', 215.94, NOW() + INTERVAL '5 days'),
+        ('ORD-002', $3, $4, 'paid', 137.97, NOW() + INTERVAL '7 days'),
+        ('ORD-003', $5, $6, 'delivered', 299.90, NOW() - INTERVAL '2 days'),
+        ('ORD-004', $7, $8, 'shipped', 77.98, NOW() + INTERVAL '6 days'),
+        ('ORD-005', $9, $10, 'paid', 171.96, NOW() + INTERVAL '4 days')
+      RETURNING id, order_number
     `,
-      [groupIds[0], userIds[6], groupIds[1], userIds[7], userIds[8], userIds[9]],
+      [
+        groupMap['Office Supplies Squad'], userMap['afam@example.com'],
+        groupMap['Neighborhood Grocery'], userMap['chioma@example.com'],
+        groupMap['Office Supplies Squad'], userMap['eze@example.com'],
+        groupMap['Neighborhood Grocery'], userMap['ngozi@example.com'],
+        groupMap['Tech Accessories'], userMap['afam@example.com'],
+      ],
     );
     console.log(`✅ Created ${ordersResult.rowCount} orders`);
-    const orderIds = ordersResult.rows.map(r => r.id);
 
-    // 7. Create order items
+    const orderMap = {};
+    ordersResult.rows.forEach(r => {
+      orderMap[r.order_number] = r.id;
+    });
+
+    // 7. Create order items (matching products owned by assigned vendor)
     console.log('📦 Adding order items...');
-    const productsArray = productsResult.rows.map(r => r.id);
     await client.query(
       `
       INSERT INTO order_items (order_id, product_id, quantity, price)
       VALUES 
+        -- ORD-001: Premium Copy Paper (Office Supplies Squad <- Office Essentials Plus)
         ($1, $2, 6, 35.99),
-        ($3, $4, 4, 38.12),
-        ($5, $6, 2, 175.99),
-        ($7, $8, 2, 38.99)
+        -- ORD-002: Premium Organic Rice (Neighborhood Grocery <- Fresh Farm Collective)
+        ($3, $4, 3, 45.99),
+        -- ORD-003: Multipurpose Printer Paper A4 (Office Supplies Squad <- Office Essentials Plus)
+        ($5, $6, 10, 29.99),
+        -- ORD-004: Olive Oil Extra Virgin (Neighborhood Grocery <- Fresh Farm Collective)
+        ($7, $8, 2, 38.99),
+        -- ORD-005: USB-C Charging Cables (Tech Accessories <- Tech Wholesale Hub)
+        ($9, $10, 4, 42.99)
     `,
       [
-        orderIds[0],
-        productsArray[7],
-        orderIds[1],
-        productsArray[0],
-        orderIds[2],
-        productsArray[13],
-        orderIds[3],
-        productsArray[1],
+        orderMap['ORD-001'], productMap['Premium Copy Paper (10 reams)'],
+        orderMap['ORD-002'], productMap['Premium Organic Rice (25kg)'],
+        orderMap['ORD-003'], productMap['Multipurpose Printer Paper A4'],
+        orderMap['ORD-004'], productMap['Olive Oil Extra Virgin (5L)'],
+        orderMap['ORD-005'], productMap['USB-C Charging Cables (20 pack)'],
       ],
     );
     console.log('✅ Added order items');
 
-    // 8. Create Chat Conversations
+    // 8. Create Chat Conversations (Group-Vendor pairings realigned)
     console.log('💬 Seeding chat conversations...');
-
-    // Create group-vendor conversations
     const vendorConversationsResult = await client.query(
       `
       INSERT INTO conversations (type, title, avatar, group_id, vendor_id)
       VALUES 
-        ('group-vendor', $1, '🏢', $2, $3),
-        ('group-vendor', $4, '⚡', $5, $6),
-        ('group-vendor', $7, '🖊️', $8, $9)
-      RETURNING id, group_id, vendor_id
+        ('group-vendor', $1, '📎', $2, $3),
+        ('group-vendor', $4, '🥬', $5, $6),
+        ('group-vendor', $7, '⚡', $8, $9)
+      RETURNING id, title, group_id, vendor_id
     `,
       [
-        'GreenTech Solutions',
-        groupIds[0],
-        userIds[2], // vendor@solartech.com
-        'PowerCell Inc.',
-        groupIds[1],
-        userIds[3], // vendor@powercell.com
-        'BulkOffice Pro',
-        groupIds[2],
-        userIds[5], // vendor@techwholesale.com
+        'Office Essentials Plus',
+        groupMap['Office Supplies Squad'],
+        userMap['vendor@officeessentials.com'],
+        'Fresh Farm Collective',
+        groupMap['Neighborhood Grocery'],
+        userMap['vendor@freshfarm.com'],
+        'Tech Wholesale Hub',
+        groupMap['Tech Accessories'],
+        userMap['vendor@techwholesale.com'],
       ],
     );
     console.log(`✅ Created ${vendorConversationsResult.rowCount} group-vendor conversations`);
-    const vendorConversations = vendorConversationsResult.rows;
+
+    const convoMap = {};
+    vendorConversationsResult.rows.forEach(r => {
+      convoMap[r.title] = r.id;
+    });
 
     // 9. Add conversation participants
     console.log('👥 Adding conversation participants...');
-    // Note: Participants for 'group' conversations are added automatically by triggers.
-    // We only need to add participants for the 'group-vendor' conversations.
-
-    // Get the members of each group
-    const group1Members = [userIds[6], userIds[7], userIds[8]];
-    const group2Members = [userIds[9], userIds[6], userIds[7], userIds[8]];
-    const group3Members = [userIds[6], userIds[7]];
-
-    // Add participants for GreenTech vendor chat (Group 1 - admin: Afam)
-    const greenTechConvo = vendorConversations.find(c => c.group_id === groupIds[0]);
-    const greenTechParticipants = group1Members.map(user_id => {
-      const isAdmin = user_id === userIds[6];
-      return `('${greenTechConvo.id}', '${user_id}', '${isAdmin ? 'admin' : 'member'}', ${isAdmin})`;
-    }).join(',');
     await client.query(`
       INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
       VALUES 
-        ${greenTechParticipants},
-        ('${greenTechConvo.id}', '${userIds[2]}', 'vendor', true)
-    `);
+        -- Office Essentials Plus chat (Office Supplies Squad)
+        ('${convoMap['Office Essentials Plus']}', '${userMap['afam@example.com']}', 'admin', true),
+        ('${convoMap['Office Essentials Plus']}', '${userMap['chioma@example.com']}', 'member', false),
+        ('${convoMap['Office Essentials Plus']}', '${userMap['eze@example.com']}', 'member', false),
+        ('${convoMap['Office Essentials Plus']}', '${userMap['vendor@officeessentials.com']}', 'vendor', true),
 
-    // Add participants for PowerCell vendor chat (Group 2 - admin: Ngozi)
-    const powerCellConvo = vendorConversations.find(c => c.group_id === groupIds[1]);
-    const powerCellParticipants = group2Members.map(user_id => {
-      const isAdmin = user_id === userIds[9];
-      return `('${powerCellConvo.id}', '${user_id}', '${isAdmin ? 'admin' : 'member'}', ${isAdmin})`;
-    }).join(',');
-    await client.query(`
-      INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
-      VALUES 
-        ${powerCellParticipants},
-        ('${powerCellConvo.id}', '${userIds[3]}', 'vendor', true)
-    `);
+        -- Fresh Farm Collective chat (Neighborhood Grocery)
+        ('${convoMap['Fresh Farm Collective']}', '${userMap['ngozi@example.com']}', 'admin', true),
+        ('${convoMap['Fresh Farm Collective']}', '${userMap['afam@example.com']}', 'member', false),
+        ('${convoMap['Fresh Farm Collective']}', '${userMap['chioma@example.com']}', 'member', false),
+        ('${convoMap['Fresh Farm Collective']}', '${userMap['eze@example.com']}', 'member', false),
+        ('${convoMap['Fresh Farm Collective']}', '${userMap['vendor@freshfarm.com']}', 'vendor', true),
 
-    // Add participants for BulkOffice vendor chat (Group 3 - admin: Afam)
-    const bulkOfficeConvo = vendorConversations.find(c => c.group_id === groupIds[2]);
-    const bulkOfficeParticipants = group3Members.map(user_id => {
-      const isAdmin = user_id === userIds[6];
-      return `('${bulkOfficeConvo.id}', '${user_id}', '${isAdmin ? 'admin' : 'member'}', ${isAdmin})`;
-    }).join(',');
-     await client.query(`
-      INSERT INTO conversation_participants (conversation_id, user_id, role, can_send)
-      VALUES 
-        ${bulkOfficeParticipants},
-        ('${bulkOfficeConvo.id}', '${userIds[5]}', 'vendor', true)
+        -- Tech Wholesale Hub chat (Tech Accessories)
+        ('${convoMap['Tech Wholesale Hub']}', '${userMap['afam@example.com']}', 'admin', true),
+        ('${convoMap['Tech Wholesale Hub']}', '${userMap['chioma@example.com']}', 'member', false),
+        ('${convoMap['Tech Wholesale Hub']}', '${userMap['vendor@techwholesale.com']}', 'vendor', true)
+      ON CONFLICT (conversation_id, user_id) DO UPDATE
+      SET role = EXCLUDED.role,
+          can_send = EXCLUDED.can_send;
     `);
-
     console.log('✅ Added conversation participants');
 
     // 10. Create messages
     console.log('💭 Seeding messages...');
     const now = new Date();
 
-    // Get the automatically created group conversations
+    // Get automatically created group internal conversations
     const groupConversationsResult = await client.query(
       `SELECT id, group_id FROM conversations WHERE type = 'group' AND group_id IN ($1, $2, $3)`,
-      [groupIds[0], groupIds[1], groupIds[2]]
+      [groupMap['Office Supplies Squad'], groupMap['Neighborhood Grocery'], groupMap['Tech Accessories']]
     );
-    const groupConvo1Id = groupConversationsResult.rows.find(r => r.group_id === groupIds[0]).id;
-    const groupConvo2Id = groupConversationsResult.rows.find(r => r.group_id === groupIds[1]).id;
-    const groupConvo3Id = groupConversationsResult.rows.find(r => r.group_id === groupIds[2]).id;
+    const internalConvos = {};
+    groupConversationsResult.rows.forEach(r => {
+      internalConvos[r.group_id] = r.id;
+    });
 
-    // Messages for Office Supplies Squad internal chat (Group 1)
+    // Messages for Office Supplies Squad internal chat
     await client.query(
       `
       INSERT INTO messages (conversation_id, sender_id, content, created_at)
@@ -296,19 +313,19 @@ async function seedDatabase() {
         ($1, $2, 'Anyone wants to add notebooks to the order?', $9)
     `,
       [
-        groupConvo1Id,
-        userIds[6], // Afam
+        internalConvos[groupMap['Office Supplies Squad']],
+        userMap['afam@example.com'],
         new Date(now - 2 * 60 * 60 * 1000),
-        userIds[7], // Chioma
+        userMap['chioma@example.com'],
         new Date(now - 108 * 60 * 1000),
-        userIds[8], // Eze
+        userMap['eze@example.com'],
         new Date(now - 90 * 60 * 1000),
         new Date(now - 60 * 60 * 1000),
         new Date(now - 30 * 60 * 1000),
       ],
     );
 
-    // Messages for Neighborhood Grocery internal chat (Group 2)
+    // Messages for Neighborhood Grocery internal chat
     await client.query(
       `
       INSERT INTO messages (conversation_id, sender_id, content, created_at)
@@ -319,53 +336,54 @@ async function seedDatabase() {
         ($1, $8, 'Count me in for the bulk order.', $9)
     `,
       [
-        groupConvo2Id,
-        userIds[9], // Ngozi
+        internalConvos[groupMap['Neighborhood Grocery']],
+        userMap['ngozi@example.com'],
         new Date(now - 5 * 60 * 60 * 1000),
-        userIds[6], // Afam
+        userMap['afam@example.com'],
         new Date(now - 4.5 * 60 * 60 * 1000),
-        userIds[7], // Chioma
+        userMap['chioma@example.com'],
         new Date(now - 3 * 60 * 60 * 1000),
-        userIds[8], // Eze
+        userMap['eze@example.com'],
         new Date(now - 2 * 60 * 60 * 1000),
       ],
     );
 
-    // Messages for Tech Accessories internal chat (Group 3)
+    // Messages for Tech Accessories internal chat
     await client.query(
       `
       INSERT INTO messages (conversation_id, sender_id, content, created_at)
       VALUES 
-        ($1, $2, 'Found a great deal on phone cases!', $3),
-        ($1, $4, 'How many units are we looking at?', $5),
-        ($1, $2, 'At least 30 for the bulk discount.', $6)
+        ($1, $2, 'Found a great deal on phone cases and cables!', $3),
+        ($1, $4, 'How many units do we need for MOQ?', $5),
+        ($1, $2, 'At least 30 units for the wholesale discount.', $6)
     `,
       [
-        groupConvo3Id,
-        userIds[6], // Afam
+        internalConvos[groupMap['Tech Accessories']],
+        userMap['afam@example.com'],
         new Date(now - 3 * 60 * 60 * 1000),
-        userIds[7], // Chioma
+        userMap['chioma@example.com'],
         new Date(now - 2.5 * 60 * 60 * 1000),
         new Date(now - 1 * 60 * 60 * 1000),
       ],
     );
 
-    // Messages for GreenTech vendor chat (Group 1)
+    // Group-Vendor Messages:
+    // 1. Office Supplies Squad <-> Office Essentials Plus (paper & stationery quotes)
     await client.query(
       `
       INSERT INTO messages (conversation_id, sender_id, content, created_at)
       VALUES 
-        ($1, $2, 'Hi, I''m interested in your office supplies.', $3),
-        ($1, $4, 'What can we help you with today?', $5),
-        ($1, $2, 'We need printer paper, pens, and notebooks.', $6),
-        ($1, $4, 'Great! I can send you our catalog with bulk pricing.', $7),
-        ($1, $4, 'We have a special promotion running this week!', $8)
+        ($1, $2, 'Hi, I''m requesting a bulk quote for copy paper and stationery for our co-working office.', $3),
+        ($1, $4, 'Hello Afam! We have premium copy paper and multipurpose A4 in stock. How many reams do you need?', $5),
+        ($1, $2, 'We need at least 50 reams of copy paper and some stationery items.', $6),
+        ($1, $4, 'We offer a 20% volume discount for orders over 40 reams, plus free delivery.', $7),
+        ($1, $2, 'That sounds great, we''ll finalize our group order shortly!', $8)
     `,
       [
-        greenTechConvo.id,
-        userIds[6], // Afam
+        convoMap['Office Essentials Plus'],
+        userMap['afam@example.com'],
         new Date(now - 2 * 60 * 60 * 1000),
-        userIds[2], // vendor@solartech.com
+        userMap['vendor@officeessentials.com'],
         new Date(now - 1.8 * 60 * 60 * 1000),
         new Date(now - 1.5 * 60 * 60 * 1000),
         new Date(now - 1.2 * 60 * 60 * 1000),
@@ -373,22 +391,22 @@ async function seedDatabase() {
       ],
     );
 
-    // Messages for PowerCell vendor chat (Group 2)
+    // 2. Neighborhood Grocery <-> Fresh Farm Collective (organic rice & olive oil bulk pricing)
     await client.query(
       `
       INSERT INTO messages (conversation_id, sender_id, content, created_at)
       VALUES 
-        ($1, $2, 'Hello, I need information about your batteries.', $3),
-        ($1, $4, 'Hi! We have several options. What capacity are you looking for?', $5),
-        ($1, $2, '200Ah batteries. What''s the minimum order quantity?', $6),
-        ($1, $4, 'MOQ is 10 units. Price is $450 per battery with 2-year warranty.', $7),
-        ($1, $2, 'Thank you for the information!', $8)
+        ($1, $2, 'Hello! Our neighborhood purchasing group is interested in bulk pricing for organic rice and olive oil.', $3),
+        ($1, $4, 'Welcome Ngozi! We have 25kg bags of organic rice and 5L tins of extra virgin olive oil ready for bulk orders.', $5),
+        ($1, $2, 'What is the MOQ and delivery turnaround for our area?', $6),
+        ($1, $4, 'MOQ is 10 bags of rice and 6 tins of olive oil. We deliver within 2-3 business days.', $7),
+        ($1, $2, 'Perfect, our members are pooling their allocations now.', $8)
     `,
       [
-        powerCellConvo.id,
-        userIds[9], // Ngozi
+        convoMap['Fresh Farm Collective'],
+        userMap['ngozi@example.com'],
         new Date(now - 25 * 60 * 60 * 1000),
-        userIds[3], // vendor@powercell.com
+        userMap['vendor@freshfarm.com'],
         new Date(now - 24.8 * 60 * 60 * 1000),
         new Date(now - 24.5 * 60 * 60 * 1000),
         new Date(now - 24.3 * 60 * 60 * 1000),
@@ -396,22 +414,22 @@ async function seedDatabase() {
       ],
     );
 
-    // Messages for BulkOffice vendor chat (Group 3)
+    // 3. Tech Accessories <-> Tech Wholesale Hub (USB-C cables, speakers, bulk packaging)
     await client.query(
       `
       INSERT INTO messages (conversation_id, sender_id, content, created_at)
       VALUES 
-        ($1, $2, 'Hi, I need office supplies for a bulk order.', $3),
-        ($1, $4, 'Hello! We have a wide range of office supplies. What do you need?', $5),
-        ($1, $2, 'Printer paper, pens, and notebooks mainly.', $6),
-        ($1, $4, 'Great! I can send you our catalog with bulk pricing.', $7),
-        ($1, $4, 'We have a special promotion running this week!', $8)
+        ($1, $2, 'Hi! We''re putting together a bulk order for fast-charging USB-C cables and Bluetooth speakers.', $3),
+        ($1, $4, 'Hello Afam! We have 20-packs of braided USB-C cables and waterproof Bluetooth speakers available.', $5),
+        ($1, $2, 'Can you provide bulk packaging options and volume discounts for 20+ units?', $6),
+        ($1, $4, 'Yes, bulk packaging includes individual retail boxes with a 15% discount for orders meeting MOQ.', $7),
+        ($1, $2, 'Excellent, we will submit the group order today.', $8)
     `,
       [
-        bulkOfficeConvo.id,
-        userIds[6], // Afam
+        convoMap['Tech Wholesale Hub'],
+        userMap['afam@example.com'],
         new Date(now - 2 * 60 * 60 * 1000),
-        userIds[5], // vendor@techwholesale.com
+        userMap['vendor@techwholesale.com'],
         new Date(now - 1.8 * 60 * 60 * 1000),
         new Date(now - 1.5 * 60 * 60 * 1000),
         new Date(now - 1.2 * 60 * 60 * 1000),
@@ -420,7 +438,7 @@ async function seedDatabase() {
     );
     console.log('✅ Created messages for all conversations');
 
-    // 12. Create escrow transactions
+    // 11. Create escrow transactions (realigned sellers matching product vendors)
     console.log('🔒 Seeding escrow transactions...');
     const escrowResult = await client.query(
       `
@@ -428,51 +446,77 @@ async function seedDatabase() {
         (transaction_number, order_id, buyer_id, seller_id, amount, escrow_fee, status, 
          paid_at, shipped_at, delivered_at, inspection_deadline, auto_release_at, tracking_id, courier)
       VALUES 
-        ($1, $2, $3, $4, 215.96, 6.48, 'pending_inspection', 
+        -- ESC-001: ORD-001 (Office Supplies Squad, seller: Office Essentials Plus)
+        ($1, $2, $3, $4, 215.94, 6.48, 'pending_inspection', 
          NOW() - INTERVAL '5 days', NOW() - INTERVAL '4 days', NOW() - INTERVAL '1 day',
          NOW() + INTERVAL '2 days', NOW() + INTERVAL '2 days', $5, $6),
-        ($7, $8, $9, $10, 152.48, 4.57, 'locked', 
+        
+        -- ESC-002: ORD-002 (Neighborhood Grocery, seller: Fresh Farm Collective)
+        ($7, $8, $9, $10, 137.97, 4.14, 'locked', 
          NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days', NULL,
          NULL, NULL, $11, $12),
-        ($13, $14, $15, $16, 359.95, 10.80, 'released',
+        
+        -- ESC-003: ORD-003 (Office Supplies Squad, seller: Office Essentials Plus)
+        ($13, $14, $15, $16, 299.90, 9.00, 'released',
          NOW() - INTERVAL '10 days', NOW() - INTERVAL '8 days', NOW() - INTERVAL '5 days',
          NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days', $17, $18),
+        
+        -- ESC-004: ORD-004 (Neighborhood Grocery, seller: Fresh Farm Collective)
         ($19, $20, $21, $22, 77.98, 2.34, 'pending_inspection',
          NOW() - INTERVAL '2 days', NOW() - INTERVAL '1 day', NULL,
-         NOW() + INTERVAL '4 days', NOW() + INTERVAL '4 days', $23, $24)
-      RETURNING id
+         NOW() + INTERVAL '4 days', NOW() + INTERVAL '4 days', $23, $24),
+        
+        -- ESC-005: ORD-005 (Tech Accessories, seller: Tech Wholesale Hub)
+        ($25, $26, $27, $28, 171.96, 5.16, 'locked',
+         NOW() - INTERVAL '1 day', NULL, NULL,
+         NULL, NULL, $29, $30)
+      RETURNING id, transaction_number
     `,
       [
         'ESC-001',
-        orderIds[0],
-        userIds[6],
-        userIds[2],
+        orderMap['ORD-001'],
+        userMap['afam@example.com'],
+        userMap['vendor@officeessentials.com'],
         'TRK-9876543210',
         'FastShip Express',
+
         'ESC-002',
-        orderIds[1],
-        userIds[7],
-        userIds[3],
+        orderMap['ORD-002'],
+        userMap['chioma@example.com'],
+        userMap['vendor@freshfarm.com'],
         'TRK-1234567890',
         'QuickDeliver Co.',
+
         'ESC-003',
-        orderIds[2],
-        userIds[8],
-        userIds[3],
+        orderMap['ORD-003'],
+        userMap['eze@example.com'],
+        userMap['vendor@officeessentials.com'],
         'TRK-5555666777',
         'FastShip Express',
+
         'ESC-004',
-        orderIds[3],
-        userIds[9],
-        userIds[3],
+        orderMap['ORD-004'],
+        userMap['ngozi@example.com'],
+        userMap['vendor@freshfarm.com'],
         'TRK-7777888999',
         'QuickDeliver Co.',
+
+        'ESC-005',
+        orderMap['ORD-005'],
+        userMap['afam@example.com'],
+        userMap['vendor@techwholesale.com'],
+        'TRK-3333444555',
+        'FastShip Express',
       ],
     );
     console.log(`✅ Created ${escrowResult.rowCount} escrow transactions`);
-    const escrowIds = escrowResult.rows.map(r => r.id);
 
-    // 13. Create sample dispute
+    const escrowMap = {};
+    escrowResult.rows.forEach(r => {
+      escrowMap[r.transaction_number] = r.id;
+    });
+
+    // 12. Create sample dispute
     console.log('⚖️ Seeding disputes...');
     const disputeResult = await client.query(
       `
@@ -481,11 +525,11 @@ async function seedDatabase() {
         ($1, $2, 'damaged', 'under_review')
       RETURNING id
     `,
-      ['DIS-001', escrowIds[0]],
+      ['DIS-001', escrowMap['ESC-001']],
     );
     console.log(`✅ Created ${disputeResult.rowCount} disputes`);
 
-    // 14. Create trust scores for members
+    // 13. Create trust scores for members
     console.log('⭐ Seeding trust scores...');
     await client.query(
       `
@@ -498,7 +542,12 @@ async function seedDatabase() {
         ($3, 95, 58, 60, 1.0, 4.9, 4.8, true, true, true),
         ($4, 85, 25, 28, 4.0, 4.6, 4.4, true, true, false)
     `,
-      [userIds[6], userIds[7], userIds[8], userIds[9]],
+      [
+        userMap['afam@example.com'],
+        userMap['chioma@example.com'],
+        userMap['eze@example.com'],
+        userMap['ngozi@example.com'],
+      ],
     );
     console.log('✅ Created trust scores');
 
@@ -507,18 +556,32 @@ async function seedDatabase() {
     console.log('\n📝 Demo Accounts:');
     console.log('   Super User: super@admin.com / password123');
     console.log('   Admin: admin@savetogether.com / password123');
-    console.log('   Vendor (SolarTech): vendor@solartech.com / password123');
-    console.log('   Vendor (PowerCell): vendor@powercell.com / password123');
-    console.log('   Member: afam@example.com / password123');
-    console.log('   Member: chioma@example.com / password123\n');
+    console.log('   Vendor (Office Essentials Plus): vendor@officeessentials.com / password123');
+    console.log('   Vendor (Fresh Farm Collective): vendor@freshfarm.com / password123');
+    console.log('   Vendor (Tech Wholesale Hub): vendor@techwholesale.com / password123');
+    console.log('   Vendor (SolarTech Distributors): vendor@solartech.com / password123');
+    console.log('   Vendor (PowerCell Solutions): vendor@powercell.com / password123');
+    console.log('   Member (Afam): afam@example.com / password123');
+    console.log('   Member (Chioma): chioma@example.com / password123\n');
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ Seeding failed:', error);
     throw error;
   } finally {
     client.release();
-    process.exit(0);
   }
 }
 
-seedDatabase().catch(console.error);
+export default seedDatabase;
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  seedDatabase()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('❌ Seeding failed:', error);
+      process.exit(1);
+    });
+}

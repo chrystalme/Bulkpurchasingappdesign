@@ -8,10 +8,10 @@ async function resetDatabase() {
     console.log('🔄 Resetting database...\n');
     console.log('⚠️  This will DROP all tables and reload from scratch!\n');
 
-    // Run migrations (which includes DROP TABLE IF EXISTS statements in schema.sql)
+    // Run migrations with --reset to ensure a fresh clean schema
     console.log('1️⃣ Dropping all existing tables...');
     console.log('2️⃣ Creating fresh database schema...');
-    await execAsync('node  db/migrate.js');
+    await execAsync('node db/migrate.js --reset');
 
     // Run seeds
     console.log('\n3️⃣ Seeding database with test data...');
