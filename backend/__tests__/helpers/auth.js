@@ -1,9 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-const TEST_JWT_SECRET = 'test-secret-key-for-testing-only';
-
-// Set the JWT_SECRET env var for tests
-process.env.JWT_SECRET = TEST_JWT_SECRET;
+const TEST_JWT_SECRET = process.env.JWT_SECRET || 'save-together-development-jwt-secret-key-12345';
 
 /**
  * Generate a valid JWT token for testing.

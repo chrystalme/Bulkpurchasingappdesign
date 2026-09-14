@@ -23,8 +23,7 @@ import { io as ClientIO } from 'socket.io-client';
 import jwt from 'jsonwebtoken';
 import express from 'express';
 
-const TEST_JWT_SECRET = 'test-secret-key-for-testing-only';
-process.env.JWT_SECRET = TEST_JWT_SECRET;
+const TEST_JWT_SECRET = process.env.JWT_SECRET || 'save-together-development-jwt-secret-key-12345';
 
 function generateToken(userId, role = 'member') {
   return jwt.sign({ userId, role }, TEST_JWT_SECRET, { expiresIn: '1h' });
